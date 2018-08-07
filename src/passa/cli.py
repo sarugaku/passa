@@ -73,9 +73,6 @@ def resolve(requirements):
                 print()
             for h in get_hashes(hash_cache, r, state, k):
                 print('   ', h)
-
-    print()
-
     print()
 
 
