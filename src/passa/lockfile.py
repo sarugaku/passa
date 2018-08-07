@@ -45,14 +45,18 @@ def build_lockfile(r, state, hash_cache, pipfile=None):
     dev_names = [req.name for req in pipfile.dev_packages.requirements]
     req_names = [req.name for req in pipfile.packages.requirements]
     dev_reqs, reqs = [], []
+    path_lists = trace(state.graph)
     hashes = get_hashes(r, state, hash_cache)
     for dep in sorted(state.mapping):
         req = state.mapping[dep]
         req.hashes = [Hash(value=v) for v in hashes.get(dep, [])]
-        parents = set()
-        if any(name in dev_names for name in list(parents) + [req.normalized_name,]):
+        root = path_lists.get(dep)
+        if root:
+            root = next((node for node in root), None)
+        lookup_nodes = [root, req.normalized_name]
+        if any(name in dev_names for name in lookup_nodes):
             dev_reqs.append(req)
-        if any(name in req_names for name in list(parents) + [req.normalized_name,]):
+        if any(name in req_names for name in lookup_nodes):
             reqs.append(req)
 
     creation_dict = {

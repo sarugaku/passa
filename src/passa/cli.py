@@ -71,8 +71,6 @@ def resolve(requirements, pipfile=None):
                 for v in reversed(path):
                     print(' <=', state.mapping[v].as_line(), end='')
                 print()
-            for h in get_hash(hash_cache, state.mapping[k]):
-                print('   ', h)
         print(lockfile.as_dict())
 
 
