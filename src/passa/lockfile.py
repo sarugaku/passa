@@ -49,7 +49,7 @@ def build_lockfile(r, state, hash_cache, pipfile=None):
     hashes = get_hashes(r, state, hash_cache)
     for dep in sorted(state.mapping):
         req = state.mapping[dep]
-        req.hashes = [Hash(value=v) for v in hashes.get(dep, [])]
+        req.hashes = [Hash.parse(v) for v in hashes.get(dep, [])]
         root = path_lists.get(dep)
         if root:
             root = next((node for node in root), None)
