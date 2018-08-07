@@ -69,9 +69,9 @@ def resolve(requirements):
 def main(argv=None):
     options = parse_arguments(argv)
     requirements = list(options.requirements)
-    if options.project:
-        pipfile = Pipfile.load(options.project)
-        requirements.extend(pipfile.dev_packages.requirements)
-        requirements.extend(pipfile.packages.requirements)
     with temp_cd(options.project or os.getcwd()):
+        if options.project:
+            pipfile = Pipfile.load(options.project)
+            requirements.extend(pipfile.dev_packages.requirements)
+            requirements.extend(pipfile.packages.requirements)
         resolve(requirements)
