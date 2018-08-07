@@ -1,0 +1,11 @@
+[packages]
+passa = { path = '.', editable = true }
+
+[dev-packages]
+invoke = '*'
+parver = '*'
+towncrier = '*'
+wheel = '*'
+
+[scripts]
+release = 'inv release'
