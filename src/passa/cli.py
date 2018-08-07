@@ -65,12 +65,12 @@ def resolve(requirements):
                 paths = path_lists[k]
             except KeyError:
                 print('    User requirement')
-                continue
-            for path in paths:
-                print('   ', end='')
-                for v in reversed(path):
-                    print(' <=', state.mapping[v].as_line(), end='')
-                print()
+            else:
+                for path in paths:
+                    print('   ', end='')
+                    for v in reversed(path):
+                        print(' <=', state.mapping[v].as_line(), end='')
+                    print()
             for h in get_hashes(hash_cache, r, state, k):
                 print('   ', h)
     print()
