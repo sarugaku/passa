@@ -64,14 +64,15 @@ def resolve(requirements, pipfile=None):
             try:
                 paths = path_lists[k]
             except KeyError:
-                print('  User requirement')
-                continue
-            for path in paths:
-                print('   ', end='')
-                for v in reversed(path):
-                    print(' <=', state.mapping[v].as_line(), end='')
-                print()
+                print('    User requirement')
+            else:
+                for path in paths:
+                    print('   ', end='')
+                    for v in reversed(path):
+                        print(' <=', state.mapping[v].as_line(), end='')
+                    print()
         print(lockfile.as_dict())
+
 
 
 def cli(argv=None):
