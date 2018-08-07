@@ -3,9 +3,11 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import operator
-
+import packaging.markers
 from requirementslib import Requirement
-from requirementslib.models.utils import make_install_requirement
+from requirementslib.models.utils import (
+    make_install_requirement, format_requirement
+)
 
 import resolvelib
 
@@ -38,9 +40,10 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             requirement.find_all_matches(sources=self.sources),
             key=operator.attrgetter('version'),
         )
-        return [Requirement.from_line(str(make_install_requirement(
-            name, ican.version, extras=extras, markers=markers,
-        ))) for ican in icans]
+        return [Requirement.from_line(format_requirement(
+            make_install_requirement(name, ican.version, extras=extras,
+                                      markers=markers)
+        )) for ican in icans]
 
     def is_satisfied_by(self, requirement, candidate):
         name = requirement.normalized_name
@@ -67,7 +70,13 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
                 candidate.as_line(), e,
             ))
             return []
-        return [
-            r for r in (Requirement.from_line(d) for d in dependencies)
-            if not r.markers or r.ireq.match_markers()
-        ]
+        requirements = []
+        markers = set(candidate.ireq.markers) if candidate.ireq.markers else set()
+        for d in dependencies:
+            r = Requirement.from_line(d)
+            if r.ireq.markers and r.ireq.match_markers():
+                markers = markers.add(r.ireq.markers)
+                markers = packaging.markers.Marker(" or ".join([str(m) for m in markers]))
+                r.ireq.req.markers = markers
+            requirements.append(r)
+        return requirements

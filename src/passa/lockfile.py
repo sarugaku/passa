@@ -37,10 +37,6 @@ def get_hash(cache, req):
     }
 
 
-def get_root_parent(r, state, dep):
-    pass
-
-
 def build_lockfile(r, state, hash_cache, pipfile=None):
     dev_names = [req.name for req in pipfile.dev_packages.requirements]
     req_names = [req.name for req in pipfile.packages.requirements]
