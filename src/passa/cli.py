@@ -60,7 +60,7 @@ def resolve(requirements):
         print_title(' STABLE PINS ')
         for k in sorted(state.mapping):
             print_dependency(state, k)
-            print('Hashes: '.format(get_hashes(hash_cache, r, state, k)))
+            print('Hashes: {0}'.format(get_hashes(hash_cache, r, state, k)))
 
     print()
 
