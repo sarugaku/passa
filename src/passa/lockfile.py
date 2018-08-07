@@ -129,6 +129,7 @@ def trace(graph):
     """
     result = {}
     for vertex in graph:
+        result[vertex] = []
         for root in graph.iter_children(None):
             if root == vertex:
                 continue
@@ -137,8 +138,5 @@ def trace(graph):
             _trace_visit_vertex(graph, root, vertex, visited, [], paths)
             if not paths:
                 continue
-            if vertex in result:
-                result[vertex].extend(paths)
-            else:
-                result[vertex] = paths
+            result[vertex].extend(paths)
     return result

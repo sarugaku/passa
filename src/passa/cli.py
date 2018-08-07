@@ -61,18 +61,16 @@ def resolve(requirements, pipfile=None):
         path_lists = trace(state.graph)
         for k in sorted(state.mapping):
             print(state.mapping[k].as_line())
-            try:
-                paths = path_lists[k]
-            except KeyError:
-                print('    User requirement')
-            else:
+            paths = path_lists[k]
+            if paths:
                 for path in paths:
                     print('   ', end='')
                     for v in reversed(path):
                         print(' <=', state.mapping[v].as_line(), end='')
                     print()
+            else:
+                print('    User requirement')
         print(lockfile.as_dict())
-
 
 
 def cli(argv=None):
