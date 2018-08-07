@@ -134,9 +134,6 @@ def trace(graph):
             if root == vertex:
                 continue
             paths = []
-            visited = set()     # Prevent cycles.
-            _trace_visit_vertex(graph, root, vertex, visited, [], paths)
-            if not paths:
-                continue
+            _trace_visit_vertex(graph, root, vertex, set(), [], paths)
             result[vertex].extend(paths)
     return result
