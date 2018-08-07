@@ -11,6 +11,9 @@ from towncrier._builder import (
 from towncrier._settings import load_config
 
 
+def _get_git_root(ctx):
+    return Path(ctx.run('git rev-parse --show-toplevel', hide=True).stdout.strip())
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 PACKAGE_NAME = 'passa'
@@ -134,3 +137,19 @@ def release(ctx, type_, repo, prebump=PREBUMP):
     _write_version(version)
 
     ctx.run(f'git commit -am "Prebump to {version}"')
+
+
+@invoke.task
+def build_docs(ctx):
+    _current_version = _read_version()
+    minor = [str(i) for i in _current_version[:2]]
+    docs_folder = (_get_git_root(ctx) / 'docs').as_posix()
+    if not docs_folder.endswith('/'):
+        docs_folder = '{0}/'.format(docs_folder)
+    args = ["--ext-autodoc", "--ext-viewcode", "-o", docs_folder]
+    args.extend(["-A", "'Dan Ryan <dan@danryan.co>'"])
+    args.extend(["-R", _current_version])
+    args.extend(["-V", ".".join(minor)])
+    args.extend(["-e", "-M", "-F", "src/passa"])
+    print("Building docs...")
+    ctx.run("sphinx-apidoc {0}".format(" ".join(args)))

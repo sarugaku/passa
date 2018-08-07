@@ -8,3 +8,5 @@ dist
 *.egg-info
 
 *.py[co]
+.pytest_cache/
+.vscode/
