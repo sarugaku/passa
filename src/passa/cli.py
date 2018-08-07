@@ -13,13 +13,12 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from .lockfile import get_hashes
-
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
 from requirementslib.utils import temp_cd
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
 
+from .lockfile import get_hashes
 from .providers import RequirementsLibProvider
 from .reporters import (
     print_title, print_dependency, print_requirement,
