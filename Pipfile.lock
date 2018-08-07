@@ -1,21 +1,19 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f23ff655f65cbacaf6a4566358cbe4072212693b4264b5506bd40f88f21a179a"
+            "sha256": "5b8fdb81dec1bf16cfdaf22c1791451ae4482b2f38f63724f7dcbccd0e550d03"
         },
         "pipfile-spec": 6,
         "requires": {},
-        "sources": [{
-            "name": "pypi",
-            "url": "https://pypi.org/simple",
-            "verify_ssl": true
-        }]
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
     },
     "default": {
-        "303da53": {
-            "editable": true,
-            "path": "./../resolvelib"
-        },
         "appdirs": {
             "hashes": [
                 "sha256:9e5896d1372858f8dd3344faf4e5014d21849c756c8d5701f78f8a103b372d92",
@@ -56,10 +54,6 @@
                 "sha256:cd502c66fc27c535bab62dc4f482e403e2369c2c05281a79cc2d4e2f42a87f20"
             ],
             "version": "==0.2.7"
-        },
-        "e1839a8": {
-            "editable": true,
-            "path": "."
         },
         "first": {
             "hashes": [
@@ -146,6 +140,13 @@
         "requirementslib": {
             "editable": true,
             "path": "./../requirementslib"
+        },
+        "resolvelib": {
+            "hashes": [
+                "sha256:4779dcdae1d9000bdd4eac11e0846d1f9c8689b58ba3302c9d5524ac14c42d24",
+                "sha256:c5dbadac79c1ac8a20d225f41aa5ca09696340411b26ff3b5ef05cc0b116914f"
+            ],
+            "version": "==0.2.0"
         },
         "six": {
             "hashes": [

@@ -1,15 +1,13 @@
 [packages]
-passa = { path = '.', editable = true }
-requirementslib = {editable = true, path = "./../requirementslib"}
-"e1839a8" = {editable = true, path = "."}
-"303da53" = {editable = true, path = "./../resolvelib"}
+passa = { editable = true, path = '.' }
+requirementslib = { editable = true, path = './../requirementslib' }
 
 [dev-packages]
+black = '*'
 invoke = '*'
 parver = '*'
 towncrier = '*'
 wheel = '*'
-black = '*'
 
 [scripts]
 release = 'inv release'
