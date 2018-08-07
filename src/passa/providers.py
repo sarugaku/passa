@@ -1,13 +1,16 @@
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, print_function, unicode_literals
+
 import operator
+
 from requirementslib import Requirement
 from requirementslib.models.utils import make_install_requirement
 
-from resolvelib import AbstractProvider
+import resolvelib
 
 
-class RequirementsLibProvider(AbstractProvider):
+class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
     def __init__(self, root_requirements):
@@ -66,11 +69,5 @@ class RequirementsLibProvider(AbstractProvider):
             return []
         return [
             r for r in (Requirement.from_line(d) for d in dependencies)
-            if _filter_needed(r)
+            if not r.markers or r.ireq.match_markers()
         ]
-
-
-def _filter_needed(requirement):
-    if not requirement.markers:
-        return True
-    return requirement.ireq.match_markers()
