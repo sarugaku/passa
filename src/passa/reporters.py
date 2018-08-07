@@ -1,25 +1,24 @@
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, print_function, unicode_literals
-from resolvelib import BaseReporter
+
+import resolvelib
 
 
-def _key_sort(name):
-    if name is None:
-        return (-1, '')
-    return (ord(name[0].lower()), name)
-
-
-def _print_title(text):
+def print_title(text):
     print('\n{:=^84}\n'.format(text))
 
 
-def _print_requirement(r, end='\n'):
+def print_requirement(r, end='\n'):
     print('{:>40}'.format(r.as_line()), end=end)
 
 
-def _print_dependency(state, key):
-    _print_requirement(state.mapping[key], end='')
-    parents = sorted(state.graph.iter_parents(key), key=_key_sort)
+def print_dependency(state, key):
+    print_requirement(state.mapping[key], end='')
+    parents = sorted(
+        state.graph.iter_parents(key),
+        key=lambda n: (-1, '') if n is None else (ord(n[0].lower()), n),
+    )
     for i, p in enumerate(parents):
         if p is None:
             line = '(user)'
@@ -32,14 +31,21 @@ def _print_dependency(state, key):
         print('{pad}{line}'.format(pad=padding, line=line))
 
 
-class StdOutReporter(BaseReporter):
+class StdOutReporter(resolvelib.BaseReporter):
     """Simple reporter that prints things to stdout.
     """
+    def __init__(self, requirements):
+        super(StdOutReporter, self).__init__()
+        self.requirements = requirements
+
     def starting(self):
         self._prev = None
+        print_title(' User requirements ')
+        for r in self.requirements:
+            print_requirement(r)
 
     def ending_round(self, index, state):
-        _print_title(' Round {} '.format(index))
+        print_title(' Round {} '.format(index))
         mapping = state.mapping
         if self._prev is None:
             difference = set(mapping.keys())
@@ -55,11 +61,11 @@ class StdOutReporter(BaseReporter):
         if difference:
             print('New pins: ')
             for k in difference:
-                _print_dependency(state, k)
+                print_dependency(state, k)
         print()
 
         if changed:
             print('Changed pins:')
             for k in changed:
-                _print_dependency(state, k)
+                print_dependency(state, k)
         print()

@@ -1,25 +1,41 @@
-#!env python
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, print_function, unicode_literals
+
 import argparse
-from .lockfile import get_hashes
 import os
-from .output import (
-    _print_title, _print_dependency, _print_requirement,
-    StdOutReporter,
-)
+
+from .lockfile import get_hashes
+
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
-from requirementlib.utils import temp_cd
+from requirementslib.utils import temp_cd
+
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
-from .resolver import RequirementsLibProvider
+
+from .providers import RequirementsLibProvider
+from .reporters import (
+    print_title, print_dependency, print_requirement,
+    StdOutReporter,
+)
 
 
-def main(requirements, hash_cache):
-    _print_title(' User requirements ')
-    for r in requirements:
-        _print_requirement(r)
-    r = Resolver(RequirementsLibProvider(requirements), StdOutReporter())
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'requirements', metavar='REQUIREMENT',
+        nargs='*', type=Requirement.from_line,
+    )
+    parser.add_argument('--project', type=os.path.abspath)
+    return parser.parse_args(argv)
+
+
+def resolve(requirements):
+    hash_cache = HashCache()
+    provider = RequirementsLibProvider(requirements)
+    reporter = StdOutReporter(requirements)
+
+    r = Resolver(provider, reporter)
     try:
         state = r.resolve(requirements)
     except NoVersionsAvailable as e:
@@ -32,26 +48,22 @@ def main(requirements, hash_cache):
     except ResolutionImpossible as e:
         print('\nCANNOT RESOLVE.\nOFFENDING REQUIREMENTS:')
         for r in e.requirements:
-            _print_requirement(r)
+            print_requirement(r)
     else:
-        _print_title(' STABLE PINS ')
+        print_title(' STABLE PINS ')
         for k in sorted(state.mapping):
-            _print_dependency(state, k)
-            print('Hashes: '.format(get_hashes(hash_cache, r, state, k)))
+            print_dependency(state, k)
+            # print('Hashes: '.format(get_hashes(hash_cache, r, state, k)))
 
     print()
 
 
-if __name__ == "__main__":
-    hash_cache = HashCache()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('packages', metavar='PACKAGE', nargs='*')
-    parser.add_argument('--project', type=os.path.abspath)
-    options = parser.parse_args()
-    requirements = [Requirement.from_line(line) for line in options.packages]
+def main(argv=None):
+    options = parse_arguments(argv)
+    requirements = list(options.requirements)
     if options.project:
-        with temp_cd(options.project):
-            pipfile = Pipfile.load(options.project)
-            requirements.extend(pipfile.dev_packages.requirements)
-            requirements.extend(pipfile.packages.requirements)
-            main(requirements, hash_cache)
+        pipfile = Pipfile.load(options.project)
+        requirements.extend(pipfile.dev_packages.requirements)
+        requirements.extend(pipfile.packages.requirements)
+    with temp_cd(options.project or os.getcwd()):
+        resolve(requirements)
