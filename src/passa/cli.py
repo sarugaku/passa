@@ -64,7 +64,7 @@ def resolve(requirements):
             try:
                 paths = path_lists[k]
             except KeyError:
-                print('  User requirement')
+                print('    User requirement')
                 continue
             for path in paths:
                 print('   ', end='')
