@@ -5,21 +5,22 @@ from requirementslib._compat import VcsSupport, Wheel
 
 
 def get_hashes(cache, resolver, state, key):
-    if key.ireq.editable:
+    req = state.mapping[key]
+    if req.ireq.editable:
         return set()
 
     vcs = VcsSupport()
-    if (key.ireq.link and key.ireq.link.scheme in vcs.all_schemes
-            and 'ssh' in key.ireq.link.scheme):
+    if (req.ireq.link and req.ireq.link.scheme in vcs.all_schemes
+            and 'ssh' in req.ireq.link.scheme):
         return set()
 
-    if not key.ireq.pinned:
+    if not req.ireq.is_pinned:
         raise TypeError("Expected pinned requirement, got {}".format(key))
 
     matching_candidates = set()
     with allow_all_wheels():
         matching_candidates = (
-            resolver.provider.find_matches(key)
+            req.find_all_matches()
         )
 
     return {
@@ -59,7 +60,7 @@ def build_lockfile(pipfile, requirements):
 
 
 @contextmanager
-def allow_all_wheels(self):
+def allow_all_wheels():
     """
     Monkey patches pip.Wheel to allow wheels from all platforms and Python versions.
 

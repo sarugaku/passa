@@ -1,5 +1,8 @@
 [packages]
 passa = { path = '.', editable = true }
+requirementslib = {editable = true, path = "./../requirementslib"}
+"e1839a8" = {editable = true, path = "."}
+"303da53" = {editable = true, path = "./../resolvelib"}
 
 [dev-packages]
 invoke = '*'

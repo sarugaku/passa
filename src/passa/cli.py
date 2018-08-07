@@ -10,12 +10,12 @@ from .output import (
 )
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
-from requirementlib.utils import temp_cd
+from requirementslib.utils import temp_cd
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
 from .resolver import RequirementsLibProvider
 
 
-def main(requirements, hash_cache):
+def resolve(requirements, hash_cache):
     _print_title(' User requirements ')
     for r in requirements:
         _print_requirement(r)
@@ -42,7 +42,7 @@ def main(requirements, hash_cache):
     print()
 
 
-if __name__ == "__main__":
+def cli():
     hash_cache = HashCache()
     parser = argparse.ArgumentParser()
     parser.add_argument('packages', metavar='PACKAGE', nargs='*')
@@ -54,4 +54,8 @@ if __name__ == "__main__":
             pipfile = Pipfile.load(options.project)
             requirements.extend(pipfile.dev_packages.requirements)
             requirements.extend(pipfile.packages.requirements)
-            main(requirements, hash_cache)
+            resolve(requirements, hash_cache)
+
+
+if __name__ == "__main__":
+    cli()

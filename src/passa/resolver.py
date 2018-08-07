@@ -18,7 +18,6 @@ class RequirementsLibProvider(AbstractProvider):
             for requirement in root_requirements
             if not requirement.is_named
         }
-        self.hash_cache = 
 
     def identify(self, dependency):
         return dependency.normalized_name
