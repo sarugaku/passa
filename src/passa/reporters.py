@@ -10,7 +10,7 @@ def print_title(text):
 
 
 def print_requirement(r, end='\n'):
-    print('{:>40}'.format(r.as_line().split('--hash')[0]), end=end)
+    print('{:>40}'.format(r.as_line(include_hashes=False)), end=end)
 
 
 def print_dependency(state, key):
@@ -23,7 +23,7 @@ def print_dependency(state, key):
         if p is None:
             line = '(user)'
         else:
-            line = state.mapping[p].as_line().split('--hash')[0]
+            line = state.mapping[p].as_line(include_hashes=False)
         if i == 0:
             padding = ' <= '
         else:

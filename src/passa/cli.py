@@ -11,6 +11,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import argparse
+import json
 import os
 
 from requirementslib import Pipfile, Requirement
@@ -18,12 +19,9 @@ from requirementslib.models.cache import HashCache
 from requirementslib.utils import temp_cd
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
 
-from .lockfile import build_lockfile, get_hash, trace
+from .lockfile import build_lockfile, trace
 from .providers import RequirementsLibProvider
-from .reporters import (
-    print_title, print_dependency, print_requirement,
-    StdOutReporter,
-)
+from .reporters import print_title, print_requirement, StdOutReporter
 
 
 def parse_arguments(argv):
@@ -46,9 +44,10 @@ def resolve(requirements, pipfile=None):
         state = r.resolve(requirements)
     except NoVersionsAvailable as e:
         print('\nCANNOT RESOLVE. NO CANDIDATES FOUND FOR:')
-        print('{:>40}'.format(e.requirement.as_line()))
+        print('{:>40}'.format(e.requirement.as_line(include_hashes=False)))
         if e.parent:
-            print('{:>41}'.format('(from {})'.format(e.parent.as_line())))
+            line = e.parent.as_line(include_hashes=False)
+            print('{:>41}'.format('(from {})'.format(line)))
         else:
             print('{:>41}'.format('(user)'))
     except ResolutionImpossible as e:
@@ -60,17 +59,20 @@ def resolve(requirements, pipfile=None):
         lockfile = build_lockfile(r, state, hash_cache, pipfile=pipfile)
         path_lists = trace(state.graph)
         for k in sorted(state.mapping):
-            print(state.mapping[k].as_line())
+            print(state.mapping[k].as_line(include_hashes=False))
             paths = path_lists[k]
             if paths:
                 for path in paths:
                     print('   ', end='')
                     for v in reversed(path):
-                        print(' <=', state.mapping[v].as_line(), end='')
+                        line = state.mapping[v].as_line(include_hashes=False)
+                        print(' <=', line, end='')
                     print()
             else:
                 print('    User requirement')
-        print(lockfile.as_dict())
+
+        print_title(' LOCK FILE ')
+        print(json.dumps(lockfile.as_dict(), indent=4))
 
 
 def cli(argv=None):
