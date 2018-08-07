@@ -68,7 +68,6 @@ def resolve(requirements):
 def cli(argv=None):
     options = parse_arguments(argv)
     requirements = list(options.requirements)
-    requirements = [Requirement.from_line(line) for line in options.packages]
     with temp_cd(options.project or os.getcwd()):
         if options.project:
             pipfile = Pipfile.load(options.project)
