@@ -13,13 +13,12 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from .lockfile import get_hash, build_lockfile
-
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
 from requirementslib.utils import temp_cd
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
 
+from .lockfile import build_lockfile, get_hash, trace
 from .providers import RequirementsLibProvider
 from .reporters import (
     print_title, print_dependency, print_requirement,
@@ -51,7 +50,7 @@ def resolve(requirements, pipfile=None):
         if e.parent:
             print('{:>41}'.format('(from {})'.format(e.parent.as_line())))
         else:
-            print('{:>41}'.format('(root dependency)'))
+            print('{:>41}'.format('(user)'))
     except ResolutionImpossible as e:
         print('\nCANNOT RESOLVE.\nOFFENDING REQUIREMENTS:')
         for r in e.requirements:
@@ -59,11 +58,22 @@ def resolve(requirements, pipfile=None):
     else:
         print_title(' STABLE PINS ')
         lockfile = build_lockfile(r, state, hash_cache, pipfile=pipfile)
-        print(lockfile.as_dict())
+        path_lists = trace(state.graph)
         for k in sorted(state.mapping):
-            print_dependency(state, k)
-
-    print()
+            print(state.mapping[k].as_line())
+            try:
+                paths = path_lists[k]
+            except KeyError:
+                print('  User requirement')
+                continue
+            for path in paths:
+                print('   ', end='')
+                for v in reversed(path):
+                    print(' <=', state.mapping[v].as_line(), end='')
+                print()
+            for h in get_hash(hash_cache, state.mapping[k]):
+                print('   ', h)
+        print(lockfile.as_dict())
 
 
 def cli(argv=None):
