@@ -18,7 +18,7 @@ from requirementslib.models.cache import HashCache
 from requirementslib.utils import temp_cd
 from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
 
-from .lockfile import get_hashes
+from .lockfile import get_hashes, trace
 from .providers import RequirementsLibProvider
 from .reporters import (
     print_title, print_dependency, print_requirement,
@@ -50,16 +50,31 @@ def resolve(requirements):
         if e.parent:
             print('{:>41}'.format('(from {})'.format(e.parent.as_line())))
         else:
-            print('{:>41}'.format('(root dependency)'))
+            print('{:>41}'.format('(user)'))
     except ResolutionImpossible as e:
         print('\nCANNOT RESOLVE.\nOFFENDING REQUIREMENTS:')
         for r in e.requirements:
             print_requirement(r)
     else:
         print_title(' STABLE PINS ')
+
+        path_lists = trace(state.graph)
         for k in sorted(state.mapping):
-            print_dependency(state, k)
-            print('Hashes: {0}'.format(get_hashes(hash_cache, r, state, k)))
+            print(state.mapping[k].as_line())
+            try:
+                paths = path_lists[k]
+            except KeyError:
+                print('  User requirement')
+                continue
+            for path in paths:
+                print('   ', end='')
+                for v in reversed(path):
+                    print(' <=', state.mapping[v].as_line(), end='')
+                print()
+            for h in get_hashes(hash_cache, r, state, k):
+                print('   ', h)
+
+    print()
 
     print()
 
