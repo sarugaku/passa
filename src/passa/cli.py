@@ -13,7 +13,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from .lockfile import get_hashes
+from .lockfile import get_hash, build_lockfile
 
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
@@ -37,7 +37,7 @@ def parse_arguments(argv):
     return parser.parse_args(argv)
 
 
-def resolve(requirements):
+def resolve(requirements, pipfile=None):
     hash_cache = HashCache()
     provider = RequirementsLibProvider(requirements)
     reporter = StdOutReporter(requirements)
@@ -58,9 +58,10 @@ def resolve(requirements):
             print_requirement(r)
     else:
         print_title(' STABLE PINS ')
+        lockfile = build_lockfile(r, state, hash_cache, pipfile=pipfile)
+        print(lockfile.as_dict())
         for k in sorted(state.mapping):
             print_dependency(state, k)
-            print('Hashes: {0}'.format(get_hashes(hash_cache, r, state, k)))
 
     print()
 
@@ -68,12 +69,13 @@ def resolve(requirements):
 def cli(argv=None):
     options = parse_arguments(argv)
     requirements = list(options.requirements)
+    pipfile = None
     with temp_cd(options.project or os.getcwd()):
         if options.project:
             pipfile = Pipfile.load(options.project)
             requirements.extend(pipfile.dev_packages.requirements)
             requirements.extend(pipfile.packages.requirements)
-        resolve(requirements)
+        resolve(requirements, pipfile=pipfile)
 
 
 if __name__ == "__main__":

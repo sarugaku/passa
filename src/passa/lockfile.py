@@ -1,21 +1,30 @@
 # -*- coding=utf-8 -*-
 from contextlib import contextmanager
 from requirementslib import Lockfile
+from requirementslib.models.pipfile import Hash
 from requirementslib._compat import VcsSupport, Wheel
 
 
-def get_hashes(cache, resolver, state, key):
-    req = state.mapping[key]
-    if req.ireq.editable:
+def get_hashes(r, state, cache):
+    hashes = {}
+    for dep in state.mapping:
+        if dep not in hashes:
+            hashes[dep] = get_hash(cache, state.mapping[dep])
+    return hashes.copy()
+
+
+def get_hash(cache, req):
+    ireq = req.ireq
+    if ireq.editable:
         return set()
 
     vcs = VcsSupport()
-    if (req.ireq.link and req.ireq.link.scheme in vcs.all_schemes
-            and 'ssh' in req.ireq.link.scheme):
+    if (ireq.link and ireq.link.scheme in vcs.all_schemes
+            and 'ssh' in ireq.link.scheme):
         return set()
 
-    if not req.ireq.is_pinned:
-        raise TypeError("Expected pinned requirement, got {}".format(key))
+    if not ireq.is_pinned:
+        raise TypeError("Expected pinned requirement, got {}".format(req.as_line()))
 
     matching_candidates = set()
     with allow_all_wheels():
@@ -28,35 +37,35 @@ def get_hashes(cache, resolver, state, key):
     }
 
 
-def build_lockfile(pipfile, requirements):
-    # hashes = resolved.get_hashes()
-    # dev_names = [req.name for req in self.dev_packages.requirements]
-    # req_names = [req.name for req in self.packages.requirements]
-    # dev_reqs, reqs = [], []
-    # for req, pin in resolved.pinned_deps.items():
-    #     parent = None
-    #     _current_dep = resolved.dep_dict[req]
-    #     while True:
-    #         if _current_dep.parent:
-    #             parent = _current_dep.parent.name
-    #             _current_dep = _current_dep.parent
-    #         break
-    #     requirement = None
-    #     requirement = Requirement.from_line(format_requirement(pin))
-    #     requirement.hashes = [Hash(value=v) for v in hashes.get(req, [])]
-    #     if req in req_names:
-    #         reqs.append(req)
-    #     elif req in dev_names:
-    #         dev_reqs.append(req)
-    #     # If the requirement in question inherits from a dev requirement we still
-    #     # need to add it to the dev dependencies
-    #     if parent and parent in dev_names and req not in dev_names:
-    #         dev_reqs.append(req)
-    #     # If the requirement in question inherits from a non-dev requirement we
-    #     # will still need to make sure it gets added to the non-dev section
-    #     if parent and parent in req_names and req not in req_names:
-    #         reqs.append(req)
+def get_root_parent(r, state, dep):
     pass
+
+
+def build_lockfile(r, state, hash_cache, pipfile=None):
+    dev_names = [req.name for req in pipfile.dev_packages.requirements]
+    req_names = [req.name for req in pipfile.packages.requirements]
+    dev_reqs, reqs = [], []
+    hashes = get_hashes(r, state, hash_cache)
+    for dep in sorted(state.mapping):
+        req = state.mapping[dep]
+        req.hashes = [Hash(value=v) for v in hashes.get(dep, [])]
+        parents = set()
+        if any(name in dev_names for name in list(parents) + [req.normalized_name,]):
+            dev_reqs.append(req)
+        if any(name in req_names for name in list(parents) + [req.normalized_name,]):
+            reqs.append(req)
+
+    creation_dict = {
+        "path": pipfile.path.parent / 'Pipfile.lock',
+        "pipfile_hash": Hash(value=pipfile.get_hash()),
+        "sources": [s for s in pipfile.sources],
+        "dev_requirements": dev_reqs,
+        "requirements": reqs,
+    }
+    if pipfile.requires.has_value():
+        creation_dict['requires'] = pipfile.requires
+    lockfile = Lockfile(**creation_dict)
+    return lockfile
 
 
 @contextmanager
