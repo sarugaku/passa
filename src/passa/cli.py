@@ -18,6 +18,7 @@ from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache, CACHE_DIR
 from requirementslib.utils import temp_cd, temp_environ, fs_str
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
+from six.moves.urllib import parse as urllib_parse
 
 from .lockfile import build_lockfile, trace
 from .providers import RequirementsLibProvider
@@ -76,7 +77,6 @@ def parse_arguments(argv):
     )
     parser.add_argument(
         "requirements",
-        action="append",
         nargs="*",
         metavar="REQUIREMENT",
         type=Requirement.from_line,
@@ -138,16 +138,20 @@ def cli(argv=None):
         extra_indexes, trusted_hosts, sources = [], [], []
         if options.project:
             pipfile = Pipfile.load(options.project)
-            sources = [s.expanded.url for s in pipfile.sources]
-            trusted_hosts = [s.url for s in pipfile.sources if not s.verify_ssl]
+            sources = [s.expanded.get('url') for s in pipfile.sources]
+            trusted_hosts = [
+                urllib_parse(s.url).hostname
+                for s in pipfile.sources
+                if not s.verify_ssl
+            ]
             requirements.extend(pipfile.dev_packages.requirements)
             requirements.extend(pipfile.packages.requirements)
         if options.index:
             sources.append(options.index)
         if options.extra_index:
             sources.extend(options.extra_index)
-        if options.trusted_hosts:
-            trusted_hosts.extend(options.trusted_hosts)
+        if options.trusted_host:
+            trusted_hosts.extend(options.trusted_host)
         for i, source in enumerate(sources):
             if i == 1:
                 os.environ["PIP_INDEX"] = fs_str(source)
