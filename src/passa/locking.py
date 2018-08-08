@@ -39,7 +39,7 @@ def _allow_all_wheels():
 
 
 def _get_hash(cache, req):
-    ireq = req.ireq
+    ireq = req.as_ireq()
     if ireq.editable or not ireq.is_pinned:
         return set()
 

@@ -32,8 +32,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         name = requirement.normalized_name
         if name in self.non_named_requirements:
             return [self.non_named_requirements[name]]
-        markers = requirement.ireq.markers
-        extras = requirement.ireq.extras
+        ireq = requirement.as_ireq()
+        markers = ireq.markers
+        extras = ireq.extras
         candidates = sorted(
             requirement.find_all_matches(sources=self.sources),
             key=operator.attrgetter('version'),
@@ -58,7 +59,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             print('ignoring invalid version {}'.format(candidate_line))
             self.invalid_candidates.add(candidate_line)
             return False
-        return requirement.ireq.specifier.contains(version)
+        return requirement.as_ireq().specifier.contains(version)
 
     def get_dependencies(self, candidate):
         try:
@@ -70,17 +71,20 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             ))
             return []
         requirements = []
-        if candidate.ireq.markers:
-            markers = set(candidate.ireq.markers)
+        ireq = candidate.as_ireq()
+        if ireq.markers:
+            markers = set(ireq.markers)
         else:
             markers = set()
         for d in dependencies:
-            r = Requirement.from_line(d)
-            if r.ireq.markers and r.ireq.match_markers():
-                markers = markers.add(r.ireq.markers)
+            requirement = Requirement.from_line(d)
+            ireq = requirement.as_ireq()
+            if ireq.markers and ireq.match_markers():
+                markers = markers.add(ireq.markers)
                 markers = packaging.markers.Marker(
                     " or ".join(str(m) for m in markers),
                 )
-                r.ireq.req.markers = markers
-            requirements.append(r)
+                ireq.req.markers = markers
+                requirement = Requirement.from_ireq(ireq)
+            requirements.append(requirement)
         return requirements

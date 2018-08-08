@@ -1,9 +1,10 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
-import tempfile
+import hashlib
+import json
 
 import attr
-import pipfile
+import six
 import tomlkit
 
 from requirementslib import Requirement
@@ -61,15 +62,19 @@ class Pipfile(object):
         return self._data[key]
 
     def get_hash(self):
-        # HACK: I don't want to store file name in this model, so this writes
-        # to a temporary file for pipfile to load. Ideally we should add an
-        # interface there to read data directly instead.
-        with tempfile.NamedTemporaryFile() as tf:
-            self.dump(tf, encoding="utf-8")
-            tf.flush()
-            pf = pipfile.load(tf.name, inject_env=False)
-            value = pf.hash
-        return sections.Hash(name="sha256", value=value)
+        data = self.as_data()
+        data = {
+            "_meta": {
+                "sources": data["source"],
+                "requires": data["requires"],
+            },
+            "default": data["packages"],
+            "develop": data["dev-packages"],
+        }
+        content = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        if isinstance(content, six.text_type):
+            content = content.encode("utf-8")
+        return hashlib.sha256(content)
 
     def as_data(self):
         data = {
