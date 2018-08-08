@@ -1,5 +1,6 @@
 [packages]
 passa = { editable = true, path = '.' }
+pipfile = { git = 'https://github.com/sarugaku/pipfile.git' }
 requirementslib = { editable = true, path = './../requirementslib' }
 
 [dev-packages]

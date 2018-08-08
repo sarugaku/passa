@@ -3,13 +3,11 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import operator
-import packaging.markers
-from requirementslib import Requirement
-from requirementslib.models.utils import (
-    make_install_requirement, format_requirement
-)
 
+import packaging.markers
 import resolvelib
+
+from requirementslib import Requirement
 
 
 class RequirementsLibProvider(resolvelib.AbstractProvider):
@@ -36,14 +34,14 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             return [self.non_named_requirements[name]]
         markers = requirement.ireq.markers
         extras = requirement.ireq.extras
-        icans = sorted(
+        candidates = sorted(
             requirement.find_all_matches(sources=self.sources),
             key=operator.attrgetter('version'),
         )
-        return [Requirement.from_line(format_requirement(
-            make_install_requirement(name, ican.version, extras=extras,
-                                      markers=markers)
-        )) for ican in icans]
+        return [
+            Requirement.from_metadata(name, c.version, extras, markers)
+            for c in candidates
+        ]
 
     def is_satisfied_by(self, requirement, candidate):
         name = requirement.normalized_name
@@ -66,6 +64,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         try:
             dependencies = candidate.get_dependencies(sources=self.sources)
         except Exception as e:
+            raise
             print('failed to get dependencies for {0!r}: {1}'.format(
                 candidate.as_line(), e,
             ))
