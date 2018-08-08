@@ -17,11 +17,12 @@ import os
 from requirementslib import Pipfile, Requirement
 from requirementslib.models.cache import HashCache
 from requirementslib.utils import temp_cd
-from resolvelib import Resolver, NoVersionsAvailable, ResolutionImpossible
+from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
 from .lockfile import build_lockfile, trace
 from .providers import RequirementsLibProvider
 from .reporters import print_title, print_requirement, StdOutReporter
+from .resolver import Resolver
 
 
 def parse_arguments(argv):
@@ -31,10 +32,11 @@ def parse_arguments(argv):
         nargs='*', type=Requirement.from_line,
     )
     parser.add_argument('--project', type=os.path.abspath)
+    parser.add_argument('--write', action='store_true', default=False)
     return parser.parse_args(argv)
 
 
-def resolve(requirements, pipfile=None):
+def resolve(requirements, pipfile=None, write=False):
     hash_cache = HashCache()
     provider = RequirementsLibProvider(requirements)
     reporter = StdOutReporter(requirements)
@@ -57,10 +59,11 @@ def resolve(requirements, pipfile=None):
     else:
         print_title(' STABLE PINS ')
         lockfile = build_lockfile(r, state, hash_cache, pipfile=pipfile)
-        path_lists = trace(state.graph)
+        criteria = r.criteria
+        reverse_deps = trace(state.graph)
         for k in sorted(state.mapping):
             print(state.mapping[k].as_line(include_hashes=False))
-            paths = path_lists[k]
+            paths = reverse_deps[k]
             if paths:
                 for path in paths:
                     print('   ', end='')
@@ -71,8 +74,11 @@ def resolve(requirements, pipfile=None):
             else:
                 print('    User requirement')
 
-        print_title(' LOCK FILE ')
-        print(json.dumps(lockfile.as_dict(), indent=4))
+        if write:
+            lockfile.write()
+        else:
+            print_title(' LOCK FILE ')
+            print(json.dumps(lockfile.as_dict(), indent=4))
 
 
 def cli(argv=None):
@@ -84,7 +90,7 @@ def cli(argv=None):
             pipfile = Pipfile.load(options.project)
             requirements.extend(pipfile.dev_packages.requirements)
             requirements.extend(pipfile.packages.requirements)
-        resolve(requirements, pipfile=pipfile)
+        resolve(requirements, pipfile=pipfile, write=options.write)
 
 
 if __name__ == "__main__":

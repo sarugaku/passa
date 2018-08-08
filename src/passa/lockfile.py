@@ -41,18 +41,23 @@ def build_lockfile(r, state, hash_cache, pipfile=None):
     dev_names = [req.name for req in pipfile.dev_packages.requirements]
     req_names = [req.name for req in pipfile.packages.requirements]
     dev_reqs, reqs = [], []
-    path_lists = trace(state.graph)
+    reverse_depends = trace(state.graph)
     hashes = get_hashes(r, state, hash_cache)
     for dep in sorted(state.mapping):
         req = state.mapping[dep]
         req.hashes = [Hash.parse(v) for v in hashes.get(dep, [])]
-        root = path_lists.get(dep)
-        if root:
-            root = next((node for node in root), None)
-        lookup_nodes = [root, req.normalized_name]
-        if any(name in dev_names for name in lookup_nodes):
+        comes_from = reverse_depends.get(dep)
+        if comes_from:
+            comes_from = [
+                sub_node for node in comes_from
+                for sub_node in node
+                if not reverse_depends[sub_node]
+            ]
+        else:
+            comes_from = [dep]
+        if any(name in dev_names for name in comes_from):
             dev_reqs.append(req)
-        if any(name in req_names for name in lookup_nodes):
+        if any(name in req_names for name in comes_from):
             reqs.append(req)
 
     creation_dict = {
