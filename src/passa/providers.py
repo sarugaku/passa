@@ -71,12 +71,17 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             ))
             return []
         requirements = []
-        markers = set(candidate.ireq.markers) if candidate.ireq.markers else set()
+        if candidate.ireq.markers:
+            markers = set(candidate.ireq.markers)
+        else:
+            markers = set()
         for d in dependencies:
             r = Requirement.from_line(d)
             if r.ireq.markers and r.ireq.match_markers():
                 markers = markers.add(r.ireq.markers)
-                markers = packaging.markers.Marker(" or ".join([str(m) for m in markers]))
+                markers = packaging.markers.Marker(
+                    " or ".join(str(m) for m in markers),
+                )
                 r.ireq.req.markers = markers
             requirements.append(r)
         return requirements
