@@ -4,27 +4,70 @@ import six
 
 @attr.s
 class Hash(object):
-    # Attributes are defined to be compatible with hashlib's hash type.
-    name = attr.ib()
-    _hexdigest = attr.ib()
 
-    def hexdigest(self):
-        return self._hexdigest
+    name = attr.ib()
+    value = attr.ib()
+
+    @classmethod
+    def parse(cls, value):
+        try:
+            name, value = value.split(":", 1)
+        except ValueError:
+            name = "sha256"
+        return cls(name=name, value=value)
+
+    def hexdigest(self):    # Compatibility to hashlib.
+        return self.value
+
+    def as_line(self):      # Compatibility to requirementslib.
+        return "{}:{}".format(self.name, self.value)
 
 
 @attr.s
-class PythonRequirement(object):
-    version = attr.ib()
+class RequiresPythonVersion(object):
+
+    value = attr.ib()
+    full = attr.ib()
+
+    @classmethod
+    def load(cls, data):
+        if "python_full_version" in data:
+            value = data["python_full_version"]
+            full = True
+        elif "python_version" in data:
+            value = data["python_version"]
+            full = False
+        else:
+            value = None
+            full = False
+        return cls(value=value, full=full)
+
+    def as_data(self):
+        if self.value is None:
+            return {}
+        key = "python_full_version" if self.full else "python_version"
+        return {key: self.value}
+
+    def copy(self):
+        return RequiresPythonVersion(value=self.value, full=self.full)
 
 
-class PythonVersionRequirement(PythonRequirement):
-    def as_dict(self):
-        return {"python_version": self.version}
+@attr.s
+class Requires(object):
 
+    python_version = attr.ib()
 
-class PythonFullVersionRequirement(PythonRequirement):
-    def as_dict(self):
-        return {"python_full_version": self.version}
+    @classmethod
+    def load(cls, data):
+        return cls(python_version=RequiresPythonVersion.load(data))
+
+    def as_data(self):
+        data = {}
+        data.update(self.python_version.as_data())
+        return data
+
+    def copy(self):
+        return Requires(python_version=self.python_version.copy())
 
 
 @attr.s
@@ -35,22 +78,21 @@ class Source(object):
     verify_ssl = attr.ib()
 
     @classmethod
-    def parse(cls, url):
-        parts = six.moves.urllib.parse.urlsplit(url)
-        secure = (parts.scheme == "https")  # XXX: Is this enough?
-        return cls(name=parts.netloc, url=url, verify_ssl=secure)
+    def load(cls, data):
+        url = data["url"]
+        verify_ssl = bool(data.get("verify_ssl", True))
+        try:
+            name = data["name"]
+        except KeyError:
+            name = six.moves.urllib.parse.urlsplit(url).netloc
+        return cls(name=name, url=url, verify_ssl=verify_ssl)
 
-    def as_dict(self):
+    def as_data(self):
         return {
             "name": self.name,
             "url": self.url,
             "verify_ssl": self.verify_ssl,
         }
 
-
-@attr.s
-class Candidate(object):
-
-    ireq = attr.ib()
-    hashes = attr.ib()
-    dependencies = attr.ib()
+    def copy(self):
+        return Source(name=self.name, url=self.url, verify_ssl=self.verify_ssl)
