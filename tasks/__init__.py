@@ -150,6 +150,6 @@ def build_docs(ctx):
     args.extend(["-A", "'Dan Ryan <dan@danryan.co>'"])
     args.extend(["-R", _current_version])
     args.extend(["-V", ".".join(minor)])
-    args.extend(["-e", "-M", "-F", "src/passa"])
+    args.extend(["-e", "-M", "-F", f"src/{PACKAGE_NAME}"])
     print("Building docs...")
     ctx.run("sphinx-apidoc {0}".format(" ".join(args)))

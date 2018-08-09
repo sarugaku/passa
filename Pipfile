@@ -8,6 +8,8 @@ invoke = '*'
 parver = '*'
 towncrier = '*'
 wheel = '*'
+sphinx = '*'
+sphinx-rtd-theme = '*'
 recursive-monkey-patch = "*"
 
 [scripts]
