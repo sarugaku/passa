@@ -31,6 +31,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
     def find_matches(self, requirement):
         name = requirement.normalized_name
         if name in self.non_named_requirements:
+            # TODO: Need to lock ref for VCS requirements here.
             return [self.non_named_requirements[name]]
         ireq = requirement.as_ireq()
         markers = ireq.markers
