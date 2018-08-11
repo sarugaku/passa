@@ -174,6 +174,7 @@ def resolve(root, write=False):
     if write:
         with io.open(lock_path, "w", encoding="utf-8", newline=lock_le) as f:
             project.lockfile.dump(f)
+            f.write("\n")
         print("Lock file written to", lock_path)
     else:
         print_title(" LOCK FILE ")
