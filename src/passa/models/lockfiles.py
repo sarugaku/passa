@@ -29,7 +29,7 @@ class _LockFileEncoder(json.JSONEncoder):
 
 
 def _guess_preferred_newlines(f):
-    if isinstance(f.newlines, six.text_type):
+    if isinstance(getattr(f, 'newlines', None), six.text_type):
         return f.newlines
     return DEFAULT_NEWLINES
 
