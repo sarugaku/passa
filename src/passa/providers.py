@@ -65,17 +65,16 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         try:
             dependencies = candidate.get_dependencies(sources=self.sources)
         except Exception as e:
-            raise
             print('failed to get dependencies for {0!r}: {1}'.format(
                 candidate.as_line(), e,
             ))
             return []
-        requirements = []
         ireq = candidate.as_ireq()
         if ireq.markers:
             markers = set(ireq.markers)
         else:
             markers = set()
+        requirements = []
         for d in dependencies:
             requirement = Requirement.from_line(d)
             ireq = requirement.as_ireq()
