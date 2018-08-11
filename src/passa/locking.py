@@ -1,9 +1,6 @@
 import contextlib
-import itertools
 
-from plette import Lockfile
 from plette.models import Hash
-from requirementslib import Requirement
 from requirementslib._compat import VcsSupport, Wheel
 from resolvelib import Resolver
 
@@ -41,7 +38,7 @@ def _allow_all_wheels():
     Wheel.support_index_min = original_support_index_min
 
 
-def _get_hash(cache, req):
+def _get_hashes(cache, req):
     ireq = req.as_ireq()
     if ireq.editable or not ireq.is_pinned:
         return set()
@@ -100,44 +97,40 @@ def _trace(graph):
     return result
 
 
-def _is_derived_from(k, traces, packages):
-    return k in packages or any(r[0] in packages for r in traces[k])
+def lock(requirements):
+    """Lock specified (abstract) requirements into (concrete) candidates.
 
+    The locking procedure consists of four stages:
 
-def lock(pipfile):
-    # This comprehension dance ensures we merge packages from both sections,
-    # and definitions in the default section win.
-    requirements = {
-        name: Requirement.from_pipfile(name, package._data)
-        for name, package in itertools.chain(
-            pipfile.dev_packages.items(), pipfile.packages.items(),
-        )
-    }.values()
-
+    * Resolve versions and dependency graph (powered by ResolveLib).
+    * Walk the graph to determine "why" each candidate came to be, i.e. what
+      top-level requirements result in a given candidate.
+    * Populate hashes for resolved candidates.
+    * Populate markers based on dependency specifications of each candidate,
+      and the dependency graph.
+    """
     provider = RequirementsLibProvider(requirements)
     reporter = StdOutReporter(requirements)
     resolver = Resolver(provider, reporter)
 
     state = resolver.resolve(requirements)
-
     traces = _trace(state.graph)
-    default = {
-        k: v for k, v in state.mapping.items()
-        if _is_derived_from(k, traces, pipfile.packages)
-    }
-    develop = {
-        k: v for k, v in state.mapping.items()
-        if _is_derived_from(k, traces, pipfile.dev_packages)
-    }
 
     hash_cache = HashCache()
-    hashes = {k: _get_hash(hash_cache, v) for k, v in state.mapping.items()}
-    for mapping in [default, develop]:
-        for k, v in mapping.items():
-            v.hashes = [Hash.from_line(v) for v in hashes.get(k, [])]
+    for r in state.mapping.values():
+        r.hashes = [Hash.from_line(h) for h in _get_hashes(hash_cache, r)]
 
-    lockfile = Lockfile.with_meta_from(pipfile)
-    lockfile["default"] = {k: v.as_pipfile()[k] for k, v in default.items()}
-    lockfile["develop"] = {k: v.as_pipfile()[k] for k, v in develop.items()}
+    # TODO: Add markers.
+    # THIS DOES NOT WORK YET. I think we need to expose more from resolvelib
+    # to make the trace possible here. Need to find a good way to expose those
+    # criteria information.
+    # import packaging.markers
+    # if ireq.markers and ireq.match_markers():
+    #     markers = markers.add(ireq.markers)
+    #     markers = packaging.markers.Marker(
+    #         " or ".join(str(m) for m in markers),
+    #     )
+    #     ireq.req.markers = markers
+    #     requirement = Requirement.from_ireq(ireq)
 
-    return lockfile
+    return state, traces
