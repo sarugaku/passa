@@ -1,10 +1,13 @@
 import contextlib
+import itertools
 
+from plette import Lockfile
+from plette.models import Hash
+from requirementslib import Requirement
 from requirementslib._compat import VcsSupport, Wheel
 from resolvelib import Resolver
 
 from .caches import HashCache
-from .models import Hash, Lockfile
 from .providers import RequirementsLibProvider
 from .reporters import StdOutReporter
 
@@ -101,13 +104,15 @@ def _is_derived_from(k, traces, packages):
     return k in packages or any(r[0] in packages for r in traces[k])
 
 
-PIPFILE_SPEC_CURRENT = 6
-
-
 def lock(pipfile):
-    package_mapping = pipfile.dev_packages.copy()
-    package_mapping.update(pipfile.packages)
-    requirements = package_mapping.values()
+    # This comprehension dance ensures we merge packages from both sections,
+    # and definitions in the default section win.
+    requirements = {
+        name: Requirement.from_pipfile(name, package._data)
+        for name, package in itertools.chain(
+            pipfile.dev_packages.items(), pipfile.packages.items(),
+        )
+    }.values()
 
     provider = RequirementsLibProvider(requirements)
     reporter = StdOutReporter(requirements)
@@ -129,13 +134,10 @@ def lock(pipfile):
     hashes = {k: _get_hash(hash_cache, v) for k, v in state.mapping.items()}
     for mapping in [default, develop]:
         for k, v in mapping.items():
-            v.hashes = [Hash.parse(v) for v in hashes.get(k, [])]
+            v.hashes = [Hash.from_line(v) for v in hashes.get(k, [])]
 
-    return Lockfile(
-        pipfile_spec=PIPFILE_SPEC_CURRENT,
-        pipfile_hash=pipfile.get_hash(),
-        requires=pipfile.requires.copy(),
-        sources=pipfile.sources.copy(),
-        default=default,
-        develop=develop,
-    )
+    lockfile = Lockfile.with_meta_from(pipfile)
+    lockfile["default"] = {k: v.as_pipfile()[k] for k, v in default.items()}
+    lockfile["develop"] = {k: v.as_pipfile()[k] for k, v in develop.items()}
+
+    return lockfile

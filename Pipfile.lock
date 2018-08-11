@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6afe70bd23fd807fdcd04a91fbc44aa01d89353a8d44ef8d61ba39011af17ca7"
+            "sha256": "aa867310a179d97b00f48cbc82d856f47670e506ee77926c826aa135d17132e2"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -86,7 +86,6 @@
                 "sha256:2c85c1666649e92e56de17c00e1e831313602d9b55e8661d39c01e39003b45f7",
                 "sha256:cc3dad264e36ed359fdd67c4588959d2996bd0402ad9c9d974ca906821537218"
             ],
-            "markers": "python_version >= '3.7'",
             "version": "==2.0.0"
         },
         "packaging": {
@@ -99,6 +98,10 @@
         "passa": {
             "editable": true,
             "path": "."
+        },
+        "plette": {
+            "editable": true,
+            "path": "./../plette"
         },
         "prettytoml": {
             "hashes": [
