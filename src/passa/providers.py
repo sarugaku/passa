@@ -2,12 +2,8 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import operator
-
-import packaging.markers
+import requirementslib
 import resolvelib
-
-from requirementslib import Requirement
 
 
 class RequirementsLibProvider(resolvelib.AbstractProvider):
@@ -33,16 +29,16 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         if name in self.non_named_requirements:
             # TODO: Need to lock ref for VCS requirements here.
             return [self.non_named_requirements[name]]
-        ireq = requirement.as_ireq()
-        markers = ireq.markers
-        extras = ireq.extras
-        candidates = sorted(
-            requirement.find_all_matches(sources=self.sources),
-            key=operator.attrgetter('version'),
-        )
+
+        # Markers are intentionally dropped at this step. They will be added
+        # back after resolution is done, so we can perform marker aggregation.
+        extras = requirement.as_ireq().extras
+        candidates = requirement.find_all_matches(sources=self.sources)
         return [
-            Requirement.from_metadata(name, c.version, extras, markers)
-            for c in candidates
+            requirementslib.Requirement.from_metadata(
+                name, version, extras, None,
+            )
+            for version in sorted(c.version for c in candidates)
         ]
 
     def is_satisfied_by(self, requirement, candidate):
@@ -70,21 +66,8 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
                 candidate.as_line(), e,
             ))
             return []
-        ireq = candidate.as_ireq()
-        if ireq.markers:
-            markers = set(ireq.markers)
-        else:
-            markers = set()
-        requirements = []
-        for d in dependencies:
-            requirement = Requirement.from_line(d)
-            ireq = requirement.as_ireq()
-            if ireq.markers and ireq.match_markers():
-                markers = markers.add(ireq.markers)
-                markers = packaging.markers.Marker(
-                    " or ".join(str(m) for m in markers),
-                )
-                ireq.req.markers = markers
-                requirement = Requirement.from_ireq(ireq)
-            requirements.append(requirement)
+        requirements = [
+            requirementslib.Requirement.from_line(d)
+            for d in dependencies
+        ]
         return requirements
