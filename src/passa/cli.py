@@ -32,9 +32,10 @@ def parse_arguments(argv):
         type=os.path.abspath,
     )
     parser.add_argument(
-        "--write",
-        action="store_true",
-        default=False,
+        "--output",
+        choices=["write", "print", "none"],
+        default="print",
+        help="How to output the lockfile",
     )
     parser.add_argument(
         "--ignore-hashes",
@@ -139,7 +140,7 @@ def preferred_newlines(f):
     return DEFAULT_NEWLINES
 
 
-def resolve(root, write=False):
+def build_project(root):
     with io.open(os.path.join(root, "Pipfile"), encoding="utf-8") as f:
         pipfile = Pipfile.load(f)
 
@@ -152,8 +153,11 @@ def resolve(root, write=False):
         lockfile = None
         lock_le = DEFAULT_NEWLINES
 
-    project = Project(pipfile=pipfile, lockfile=lockfile)
+    return Project(pipfile=pipfile, lockfile=lockfile), lock_le
 
+
+def resolve(root, output):
+    project, lock_le = build_project(root)
     try:
         project.lock()
     except NoVersionsAvailable as e:
@@ -171,15 +175,16 @@ def resolve(root, write=False):
             print_requirement(r)
         return
 
-    if write:
+    if output == "write":
+        lock_path = os.path.join(root, "Pipfile.lock")
         with io.open(lock_path, "w", encoding="utf-8", newline=lock_le) as f:
             project.lockfile.dump(f)
             f.write("\n")
         print("Lock file written to", lock_path)
-    else:
+    elif output == "print":
         print_title(" LOCK FILE ")
         strio = six.StringIO()
-        lockfile.dump(strio)
+        project.lockfile.dump(strio)
         print(strio.getvalue())
 
 
@@ -187,7 +192,7 @@ def cli(argv=None):
     options = parse_arguments(argv)
     with temp_environ(), temp_cd(options.project_root):
         # setup_pip(options)
-        resolve(options.project_root, write=options.write)
+        resolve(options.project_root, output=options.output)
 
 
 if __name__ == "__main__":

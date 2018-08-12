@@ -4,6 +4,8 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import resolvelib
 
+from .traces import trace_graph
+
 
 def print_title(text):
     print('\n{:=^84}\n'.format(text))
@@ -68,4 +70,19 @@ class StdOutReporter(resolvelib.BaseReporter):
             print('Changed pins:')
             for k in changed:
                 print_dependency(state, k)
+        print()
+
+    def ending(self, state):
+        print_title(" STABLE PINS ")
+        path_lists = trace_graph(state.graph)
+        for k in sorted(state.mapping):
+            print(state.mapping[k].as_line())
+            paths = path_lists[k]
+            if not paths:
+                print('  User requirement')
+            for path in paths:
+                print('   ', end='')
+                for v in reversed(path):
+                    print(' <=', state.mapping[v].as_line(), end='')
+                print()
         print()
