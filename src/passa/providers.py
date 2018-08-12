@@ -13,7 +13,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         self.sources = None
         self.invalid_candidates = set()
         self.non_named_requirements = {
-            requirement.name: requirement
+            self.identify(requirement): requirement
             for requirement in root_requirements
             if not requirement.is_named
         }
@@ -28,13 +28,14 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         return len(candidates)
 
     def find_matches(self, requirement):
-        name = requirement.normalized_name
-        if name in self.non_named_requirements:
+        identifier = self.identify(requirement)
+        if identifier in self.non_named_requirements:
             # TODO: Need to lock ref for VCS requirements here.
-            return [self.non_named_requirements[name]]
+            return [self.non_named_requirements[identifier]]
 
         # Markers are intentionally dropped at this step. They will be added
         # back after resolution is done, so we can perform marker aggregation.
+        name = requirement.name
         extras = requirement.as_ireq().extras
         candidates = requirement.find_all_matches(sources=self.sources)
         return [
@@ -45,11 +46,18 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         ]
 
     def is_satisfied_by(self, requirement, candidate):
-        name = requirement.normalized_name
-        if name in self.non_named_requirements:
-            return self.non_named_requirements[name] == requirement
-        if not requirement.specifiers:  # Short circuit for speed.
+        # A non-named requirement has exactly one candidate, as implemented in
+        # `find_matches()`. It must match.
+        if self.identify(requirement) in self.non_named_requirements:
             return True
+
+        # Optimization: Everything matches if there are no specifiers.
+        if not requirement.specifiers:
+            return True
+
+        # We can't handle old version strings before PEP 440. Drop them all.
+        # Practically this shouldn't be a problem if the user is specifying a
+        # remotely reasonable dependency not from before 2013.
         candidate_line = candidate.as_line()
         if candidate_line in self.invalid_candidates:
             return False
@@ -59,6 +67,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             print('ignoring invalid version {}'.format(candidate_line))
             self.invalid_candidates.add(candidate_line)
             return False
+
         return requirement.as_ireq().specifier.contains(version)
 
     def get_dependencies(self, candidate):
