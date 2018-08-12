@@ -1,6 +1,5 @@
 import contextlib
 
-from plette.models import Hash
 from requirementslib._compat import VcsSupport, Wheel
 from resolvelib import Resolver
 
@@ -118,7 +117,7 @@ def lock(requirements):
 
     hash_cache = HashCache()
     for r in state.mapping.values():
-        r.hashes = [Hash.from_line(h) for h in _get_hashes(hash_cache, r)]
+        r.hashes = _get_hashes(hash_cache, r)
 
     # TODO: Add markers.
     # THIS DOES NOT WORK YET. I think we need to expose more from resolvelib
