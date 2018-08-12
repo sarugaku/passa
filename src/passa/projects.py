@@ -5,10 +5,17 @@ import plette
 import requirementslib
 
 from .locking import lock
+from .utils import identify_requirment
 
 
-def _is_derived_from(k, traces, packages):
-    return k in packages or any(r[0] in packages for r in traces[k])
+def _get_derived_requirement_data(state, traces, names):
+    if not names:
+        return {}
+    return {
+        v.normalized_name: next(iter(v.as_pipfile().values()))
+        for k, v in state.mapping.items()
+        if k in names or any(r[0] in names for r in traces[k])
+    }
 
 
 @attr.s
@@ -27,30 +34,35 @@ class Project(object):
         )
 
     def lock(self):
+        try:
+            default_reqs = [
+                requirementslib.Requirement.from_pipfile(name, package._data)
+                for name, package in self.pipfile["packages"].items()
+            ]
+        except KeyError:
+            default_reqs = []
+        try:
+            develop_reqs = [
+                requirementslib.Requirement.from_pipfile(name, package._data)
+                for name, package in self.pipfile["dev-packages"].items()
+            ]
+        except KeyError:
+            develop_reqs = []
+
         # This comprehension dance ensures we merge packages from both
         # sections, and definitions in the default section win.
-        # TODO: Treat the same key with different extras as distinct.
         requirements = {
-            name: requirementslib.Requirement.from_pipfile(name, package._data)
-            for name, package in itertools.chain(
-                self.pipfile.dev_packages.items(),
-                self.pipfile.packages.items(),
-            )
+            identify_requirment(r): r
+            for r in itertools.chain(develop_reqs, default_reqs)
         }.values()
 
         state, traces = lock(requirements)
 
-        # TODO: Consider extras when grouping.
-        default = {
-            k: v for k, v in state.mapping.items()
-            if _is_derived_from(k, traces, self.pipfile.packages)
-        }
-        develop = {
-            k: v for k, v in state.mapping.items()
-            if _is_derived_from(k, traces, self.pipfile.dev_packages)
-        }
-
         locked = plette.Lockfile.with_meta_from(self.pipfile)
-        locked["default"] = {k: v.as_pipfile()[k] for k, v in default.items()}
-        locked["develop"] = {k: v.as_pipfile()[k] for k, v in develop.items()}
+        locked["default"] = _get_derived_requirement_data(
+            state, traces, set(identify_requirment(r) for r in default_reqs),
+        )
+        locked["develop"] = _get_derived_requirement_data(
+            state, traces, set(identify_requirment(r) for r in develop_reqs),
+        )
         self.lockfile = locked

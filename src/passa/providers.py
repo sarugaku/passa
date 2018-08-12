@@ -7,6 +7,8 @@ import os
 import requirementslib
 import resolvelib
 
+from .utils import identify_requirment
+
 
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
@@ -21,10 +23,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         }
 
     def identify(self, dependency):
-        return "{0}{1}".format(
-            dependency.normalized_name,
-            dependency.extras_as_pip,
-        )
+        return identify_requirment(dependency)
 
     def get_preference(self, resolution, candidates, information):
         return len(candidates)
