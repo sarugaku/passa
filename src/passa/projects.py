@@ -29,6 +29,7 @@ class Project(object):
     def lock(self):
         # This comprehension dance ensures we merge packages from both
         # sections, and definitions in the default section win.
+        # TODO: Treat the same key with different extras as distinct.
         requirements = {
             name: requirementslib.Requirement.from_pipfile(name, package._data)
             for name, package in itertools.chain(
@@ -39,6 +40,7 @@ class Project(object):
 
         state, traces = lock(requirements)
 
+        # TODO: Consider extras when grouping.
         default = {
             k: v for k, v in state.mapping.items()
             if _is_derived_from(k, traces, self.pipfile.packages)
