@@ -19,7 +19,10 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         }
 
     def identify(self, dependency):
-        return dependency.normalized_name
+        return "{0}{1}".format(
+            dependency.normalized_name,
+            dependency.extras_as_pip,
+        )
 
     def get_preference(self, resolution, candidates, information):
         return len(candidates)
