@@ -35,7 +35,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
 
         # Markers are intentionally dropped at this step. They will be added
         # back after resolution is done, so we can perform marker aggregation.
-        name = requirement.name
+        name = requirement.normalized_name
         extras = requirement.as_ireq().extras
         candidates = requirement.find_all_matches(sources=self.sources)
         return [
