@@ -1,6 +1,6 @@
 [packages]
 passa = { editable = true, path = '.' }
-plette = { editable = true, path = './../plette' }
+plette = { editable = true, path = './../plette', extras = ['validation'] }
 requirementslib = { editable = true, path = './../requirementslib' }
 
 [dev-packages]
