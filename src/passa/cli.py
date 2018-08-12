@@ -156,8 +156,8 @@ def build_project(root):
     return Project(pipfile=pipfile, lockfile=lockfile), lock_le
 
 
-def resolve(root, output):
-    project, lock_le = build_project(root)
+def resolve(options):
+    project, lock_le = build_project(options.project_root)
     try:
         project.lock()
     except NoVersionsAvailable as e:
@@ -175,13 +175,13 @@ def resolve(root, output):
             print_requirement(r)
         return
 
-    if output == "write":
-        lock_path = os.path.join(root, "Pipfile.lock")
+    if options.output == "write":
+        lock_path = os.path.join(options.project_root, "Pipfile.lock")
         with io.open(lock_path, "w", encoding="utf-8", newline=lock_le) as f:
             project.lockfile.dump(f)
             f.write("\n")
         print("Lock file written to", lock_path)
-    elif output == "print":
+    elif options.output == "print":
         print_title(" LOCK FILE ")
         strio = six.StringIO()
         project.lockfile.dump(strio)
@@ -192,7 +192,7 @@ def cli(argv=None):
     options = parse_arguments(argv)
     with temp_environ(), temp_cd(options.project_root):
         # setup_pip(options)
-        resolve(options.project_root, output=options.output)
+        resolve(options)
 
 
 if __name__ == "__main__":
