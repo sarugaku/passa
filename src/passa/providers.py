@@ -2,6 +2,8 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+import os
+
 import requirementslib
 import resolvelib
 
@@ -74,6 +76,8 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         try:
             dependencies = candidate.get_dependencies(sources=self.sources)
         except Exception as e:
+            if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                raise
             print('failed to get dependencies for {0!r}: {1}'.format(
                 candidate.as_line(), e,
             ))
