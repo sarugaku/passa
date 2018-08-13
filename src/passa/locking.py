@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import itertools
 
 from pip_shims import Wheel
@@ -57,6 +58,64 @@ def _get_hashes(cache, req):
     }
 
 
+def _markerset(*markers):
+    return frozenset(markers)
+
+
+def _add_markersets(specs, key, trace, all_markersets):
+    markersets = set()
+    for route in trace:
+        parent = route[-1]
+        try:
+            parent_markersets = all_markersets[parent]
+        except KeyError:    # Parent not calculated yet. Wait for it.
+            return False
+        r = specs[parent][key]
+        if r.markers:
+            markerset = _markerset(r.markers)
+        else:
+            markerset = _markerset()
+        markersets.update({
+            parent_markerset | markerset
+            for parent_markerset in parent_markersets
+        })
+    try:
+        current_markersets = all_markersets[key]
+    except KeyError:
+        all_markersets[key] = markersets
+    else:
+        all_markersets[key] = current_markersets | markersets
+    return True
+
+
+def _calculate_markersets_mapping(specs, requirements, state, traces):
+    all_markersets = {}
+
+    # Populate markers from Pipfile.
+    for r in requirements:
+        if r.markers:
+            markerset = _markerset(r.markers)
+        else:
+            markerset = _markerset()
+        all_markersets[identify_requirment(r)] = {markerset}
+
+    traces = copy.deepcopy(traces)
+    del traces[None]
+    while traces:
+        successful_keys = set()
+        for key, trace in traces.items():
+            ok = _add_markersets(specs, key, trace, all_markersets)
+            if not ok:
+                continue
+            successful_keys.add(key)
+        if not successful_keys:
+            break   # No progress? Deadlocked. Give up.
+        for key in successful_keys:
+            del traces[key]
+
+    return all_markersets
+
+
 def resolve_requirements(requirements):
     """Lock specified (abstract) requirements into (concrete) candidates.
 
@@ -80,18 +139,20 @@ def resolve_requirements(requirements):
     for r in state.mapping.values():
         r.hashes = _get_hashes(hash_cache, r)
 
-    # TODO: Add markers.
-    # THIS DOES NOT WORK YET. I think we need to expose more from resolvelib
-    # to make the trace possible here. Need to find a good way to expose those
-    # criteria information.
-    # import packaging.markers
-    # if ireq.markers and ireq.match_markers():
-    #     markers = markers.add(ireq.markers)
-    #     markers = packaging.markers.Marker(
-    #         " or ".join(str(m) for m in markers),
-    #     )
-    #     ireq.req.markers = markers
-    #     requirement = Requirement.from_ireq(ireq)
+    markersets_mapping = _calculate_markersets_mapping(
+        provider.fetched_dependencies, requirements, state, traces,
+    )
+    print('RESULT', markersets_mapping)
+    # for k, r in state.mapping.items():
+    #     markers = [
+    #         " and ".join("({0})".format(p) for p in route if p)
+    #         for routes in marker_routes[k]
+    #         for route in routes
+    #     ]
+    #     if any(not m for m in markers):
+    #         # Needs to be unconditional if there is an unconditional route.
+    #         pass
+    #     r.markers =
 
     return state, traces
 

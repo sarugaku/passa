@@ -22,6 +22,13 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             if not requirement.is_named
         }
 
+        # Remember dependencies of each pinned candidate. The resolver calls
+        # `get_dependencies()` only when it wants to repin, so the last time
+        # the dependencies we got when it is last called on a package, are
+        # the set used by the resolver. We use this later to trace how a given
+        # dependency is specified by a package.
+        self.fetched_dependencies = {}
+
     def identify(self, dependency):
         return identify_requirment(dependency)
 
@@ -85,4 +92,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             requirementslib.Requirement.from_line(d)
             for d in dependencies
         ]
+        self.fetched_dependencies[self.identify(candidate)] = {
+            self.identify(r): r for r in requirements
+        }
         return requirements
