@@ -11,24 +11,24 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import argparse
+import io
 import os
 
 import six
 
+from plette import Lockfile, Pipfile
 from requirementslib.utils import temp_cd, temp_environ, fs_str
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
 from .caches import CACHE_DIR
-from .locking import lock
-from .models import Pipfile
+from .projects import Project
 from .reporters import print_title, print_requirement
-from .utils import atomic_binary_open_for_write
 
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "project",
+        "project_root",
         type=os.path.abspath,
     )
     parser.add_argument(
@@ -130,12 +130,32 @@ def setup_pip(options):
         os.environ["PIP_EXISTS_ACTION"] = fs_str("i")
 
 
-def resolve(project, write=False):
-    with open(os.path.join(project, "Pipfile")) as f:
+DEFAULT_NEWLINES = "\n"
+
+
+def preferred_newlines(f):
+    if isinstance(f.newlines, six.text_type):
+        return f.newlines
+    return DEFAULT_NEWLINES
+
+
+def resolve(root, write=False):
+    with io.open(os.path.join(root, "Pipfile"), encoding="utf-8") as f:
         pipfile = Pipfile.load(f)
 
+    lock_path = os.path.join(root, "Pipfile.lock")
+    if os.path.exists(lock_path):
+        with io.open(lock_path, encoding="utf-8") as f:
+            lockfile = Lockfile.load(f)
+            lock_le = preferred_newlines(f)
+    else:
+        lockfile = None
+        lock_le = DEFAULT_NEWLINES
+
+    project = Project(pipfile=pipfile, lockfile=lockfile)
+
     try:
-        lockfile = lock(pipfile)
+        project.lock()
     except NoVersionsAvailable as e:
         print("\nCANNOT RESOLVE. NO CANDIDATES FOUND FOR:")
         print("{:>40}".format(e.requirement.as_line(include_hashes=False)))
@@ -152,10 +172,10 @@ def resolve(project, write=False):
         return
 
     if write:
-        path = os.path.join(project, "Pipfile.lock")
-        with atomic_binary_open_for_write(path) as f:
-            lockfile.dump(f, encoding="utf-8")
-        print("Lock file written to", path)
+        with io.open(lock_path, "w", encoding="utf-8", newline=lock_le) as f:
+            project.lockfile.dump(f)
+            f.write("\n")
+        print("Lock file written to", lock_path)
     else:
         print_title(" LOCK FILE ")
         strio = six.StringIO()
@@ -165,9 +185,9 @@ def resolve(project, write=False):
 
 def cli(argv=None):
     options = parse_arguments(argv)
-    with temp_environ(), temp_cd(options.project or os.getcwd()):
+    with temp_environ(), temp_cd(options.project_root):
         # setup_pip(options)
-        resolve(options.project, write=options.write)
+        resolve(options.project_root, write=options.write)
 
 
 if __name__ == "__main__":
