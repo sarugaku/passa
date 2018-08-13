@@ -11,6 +11,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import argparse
+import collections
 import io
 import os
 
@@ -21,7 +22,7 @@ from requirementslib.utils import temp_cd, temp_environ, fs_str
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
 from .caches import CACHE_DIR
-from .projects import Project
+from .locking import build_lockfile
 from .reporters import print_title, print_requirement
 
 
@@ -140,26 +141,39 @@ def preferred_newlines(f):
     return DEFAULT_NEWLINES
 
 
-def build_project(root):
-    with io.open(os.path.join(root, "Pipfile"), encoding="utf-8") as f:
-        pipfile = Pipfile.load(f)
+FileModel = collections.namedtuple("FileModel", "model location newline")
 
-    lock_path = os.path.join(root, "Pipfile.lock")
-    if os.path.exists(lock_path):
-        with io.open(lock_path, encoding="utf-8") as f:
+Project = collections.namedtuple("Project", "pipfile lockfile")
+
+
+def build_project(root):
+    pipfile_location = os.path.join(root, "Pipfile")
+    with io.open(pipfile_location, encoding="utf-8") as f:
+        pipfile = Pipfile.load(f)
+        pipfile_le = preferred_newlines(f)
+
+    lockfile_location = os.path.join(root, "Pipfile.lock")
+    if os.path.exists(lockfile_location):
+        with io.open(lockfile_location, encoding="utf-8") as f:
             lockfile = Lockfile.load(f)
-            lock_le = preferred_newlines(f)
+            lockfile_le = preferred_newlines(f)
     else:
         lockfile = None
-        lock_le = DEFAULT_NEWLINES
+        lockfile_le = DEFAULT_NEWLINES
 
-    return Project(pipfile=pipfile, lockfile=lockfile), lock_le
+    return Project(
+        pipfile=FileModel(pipfile, pipfile_location, pipfile_le),
+        lockfile=FileModel(lockfile, lockfile_location, lockfile_le),
+    )
 
 
-def resolve(options):
-    project, lock_le = build_project(options.project_root)
+class BuildFailure(Exception):
+    pass
+
+
+def build_new_lockfile(project):
     try:
-        project.lock()
+        lockfile = build_lockfile(project.pipfile.model)
     except NoVersionsAvailable as e:
         print("\nCANNOT RESOLVE. NO CANDIDATES FOUND FOR:")
         print("{:>40}".format(e.requirement.as_line(include_hashes=False)))
@@ -168,32 +182,54 @@ def resolve(options):
             print("{:>41}".format("(from {})".format(line)))
         else:
             print("{:>41}".format("(user)"))
-        return
+        raise BuildFailure
     except ResolutionImpossible as e:
         print("\nCANNOT RESOLVE.\nOFFENDING REQUIREMENTS:")
         for r in e.requirements:
             print_requirement(r)
+        raise BuildFailure
+    return lockfile
+
+
+def write_lockfile(project):
+    location = project.lockfile.location
+    newline = project.lockfile.newline
+    with io.open(location, "w", encoding="utf-8", newline=newline) as f:
+        project.lockfile.model.dump(f)
+        f.write("\n")
+    print("Lock file written to", location)
+
+
+def print_lockfile(project):
+    print_title(" LOCK FILE ")
+    strio = six.StringIO()
+    project.lockfile.model.dump(strio)
+    print(strio.getvalue())
+
+
+def parsed_main(options):
+    project = build_project(options.project_root)
+
+    try:
+        lockfile = build_new_lockfile(project)
+    except BuildFailure:
         return
+    project = project._replace(
+        lockfile=project.lockfile._replace(model=lockfile),
+    )
 
     if options.output == "write":
-        lock_path = os.path.join(options.project_root, "Pipfile.lock")
-        with io.open(lock_path, "w", encoding="utf-8", newline=lock_le) as f:
-            project.lockfile.dump(f)
-            f.write("\n")
-        print("Lock file written to", lock_path)
-    elif options.output == "print":
-        print_title(" LOCK FILE ")
-        strio = six.StringIO()
-        project.lockfile.dump(strio)
-        print(strio.getvalue())
+        write_lockfile(project)
+    if options.output == "print":
+        print_lockfile(project)
 
 
-def cli(argv=None):
+def main(argv=None):
     options = parse_arguments(argv)
     with temp_environ(), temp_cd(options.project_root):
         # setup_pip(options)
-        resolve(options)
+        parsed_main(options)
 
 
 if __name__ == "__main__":
-    cli()
+    main()
