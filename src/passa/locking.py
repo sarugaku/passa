@@ -1,6 +1,6 @@
 import contextlib
 
-from requirementslib._compat import VcsSupport, Wheel
+from pip_shims import VcsSupport, Wheel
 from resolvelib import Resolver
 
 from .caches import HashCache

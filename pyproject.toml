@@ -34,8 +34,3 @@ template = 'tasks/CHANGELOG.rst.jinja2'
   directory = "docs"
   name = "Improved Documentation"
   showcontent = true
-
-  [[tool.towncrier.type]]
-  directory = "removal"
-  name = "Removals and Deprecations"
-  showcontent = true
