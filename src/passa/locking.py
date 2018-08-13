@@ -1,7 +1,7 @@
 import contextlib
 import itertools
 
-from pip_shims import VcsSupport, Wheel
+from pip_shims import Wheel
 from plette import Lockfile
 from requirementslib import Requirement
 from resolvelib import Resolver
@@ -44,13 +44,7 @@ def _allow_all_wheels():
 
 def _get_hashes(cache, req):
     ireq = req.as_ireq()
-    if ireq.editable or not ireq.is_pinned:
-        return set()
-
-    vcs = VcsSupport()
-    if (ireq.link and
-            ireq.link.scheme in vcs.all_schemes and
-            'ssh' in ireq.link.scheme):
+    if req.is_vcs or ireq.editable or not ireq.is_pinned:
         return set()
 
     matching_candidates = set()
