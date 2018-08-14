@@ -7,6 +7,7 @@ requirementslib = { editable = true, path = './../requirementslib' }
 black = '*'
 invoke = '*'
 parver = '*'
+pytest = '*'
 towncrier = '*'
 wheel = '*'
 sphinx = '*'
