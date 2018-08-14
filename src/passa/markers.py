@@ -6,6 +6,13 @@ from .utils import identify_requirment
 
 
 def _strip_extra(elements):
+    """Remove the "extra == ..." operands from the list.
+
+    This is not a comprehensive implementation, but relies on an important
+    characteristic of metadata generation: The "extra == ..." operand is always
+    associated with an "and" operator. This means that we can simply remove the
+    operand and the "and" operator associated with it.
+    """
     extra_indexes = []
     for i, element in enumerate(elements):
         if isinstance(element, list):
@@ -16,14 +23,14 @@ def _strip_extra(elements):
             extra_indexes.append(i)
     for i in reversed(extra_indexes):
         del elements[i]
-        if i > 0:
-            # If this is not the beginning of the expression, remove the
-            # operator before it.
+        if i > 0 and elements[i - 1] == "and":
+            # Remove the "and" before it.
             del elements[i - 1]
-        elif i < len(elements):
-            # Otherwise remove the operator after it, if there is one. Note
-            # that this is [i] because the array has been shifted.
-            del elements[i]
+        elif elements:
+            # This shouldn't ever happen, but is included for completeness.
+            # If there is not an "and" before this element, try to remove the
+            # operator after it.
+            del elements[0]
     return (not elements)
 
 
