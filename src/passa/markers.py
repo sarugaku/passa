@@ -9,13 +9,22 @@ def _strip_extra(elements):
     extra_indexes = []
     for i, element in enumerate(elements):
         if isinstance(element, list):
-            _strip_extra(element)
+            cancelled = _strip_extra(element)
+            if cancelled:
+                extra_indexes.append(i)
         elif isinstance(element, tuple) and element[0].value == "extra":
             extra_indexes.append(i)
     for i in reversed(extra_indexes):
         del elements[i]
         if i > 0:
+            # If this is not the beginning of the expression, remove the
+            # operator before it.
             del elements[i - 1]
+        elif i < len(elements):
+            # Otherwise remove the operator after it, if there is one. Note
+            # that this is [i] because the array has been shifted.
+            del elements[i]
+    return (not elements)
 
 
 def get_without_extra(marker):
