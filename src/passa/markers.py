@@ -146,6 +146,26 @@ def set_markers(candidates, traces, requirements, dependencies):
         ) for markerset in markersets)))
 
 
+def _markers_collect_extras(markers, collection):
+    # Optimization: the marker element is usually appended at the end.
+    for el in reversed(markers):
+        if (isinstance(el, tuple) and
+                el[0].value == "extra" and
+                el[1].value == "=="):
+            collection.add(el[2])
+        elif isinstance(el, list):
+            _markers_collect_extras(el, collection)
+
+
+def get_contained_extras(marker):
+    """Collect "extra == ..." operands from a marker.
+    """
+    marker = Marker(str(marker))
+    extras = set()
+    _markers_collect_extras(marker._markers, extras)
+    return extras
+
+
 def _markers_contains_extra(markers):
     # Optimization: the marker element is usually appended at the end.
     for element in reversed(markers):
@@ -158,7 +178,7 @@ def _markers_contains_extra(markers):
 
 
 def contains_extra(marker):
-    """Check whehter a marker contains an "marker == ..." operand.
+    """Check whehter a marker contains an "extra == ..." operand.
     """
     marker = Marker(str(marker))
     return _markers_contains_extra(marker._markers)

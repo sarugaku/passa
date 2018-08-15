@@ -58,7 +58,6 @@ def _get_dependencies_from_cache(ireq):
     return cached
 
 
-@_cache_on_return
 def _get_dependencies_from_json(ireq, sources):
     """Retrieves dependencies for the given install requirement from the json api.
 
@@ -127,7 +126,7 @@ def get_dependencies(requirement, sources):
     getters = [
         _get_dependencies_from_cache,
         _cached(_get_dependencies_from_json, sources=sources),
-        _cached(_get_dependencies_from_pip, sources=sources)),
+        _cached(_get_dependencies_from_pip, sources=sources),
     ]
     ireq = requirement.as_ireq()
     for getter in getters:
