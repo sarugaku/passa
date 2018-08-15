@@ -127,6 +127,7 @@ def _read_requirements(wheel_path, extras):
     something like `extra == "foo" and extra == "bar"`. I guess this never
     makes sense anyway? Markers are just terrible.
     """
+    extras = extras or ()
     wheel = distlib.wheel.Wheel(wheel_path)
     requirements = []
     for entry in wheel.metadata.run_requires:
@@ -140,8 +141,8 @@ def _read_requirements(wheel_path, extras):
         for line in entry.get("requires", []):
             r = requirementslib.Requirement.from_line(line)
             if r.markers:
-                contained_extras = get_contained_extras(r.markers)
-                if extras and not any(e in contained_extras for e in extras):
+                contained = get_contained_extras(r.markers)
+                if (contained and not any(e in contained for e in extras)):
                     continue
                 marker = get_without_extra(r.markers)
                 r.markers = str(marker) if marker else None
