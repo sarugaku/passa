@@ -1,6 +1,7 @@
 import importlib
 import os
 
+import distlib.wheel
 import packaging.version
 import pip_shims
 import six
@@ -142,4 +143,16 @@ def _get_dependencies_from_pip(ireq, sources):
     if not path or not os.path.exists(path):
         raise RuntimeError("failed to build wheel from {}".format(ireq))
 
-    print(path)
+    wheel = distlib.wheel.Wheel(path)
+
+    requirements = []
+    for entry in wheel.metadata.run_requires:
+        if isinstance(entry, six.text_type):
+            entry = {"requires": [entry]}
+            extra = None
+        else:
+            extra = entry.get("extra")
+        if extra is not None and extra not in ireq.extras:
+            continue
+        requirements.extend(entry["requires"])
+    return requirements

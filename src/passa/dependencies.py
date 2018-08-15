@@ -12,6 +12,18 @@ from .markers import contains_extra
 DEPENDENCY_CACHE = requirementslib.models.cache.DependencyCache()
 
 
+def _cached(f, **kwargs):
+
+    @functools.wraps(f)
+    def wrapped(ireq):
+        result = f(ireq, **kwargs)
+        if result is not None:
+            DEPENDENCY_CACHE[ireq] = result
+        return result
+
+    return wrapped
+
+
 def _get_dependencies_from_cache(ireq):
     """Retrieves dependencies for the requirement from the dependency cache.
     """
@@ -19,7 +31,7 @@ def _get_dependencies_from_cache(ireq):
         return
 
     try:
-        cached = set(DEPENDENCY_CACHE[ireq])
+        cached = DEPENDENCY_CACHE[ireq]
     except KeyError:
         return
 
@@ -46,6 +58,7 @@ def _get_dependencies_from_cache(ireq):
     return cached
 
 
+@_cache_on_return
 def _get_dependencies_from_json(ireq, sources):
     """Retrieves dependencies for the given install requirement from the json api.
 
@@ -99,9 +112,7 @@ def _get_dependencies_from_json(ireq, sources):
 
     if dependencies is None:
         return
-    if ireq not in DEPENDENCY_CACHE:
-        DEPENDENCY_CACHE[ireq] = dependencies
-    return set(dependencies)
+    return dependencies
 
 
 def get_dependencies(requirement, sources):
@@ -115,14 +126,14 @@ def get_dependencies(requirement, sources):
     """
     getters = [
         _get_dependencies_from_cache,
-        functools.partial(_get_dependencies_from_json, sources=sources),
-        functools.partial(_get_dependencies_from_pip, sources=sources),
+        _cached(_get_dependencies_from_json, sources=sources),
+        _cached(_get_dependencies_from_pip, sources=sources)),
     ]
     ireq = requirement.as_ireq()
     for getter in getters:
         deps = getter(ireq)
         if deps is not None:
-            return deps
+            return set(deps)
     raise RuntimeError('failed to get dependencies for {}'.format(
         requirement.as_line(),
     ))
