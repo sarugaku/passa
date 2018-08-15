@@ -108,9 +108,6 @@ def _get_dependencies_from_json(ireq, sources):
         except Exception:
             continue
         break
-
-    if dependencies is None:
-        return
     return dependencies
 
 
@@ -129,10 +126,15 @@ def get_dependencies(requirement, sources):
         _cached(_get_dependencies_from_pip, sources=sources),
     ]
     ireq = requirement.as_ireq()
+    errors = []
     for getter in getters:
-        deps = getter(ireq)
+        try:
+            deps = getter(ireq)
+        except Exception as e:
+            errors.append(str(e).strip())
+            continue
         if deps is not None:
             return set(deps)
-    raise RuntimeError('failed to get dependencies for {}'.format(
-        requirement.as_line(),
+    raise RuntimeError("failed to get dependencies for {}: {}".format(
+        requirement.as_line(), "\n".join(errors),
     ))
