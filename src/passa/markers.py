@@ -57,7 +57,7 @@ def _markerset(*markers):
     return frozenset(markers)
 
 
-def _add_markersets(specs, key, trace, all_markersets):
+def _add_markersets(candidates, key, trace, all_markersets):
     markersets = set()
     for route in trace:
         parent = route[-1]
@@ -65,7 +65,7 @@ def _add_markersets(specs, key, trace, all_markersets):
             parent_markersets = all_markersets[parent]
         except KeyError:    # Parent not calculated yet. Wait for it.
             return False
-        r = specs[parent][key]
+        r = candidates[parent][key]
         marker = get_without_extra(r.markers)
         if marker:
             markerset = _markerset(str(marker))
@@ -84,7 +84,7 @@ def _add_markersets(specs, key, trace, all_markersets):
     return True
 
 
-def calculate_markersets_mapping(specs, requirements, traces):
+def calculate_markersets_mapping(requirements, candidates, traces):
     all_markersets = {}
 
     # Populate markers from Pipfile.
@@ -100,7 +100,7 @@ def calculate_markersets_mapping(specs, requirements, traces):
     while traces:
         successful_keys = set()
         for key, trace in traces.items():
-            ok = _add_markersets(specs, key, trace, all_markersets)
+            ok = _add_markersets(candidates, key, trace, all_markersets)
             if not ok:
                 continue
             successful_keys.add(key)
