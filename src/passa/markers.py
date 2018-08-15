@@ -84,7 +84,7 @@ def _add_markersets(candidates, key, trace, all_markersets):
     return True
 
 
-def calculate_markersets_mapping(requirements, candidates, traces):
+def _calculate_markersets_mapping(requirements, candidates, traces):
     all_markersets = {}
 
     # Populate markers from Pipfile.
@@ -129,7 +129,7 @@ def set_markers(candidates, traces, requirements, dependencies):
 
     The candidates are modified in-place.
     """
-    markersets_mapping = calculate_markersets_mapping(
+    markersets_mapping = _calculate_markersets_mapping(
         requirements, dependencies, traces,
     )
     for key, candidate in candidates.items():
@@ -144,3 +144,21 @@ def set_markers(candidates, traces, requirements, dependencies):
         candidate.markers = str(Marker(" or ".join("({0})".format(
             " and ".join("({0})".format(marker) for marker in markerset)
         ) for markerset in markersets)))
+
+
+def _markers_contains_extra(markers):
+    # Optimization: the marker element is usually appended at the end.
+    for element in reversed(markers):
+        if isinstance(element, tuple) and element[0].value == "extra":
+            return True
+        elif isinstance(element, list):
+            if _markers_contains_extra(element):
+                return True
+    return False
+
+
+def contains_extra(marker):
+    """Check whehter a marker contains an "marker == ..." operand.
+    """
+    marker = Marker(str(marker))
+    return _markers_contains_extra(marker._markers)
