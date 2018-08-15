@@ -1,10 +1,12 @@
 import functools
+import sys
 
 import packaging.utils
 import packaging.version
 import requests
 import requirementslib.models.cache
 import requirementslib.models.utils
+import six
 
 from .dependencies_pip import _get_dependencies_from_pip
 from .markers import contains_extra
@@ -128,15 +130,17 @@ def get_dependencies(requirement, sources):
         _cached(_get_dependencies_from_pip, sources=sources),
     ]
     ireq = requirement.as_ireq()
-    errors = []
+    last_exc = None
     for getter in getters:
         try:
             deps = getter(ireq)
         except Exception as e:
-            errors.append(str(e).strip())
+            last_exc = sys.exc_info()
             continue
         if deps is not None:
             return set(deps)
-    raise RuntimeError("failed to get dependencies for {}: {}".format(
-        requirement.as_line(), "\n".join(errors),
+    if last_exc:
+        six.reraise(*last_exc)
+    raise RuntimeError("failed to get dependencies for {}".format(
+        requirement.as_line(),
     ))
