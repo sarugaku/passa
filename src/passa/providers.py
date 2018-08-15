@@ -7,6 +7,7 @@ import os
 import requirementslib
 import resolvelib
 
+from .dependencies import get_dependencies
 from .utils import identify_requirment
 from .vcs import set_ref
 
@@ -88,7 +89,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
 
     def get_dependencies(self, candidate):
         try:
-            dependencies = candidate.get_dependencies(sources=self.sources)
+            dependencies = get_dependencies(candidate, sources=self.sources)
         except Exception as e:
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                 raise
