@@ -8,6 +8,12 @@ import requirementslib
 import resolvelib
 
 from .utils import identify_requirment
+from .vcs import set_ref
+
+
+def _copy_requirement(requirement):
+    name, data = next(iter(requirement.as_pipfile().items()))
+    return requirementslib.Requirement.from_pipfile(name, data)
 
 
 class RequirementsLibProvider(resolvelib.AbstractProvider):
@@ -17,7 +23,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         self.sources = None
         self.invalid_candidates = set()
         self.non_named_requirements = {
-            self.identify(requirement): requirement
+            self.identify(requirement): _copy_requirement(requirement)
             for requirement in root_requirements
             if not requirement.is_named
         }
@@ -38,8 +44,10 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
     def find_matches(self, requirement):
         identifier = self.identify(requirement)
         if identifier in self.non_named_requirements:
-            # TODO: Need to lock ref for VCS requirements here.
-            return [self.non_named_requirements[identifier]]
+            requirement = self.non_named_requirements[identifier]
+            if requirement.is_vcs:
+                set_ref(requirement)
+            return [requirement]
 
         # Markers are intentionally dropped at this step. They will be added
         # back after resolution is done, so we can perform marker aggregation.
