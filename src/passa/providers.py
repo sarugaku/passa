@@ -19,8 +19,8 @@ def _copy_requirement(requirement):
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
-    def __init__(self, root_requirements):
-        self.sources = None
+    def __init__(self, root_requirements, sources):
+        self.sources = sources
         self.invalid_candidates = set()
         self.non_named_requirements = {
             self.identify(requirement): _copy_requirement(requirement)
