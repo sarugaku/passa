@@ -152,13 +152,15 @@ def _markers_collect_extras(markers, collection):
         if (isinstance(el, tuple) and
                 el[0].value == "extra" and
                 el[1].value == "=="):
-            collection.add(el[2])
+            collection.add(el[2].value)
         elif isinstance(el, list):
             _markers_collect_extras(el, collection)
 
 
 def get_contained_extras(marker):
     """Collect "extra == ..." operands from a marker.
+
+    Returns a list of str. Each str is a speficied extra in this marker.
     """
     marker = Marker(str(marker))
     extras = set()
