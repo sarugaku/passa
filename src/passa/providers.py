@@ -25,6 +25,15 @@ def _requirement_from_metadata(name, version, extras, index):
     return r
 
 
+def _filter_sources(requirement, sources):
+    if not sources or not requirement.index:
+        return sources
+    for s in sources:
+        if s.get("name") == requirement.index:
+            return [s]
+    return sources
+
+
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
@@ -61,7 +70,8 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         name = requirement.normalized_name
         extras = requirement.as_ireq().extras
         index = requirement.index
-        candidates = requirement.find_all_matches(sources=self.sources)
+        sources = _filter_sources(requirement, self.sources)
+        candidates = requirement.find_all_matches(sources=sources)
         return [
             _requirement_from_metadata(name, version, extras, index)
             for version in sorted(c.version for c in candidates)
@@ -93,8 +103,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         return requirement.as_ireq().specifier.contains(version)
 
     def get_dependencies(self, candidate):
+        sources = _filter_sources(candidate, self.sources)
         try:
-            dependencies = get_dependencies(candidate, sources=self.sources)
+            dependencies = get_dependencies(candidate, sources=sources)
         except Exception as e:
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                 raise

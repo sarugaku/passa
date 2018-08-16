@@ -1,14 +1,11 @@
 import importlib
 import os
 
-import distlib.wheel
 import packaging.version
 import pip_shims
-import requirementslib
 import six
 
 from .caches import CACHE_DIR
-from .markers import get_contained_extras, get_without_extra
 from .utils import cheesy_temporary_directory, mkdir_p
 
 
@@ -81,13 +78,13 @@ def _get_internal_objects(sources):
     return finder, session
 
 
-def _build_wheel_pre10(ireq, output_dir, finder, session, kwargs):
+def _build_wheel_pre10(ireq, output_dir, finder, kwargs):
     reqset = pip_shims.RequirementSet(**kwargs)
     builder = WheelBuilder(reqset, finder)
     return builder._build_one(ireq, output_dir)
 
 
-def _build_wheel_10x(ireq, output_dir, finder, session, kwargs):
+def _build_wheel_10x(ireq, output_dir, finder, kwargs):
     kwargs.update({"progress_bar": "off", "build_isolation": False})
     wheel_cache = kwargs.pop("wheel_cache")
     preparer = pip_shims.RequirementPreparer(**kwargs)
@@ -95,7 +92,7 @@ def _build_wheel_10x(ireq, output_dir, finder, session, kwargs):
     return builder._build_one(ireq, output_dir)
 
 
-def _build_wheel_modern(ireq, output_dir, finder, session, kwargs):
+def _build_wheel_modern(ireq, output_dir, finder, kwargs):
     kwargs.update({"progress_bar": "off", "build_isolation": False})
     wheel_cache = kwargs.pop("wheel_cache")
     with pip_shims.RequirementTracker() as req_tracker:
@@ -106,6 +103,15 @@ def _build_wheel_modern(ireq, output_dir, finder, session, kwargs):
 
 
 def _build_wheel(*args):
+    """Shim for wheel building in various pip versions.
+
+    For all build functions, the arguments are:
+
+    * ireq: The InstallRequirement object to build
+    * output_dir: The directory to build the wheel in.
+    * finder: pip's internal Finder object to find the source out of ireq.
+    * kwargs: Various keyword arguments from `_prepare_wheel_building_kwargs`.
+    """
     pip_version = packaging.version.parse(pip_shims.pip_version)
     if pip_version < packaging.version.parse("10"):
         return _build_wheel_pre10(*args)
@@ -114,48 +120,14 @@ def _build_wheel(*args):
     return _build_wheel_modern(*args)
 
 
-def _read_requirements(wheel_path, extras):
-    """Read wheel metadata to know what it depends on.
+def build_wheel(ireq, sources):
+    """Build a wheel file for the InstallRequirement object.
 
-    The `run_requires` attribute contains a list of dict or str specifying
-    requirements. For dicts, it may contain an "extra" key to specify these
-    requirements are for a specific extra. Unfortunately, not all fields are
-    specificed like this (I don't know why); some are specified with markers.
-    So we jump though these terrible hoops to know exactly what we need.
+    An artifact is downloaded (or read from cache). If the artifact is not a
+    wheel, build one out of it. The dynamically built wheel is ephemeral; do
+    not depend on its existence after the returned wheel goes out of scope.
 
-    The extra extraction is not comprehensive. Tt assumes the marker is NEVER
-    something like `extra == "foo" and extra == "bar"`. I guess this never
-    makes sense anyway? Markers are just terrible.
-    """
-    extras = extras or ()
-    wheel = distlib.wheel.Wheel(wheel_path)
-    requirements = []
-    for entry in wheel.metadata.run_requires:
-        if isinstance(entry, six.text_type):
-            entry = {"requires": [entry]}
-            extra = None
-        else:
-            extra = entry.get("extra")
-        if extra is not None and extra not in extras:
-            continue
-        for line in entry.get("requires", []):
-            r = requirementslib.Requirement.from_line(line)
-            if r.markers:
-                contained = get_contained_extras(r.markers)
-                if (contained and not any(e in contained for e in extras)):
-                    continue
-                marker = get_without_extra(r.markers)
-                r.markers = str(marker) if marker else None
-                line = r.as_line(include_hashes=False)
-            requirements.append(line)
-    return requirements
-
-
-def _get_dependencies_from_pip(ireq, sources):
-    """Retrieves dependencies for the requirement from pip internals.
-
-    The current strategy is to build a wheel out of the ireq, and read metadata
-    out of it.
+    Returns the wheel's path on disk, or None if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs()
     finder, session = _get_internal_objects(sources)
@@ -163,24 +135,28 @@ def _get_dependencies_from_pip(ireq, sources):
     # Not for upgrade, hash not required.
     ireq.populate_link(finder, False, False)
     ireq.ensure_has_source_dir(kwargs["src_dir"])
+
+    # Ensure the remote artifact is downloaded locally. For wheels, it is
+    # enough to just download because we'll use them directly. For an sdist,
+    # we need to unpack so we can build it.
     if not pip_shims.is_file_url(ireq.link):
-        # This makes sure the remote artifact is downloaded locally. For
-        # wheels, it is enough to just download because we'll use them
-        # directly. For an sdist, we need to unpack so we can build it.
         unpack_url(
             ireq.link, ireq.source_dir, kwargs["download_dir"],
             only_download=ireq.is_wheel, session=session,
             hashes=ireq.hashes(True), progress_bar=False,
         )
 
-    if ireq.is_wheel:   # If this is a wheel, use the downloaded thing.
+    # If this is a wheel, use the downloaded thing.
+    if ireq.is_wheel:
         output_dir = kwargs["download_dir"]
-        wheel_path = os.path.join(output_dir, ireq.link.filename)
-    else:               # Othereise we need to build an ephemeral wheel.
-        output_dir = cheesy_temporary_directory(prefix="ephem")
-        wheel_path = _build_wheel(ireq, output_dir, finder, session, kwargs)
+        return os.path.join(output_dir, ireq.link.filename)
 
-    if not wheel_path or not os.path.exists(wheel_path):
-        raise RuntimeError("failed to build wheel from {}".format(ireq))
-    requirements = _read_requirements(wheel_path, ireq.extras)
-    return requirements
+    # Othereise we need to build an ephemeral wheel.
+    output_dir = cheesy_temporary_directory(prefix="ephem")
+    wheel_path = _build_wheel(ireq, output_dir, finder, kwargs)
+    return wheel_path
+
+
+def find_install_candidates(ireq, sources):
+    finder, _ = _get_internal_objects(sources)
+    return finder.find_all_candidates(ireq.name)
