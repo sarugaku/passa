@@ -9,16 +9,20 @@ from ._pip import find_installation_candidates, get_vcs_ref
 
 
 def _filter_matching_python_requirement(candidates):
-    python_version = packaging.version.parse(os.environ.get(
-        "PIP_PYTHON_VERSION",
+    python_version = os.environ.get(
+        "PASSA_PYTHON_VERSION",
         "{0[0]}.{0[1]}".format(sys.version_info),
-    ))
+    )
+    if python_version == ":all:":
+        python_version = None
+    else:
+        python_version = packaging.version.parse(python_version)
     for c in candidates:
         try:
             requires_python = c.requires_python
         except AttributeError:
             requires_python = c.location.requires_python
-        if requires_python:
+        if python_version is not None and requires_python:
             # Old specifications had people setting this to single digits
             # which is effectively the same as '>=digit,<digit+1'
             if requires_python.isdigit():
