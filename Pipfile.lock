@@ -168,13 +168,6 @@
             ],
             "version": "==2.19.1"
         },
-        "requirements-parser": {
-            "hashes": [
-                "sha256:5963ee895c2d05ae9f58d3fc641082fb38021618979d6a152b6b1398bd7d4ed4",
-                "sha256:76650b4a9d98fc65edf008a7920c076bb2a76c08eaae230ce4cfc6f51ea6a773"
-            ],
-            "version": "==0.2.0"
-        },
         "requirementslib": {
             "editable": true,
             "path": "./../requirementslib"
@@ -233,6 +226,14 @@
                 "sha256:b5725a0bd4ba422ab0e66e89e030c806576753ea3ee08554382c14e685d117b5"
             ],
             "version": "==1.23"
+        },
+        "vistir": {
+            "hashes": [
+                "sha256:d0c5e0a3f0d8684ad7107bd260a7fcfb050a8bc514a95d2d034fc55bc6e80cc2",
+                "sha256:dd60114001c636d72779c3cf985ef0516bd013c65998d183d52cd97fda85bff2"
+            ],
+            "markers": "python_version != '3.0.*' and python_version != '3.3.*' and python_version < '4' and python_version >= '2.6' and python_version != '3.2.*' and python_version != '3.1.*'",
+            "version": "==0.1.1"
         }
     },
     "develop": {
