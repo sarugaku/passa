@@ -31,12 +31,22 @@ def _cached(f, **kwargs):
     return wrapped
 
 
+def _is_cache_broken(line, parent_name):
+    dep_req = requirementslib.Requirement.from_line(line)
+    if contains_extra(dep_req.markers):
+        return True     # The "extra =" marker breaks everything.
+    elif dep_req.normalized_name == parent_name:
+        return True     # A package cannot depend on itself.
+    return False
+
+
 def _get_dependencies_from_cache(ireq):
     """Retrieves dependencies for the requirement from the dependency cache.
     """
+    if os.environ.get("PASSA_IGNORE_DEPENDENCY_CACHE"):
+        return
     if ireq.editable:
         return
-
     try:
         cached = DEPENDENCY_CACHE[ireq]
     except KeyError:
@@ -44,17 +54,12 @@ def _get_dependencies_from_cache(ireq):
 
     # Preserving sanity: Run through the cache and make sure every entry if
     # valid. If this fails, something is wrong with the cache. Drop it.
-    ireq_name = packaging.utils.canonicalize_name(ireq.name)
     try:
-        broken = False
-        for line in cached:
-            dep_req = requirementslib.Requirement.from_line(line)
-            if contains_extra(dep_req.markers):
-                broken = True   # The "extra =" marker breaks everything.
-            elif dep_req.normalized_name == ireq_name:
-                broken = True   # A package cannot depend on itself.
-            if broken:
-                break
+        ireq_name = packaging.utils.canonicalize_name(ireq.name)
+        if any(_is_cache_broken(line, ireq_name) for line in cached):
+            broken = True
+        else:
+            broken = False
     except Exception:
         broken = True
 
@@ -63,6 +68,31 @@ def _get_dependencies_from_cache(ireq):
         return
 
     return cached
+
+
+def _get_dependencies_from_json_url(url, session):
+    response = session.get(url)
+    response.raise_for_status()
+    data = response.json()
+
+    if not any(entry["filename"].endswith(".whl") for entry in data["urls"]):
+        # The JSON API is prone to drop dependencies from sdist. Don't trust
+        # it unless there is at least one wheel.
+        return
+
+    info = data["info"]
+    requirement_lines = info.get("requires_dist", info["requires"])
+    if not requirement_lines:
+        return []
+
+    dependencies = [
+        dep_req.as_line(include_hashes=False) for dep_req in (
+            requirementslib.Requirement.from_line(line)
+            for line in requirement_lines
+        )
+        if not contains_extra(dep_req.markers)
+    ]
+    return dependencies
 
 
 def _get_dependencies_from_json(ireq, sources):
@@ -102,19 +132,11 @@ def _get_dependencies_from_json(ireq, sources):
             version=version,
         )
         try:
-            response = session.get(url)
-            response.raise_for_status()
-            info = response.json()["info"]
-            dependencies = [
-                dep_req.as_line(include_hashes=False) for dep_req in (
-                    requirementslib.Requirement.from_line(line)
-                    for line in info.get("requires_dist", info["requires"])
-                )
-                if not contains_extra(dep_req.markers)
-            ]
+            dependencies = _get_dependencies_from_json_url(url, session)
+            if dependencies is not None:
+                break
         except Exception:
             continue
-        break
     return dependencies
 
 
