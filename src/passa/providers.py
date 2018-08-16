@@ -17,6 +17,14 @@ def _copy_requirement(requirement):
     return requirementslib.Requirement.from_pipfile(name, data)
 
 
+def _requirement_from_metadata(name, version, extras, index):
+    # Markers are intentionally dropped here. They will be added to candidates
+    # after resolution, so we can perform marker aggregation.
+    r = requirementslib.Requirement.from_metadata(name, version, extras, None)
+    r.index = index
+    return r
+
+
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
@@ -50,15 +58,12 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
                 set_ref(requirement)
             return [requirement]
 
-        # Markers are intentionally dropped at this step. They will be added
-        # back after resolution is done, so we can perform marker aggregation.
         name = requirement.normalized_name
         extras = requirement.as_ireq().extras
+        index = requirement.index
         candidates = requirement.find_all_matches(sources=self.sources)
         return [
-            requirementslib.Requirement.from_metadata(
-                name, version, extras, None,
-            )
+            _requirement_from_metadata(name, version, extras, index)
             for version in sorted(c.version for c in candidates)
         ]
 
