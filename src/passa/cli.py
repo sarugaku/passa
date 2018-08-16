@@ -20,7 +20,6 @@ import six
 from plette import Lockfile, Pipfile
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
-from .caches import CACHE_DIR
 from .locking import build_lockfile
 from .reporters import print_title, print_requirement
 
@@ -36,54 +35,6 @@ def parse_arguments(argv):
         choices=["write", "print", "none"],
         default="print",
         help="How to output the lockfile",
-    )
-    parser.add_argument(
-        "--ignore-hashes",
-        action="store_true",
-        default=False,
-        help="Ignore hashes",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        default=False,
-        help="Print verbose logging to the console",
-    )
-    parser.add_argument(
-        "-i", "--index",
-        type=str, nargs="?",
-        help="Index to search for packages"
-    )
-    parser.add_argument(
-        "--cache-dir",
-        type=str,
-        nargs="?",
-        default=CACHE_DIR,
-        help="Cache directory to use",
-    )
-    parser.add_argument(
-        "--extra-index", "--extra-index-url",
-        type=str,
-        action="append",
-        help="Extra indexes to search",
-    )
-    parser.add_argument(
-        "--trusted-host",
-        type=str,
-        action="append",
-        help="Addresses where we will skip ssl verification",
-    )
-    parser.add_argument(
-        "--selective-upgrade",
-        action="store_true",
-        default=False,
-        help="Perform a selective upgrade.",
-    )
-    parser.add_argument(
-        "--src", "--src-dir",
-        nargs="?",
-        type=str,
-        help="Location to check out repositories",
     )
     return parser.parse_args(argv)
 
