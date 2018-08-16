@@ -5,11 +5,7 @@ import os
 
 import appdirs
 import requests
-
-from requirementslib._compat import (
-    FAVORITE_HASH, is_file_url, url_to_path,
-    Link, SafeFileCache, VcsSupport,
-)
+import pip_shims
 
 
 CACHE_DIR = os.environ.get(
@@ -28,14 +24,14 @@ def open_local_or_remote_file(link, session):
     :raises ValueError: If link points to a local directory.
     :return: a context manager to the opened file-like object
     """
-    if isinstance(link, Link):
+    try:
         url = link.url_without_fragment
-    else:
+    except AttributeError:
         url = link
 
-    if is_file_url(link):
+    if pip_shims.is_file_url(link):
         # Local URL
-        local_path = url_to_path(url)
+        local_path = pip_shims.url_to_path(url)
         if os.path.isdir(local_path):
             raise ValueError("Cannot open directory for read: {}".format(url))
         else:
@@ -51,7 +47,7 @@ def open_local_or_remote_file(link, session):
             response.close()
 
 
-class HashCache(SafeFileCache):
+class HashCache(pip_shims.SafeFileCache):
     """Caches hashes of PyPI artifacts so we do not need to re-download them
 
     Hashes are only cached when the URL appears to contain a hash in it and the cache key includes
@@ -66,7 +62,7 @@ class HashCache(SafeFileCache):
     def get_hash(self, location):
         # if there is no location hash (i.e., md5 / sha256 / etc) we on't want to store it
         hash_value = None
-        vcs = VcsSupport()
+        vcs = pip_shims.VcsSupport()
         orig_scheme = location.scheme
         new_location = copy.deepcopy(location)
         if orig_scheme in vcs.all_schemes:
@@ -83,8 +79,8 @@ class HashCache(SafeFileCache):
         return hash_value.decode('utf8')
 
     def _get_file_hash(self, location):
-        h = hashlib.new(FAVORITE_HASH)
+        h = hashlib.new(pip_shims.FAVORITE_HASH)
         with open_local_or_remote_file(location, self.session) as fp:
             for chunk in iter(lambda: fp.read(8096), b""):
                 h.update(chunk)
-        return ":".join([FAVORITE_HASH, h.hexdigest()])
+        return ":".join([h.name, h.hexdigest()])
