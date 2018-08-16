@@ -14,7 +14,7 @@ from .traces import trace_graph
 from .utils import identify_requirment
 
 
-def resolve_requirements(requirements, sources):
+def resolve_requirements(requirements, sources, allow_pre):
     """Lock specified (abstract) requirements into (concrete) candidates.
 
     The locking procedure consists of four stages:
@@ -26,7 +26,7 @@ def resolve_requirements(requirements, sources):
     * Populate markers based on dependency specifications of each candidate,
       and the dependency graph.
     """
-    provider = RequirementsLibProvider(requirements, sources)
+    provider = RequirementsLibProvider(requirements, sources, allow_pre)
     reporter = StdOutReporter(requirements)
     resolver = Resolver(provider, reporter)
 
@@ -81,7 +81,11 @@ def build_lockfile(pipfile):
     )}.values()
 
     sources = [s._data.copy() for s in pipfile.sources]
-    state, traces = resolve_requirements(requirements, sources)
+    try:
+        allow_pre = bool(pipfile["pipenv"]["allow_prereleases"])
+    except (KeyError, TypeError):
+        allow_pre = False
+    state, traces = resolve_requirements(requirements, sources, allow_pre)
 
     lockfile = Lockfile.with_meta_from(pipfile)
     lockfile["default"] = _get_derived_entries(state, traces, default_reqs)

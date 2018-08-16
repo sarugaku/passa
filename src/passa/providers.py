@@ -23,9 +23,9 @@ def _filter_sources(requirement, sources):
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
-    def __init__(self, root_requirements, sources, allows_prereleases):
+    def __init__(self, root_requirements, sources, allow_prereleases):
         self.sources = sources
-        self.allows_prereleases = bool(allows_prereleases)
+        self.allow_prereleases = bool(allow_prereleases)
         self.invalid_candidates = set()
 
         # Remember dependencies of each pinned candidate. The resolver calls
@@ -43,9 +43,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
 
     def find_matches(self, requirement):
         # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
-        allows_prereleases = self.allows_prereleases
+        allow_prereleases = self.allow_prereleases
         sources = _filter_sources(requirement, self.sources)
-        candidates = find_candidates(requirement, sources, allows_prereleases)
+        candidates = find_candidates(requirement, sources, allow_prereleases)
         return candidates
 
     def is_satisfied_by(self, requirement, candidate):
