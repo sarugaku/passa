@@ -175,8 +175,6 @@ def get_dependencies(requirement, sources):
     :param requirement: A requirement
     :param sources: Pipfile-formatted sources
     :type sources: list[dict]
-    :return: A set of dependency lines for generating new InstallRequirements.
-    :rtype: set(str)
     """
     getters = [
         _get_dependencies_from_cache,
@@ -192,7 +190,7 @@ def get_dependencies(requirement, sources):
             last_exc = sys.exc_info()
             continue
         if deps is not None:
-            return set(deps)
+            return [requirementslib.Requirement.from_line(d) for d in deps]
     if last_exc:
         six.reraise(*last_exc)
     raise RuntimeError("failed to get dependencies for {}".format(

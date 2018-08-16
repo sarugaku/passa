@@ -157,6 +157,38 @@ def build_wheel(ireq, sources):
     return wheel_path
 
 
-def find_install_candidates(ireq, sources):
+def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
+    target_dir = os.path.join(src_dir, name)
+    target_rev = vcs_obj.make_rev_options(rev)
+    if not os.path.exists(target_dir):
+        vcs_obj.obtain(target_dir)
+    if (not vcs_obj.is_commit_id_equal(target_dir, rev) and
+            not vcs_obj.is_commit_id_equal(target_dir, target_rev)):
+        vcs_obj.update(target_dir, target_rev)
+    return vcs_obj.get_revision(target_dir)
+
+
+def _get_src():
+    src = os.environ.get("PIP_SRC")
+    if src:
+        return src
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        return os.path.join(virtual_env, "src")
+    temp_src = cheesy_temporary_directory(prefix='passa-src')
+    return temp_src
+
+
+def get_vcs_ref(requirement):
+    backend = pip_shims.VcsSupport()._registry.get(requirement.vcs)
+    vcs = backend(url=requirement.req.vcs_uri)
+    src = _get_src()
+    mkdir_p(src, mode=0o775)
+    name = requirement.normalized_name
+    ref = _obtrain_ref(vcs, src, name, rev=requirement.req.ref)
+    return ref
+
+
+def find_installation_candidates(ireq, sources):
     finder, _ = _get_internal_objects(sources)
     return finder.find_all_candidates(ireq.name)
