@@ -43,6 +43,8 @@ def _find_versions_from_pip(ireq, sources, allows_pre):
     matching_icans = list(_filter_matching_python_requirement(icans))
     icans = matching_icans or icans
     versions = ireq.specifier.filter((c.version for c in icans), allows_pre)
+    if not allows_pre and not versions:
+        versions = ireq.specifier.filter((c.version for c in icans), True)
     return versions
 
 
