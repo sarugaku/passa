@@ -4,7 +4,6 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import os
 
-import requirementslib
 import resolvelib
 
 from .candidates import find_candidates
@@ -26,7 +25,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
     """
     def __init__(self, root_requirements, sources, allows_prereleases):
         self.sources = sources
-        self.allows_prereleases = allows_prereleases
+        self.allows_prereleases = bool(allows_prereleases)
         self.invalid_candidates = set()
 
         # Remember dependencies of each pinned candidate. The resolver calls
