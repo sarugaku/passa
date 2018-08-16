@@ -115,6 +115,15 @@ def _get_dependencies_from_json(ireq, sources):
     return dependencies
 
 
+def _filter_sources(requirement, sources):
+    if not sources or not requirement.index:
+        return sources
+    for s in sources:
+        if s.get("name") == requirement.index:
+            return [s]
+    return sources
+
+
 def get_dependencies(requirement, sources):
     """Get all dependencies for a given install requirement.
 
@@ -124,6 +133,7 @@ def get_dependencies(requirement, sources):
     :return: A set of dependency lines for generating new InstallRequirements.
     :rtype: set(str)
     """
+    sources = _filter_sources(requirement, sources)
     getters = [
         _get_dependencies_from_cache,
         _cached(_get_dependencies_from_json, sources=sources),
