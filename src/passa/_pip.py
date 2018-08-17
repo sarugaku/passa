@@ -1,21 +1,14 @@
-import importlib
 import os
 
-import packaging.version
 import pip_shims
 import six
 
+from ._pip_shims import (
+    build_wheel as _build_wheel,
+    unpack_url as _unpack_url,
+)
 from .caches import CACHE_DIR
 from .utils import cheesy_temporary_directory, ensure_mkdir_p, mkdir_p
-
-
-# HACK: Can we get pip_shims to support these in time?
-def _import_module_of(obj):
-    return importlib.import_module(obj.__module__)
-
-
-WheelBuilder = _import_module_of(pip_shims.Wheel).WheelBuilder
-unpack_url = _import_module_of(pip_shims.is_file_url).unpack_url
 
 
 @ensure_mkdir_p(mode=0o775)
@@ -74,7 +67,7 @@ def _get_pip_index_urls(sources):
 
 
 class _PipCommand(pip_shims.Command):
-    name = 'PipCommand'
+    name = "PipCommand"
 
 
 def _get_pip_session(trusted_hosts):
@@ -100,69 +93,11 @@ def _get_finder(sources):
 
 
 def _get_wheel_cache():
+    # HACK: Remove this after pip-shims updates. (sarugaku/pip-shims#6)
+    from ._pip_shims import WheelCache
     format_control = pip_shims.FormatControl(set(), set())
-    WheelCache = pip_shims.WheelCache
-    if not WheelCache:
-        # HACK: Remove this after pip-shims updates. (sarugaku/pip-shims#6)
-        from pip.wheel import WheelCache
     wheel_cache = WheelCache(CACHE_DIR, format_control)
     return wheel_cache
-
-
-def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
-    kwargs.update({"wheel_cache": wheel_cache, "session": finder.session})
-    reqset = pip_shims.RequirementSet(**kwargs)
-    builder = WheelBuilder(reqset, finder)
-    return builder._build_one(ireq, output_dir)
-
-
-def _build_wheel_10x(ireq, output_dir, finder, wheel_cache, kwargs):
-    kwargs.update({"progress_bar": "off", "build_isolation": False})
-    preparer = pip_shims.RequirementPreparer(**kwargs)
-    builder = WheelBuilder(finder, preparer, wheel_cache)
-    return builder._build_one(ireq, output_dir)
-
-
-def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
-    kwargs.update({"progress_bar": "off", "build_isolation": False})
-    with pip_shims.RequirementTracker() as req_tracker:
-        kwargs["req_tracker"] = req_tracker
-        preparer = pip_shims.RequirementPreparer(**kwargs)
-        builder = WheelBuilder(finder, preparer, wheel_cache)
-        return builder._build_one(ireq, output_dir)
-
-
-PIP_VERSION = packaging.version.parse(pip_shims.pip_version)
-
-VERSION_10 = packaging.version.parse("10")
-VERSION_18 = packaging.version.parse("18")
-
-
-def _build_wheel(*args):
-    """Shim for wheel building in various pip versions.
-
-    For all build functions, the arguments are:
-
-    * ireq: The InstallRequirement object to build
-    * output_dir: The directory to build the wheel in.
-    * finder: pip's internal Finder object to find the source out of ireq.
-    * kwargs: Various keyword arguments from `_prepare_wheel_building_kwargs`.
-    """
-    if PIP_VERSION < VERSION_10:
-        return _build_wheel_pre10(*args)
-    elif PIP_VERSION < VERSION_18:
-        return _build_wheel_10x(*args)
-    return _build_wheel_modern(*args)
-
-
-def _unpack_url(*args, **kwargs):
-    """Shim for unpack_url in various pip versions.
-
-    pip before 10.0 does not accept `progress_bar` here. Simply drop it.
-    """
-    if PIP_VERSION < VERSION_10:
-        kwargs.pop("progress_bar", None)
-    unpack_url(*args, **kwargs)
 
 
 def build_wheel(ireq, sources):
