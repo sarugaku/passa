@@ -7,15 +7,15 @@ import packaging.utils
 import packaging.version
 import requests
 import requirementslib
-import requirementslib.models.cache
-import requirementslib.models.utils
 import six
 
 from ._pip import build_wheel
+from .caches import DependencyCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
+from .utils import is_pinned
 
 
-DEPENDENCY_CACHE = requirementslib.models.cache.DependencyCache()
+DEPENDENCY_CACHE = DependencyCache()
 
 
 def _cached(f, **kwargs):
@@ -23,8 +23,7 @@ def _cached(f, **kwargs):
     @functools.wraps(f)
     def wrapped(ireq):
         result = f(ireq, **kwargs)
-        if (result is not None and
-                requirementslib.models.utils.is_pinned_requirement(ireq)):
+        if result is not None and is_pinned(ireq):
             DEPENDENCY_CACHE[ireq] = result
         return result
 

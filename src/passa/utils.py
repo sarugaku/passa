@@ -44,3 +44,68 @@ def cheesy_temporary_directory(*args, **kwargs):
 
     atexit.register(cleanup)
     return temp_src
+
+
+def get_pinned_version(ireq):
+    """Get the pinned version of an InstallRequirement.
+
+    An InstallRequirement is considered pinned if:
+
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+
+    Raises `TypeError` if the input is not a valid InstallRequirement, or
+    `ValueError` if the InstallRequirement is not pinned.
+    """
+    try:
+        specifier = ireq.specifier
+    except AttributeError:
+        raise TypeError("Expected InstallRequirement, not {}".format(
+            type(ireq).__name__,
+        ))
+
+    if ireq.editable:
+        raise ValueError("InstallRequirement is editable")
+    if not specifier:
+        raise ValueError("InstallRequirement has no version specification")
+    if len(specifier._specs) != 1:
+        raise ValueError("InstallRequirement has multiple specifications")
+
+    op, version = next(iter(specifier._specs))._spec
+    if op not in ('==', '===') or version.endswith('.*'):
+        raise ValueError("InstallRequirement not pinned (is {0!r})".format(
+            op + version,
+        ))
+
+    return version
+
+
+def is_pinned(ireq):
+    """Returns whether an InstallRequirement is a "pinned" requirement.
+
+    An InstallRequirement is considered pinned if:
+
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+    """
+    try:
+        get_pinned_version(ireq)
+    except (TypeError, ValueError):
+        return False
+    return True
