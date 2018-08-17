@@ -31,9 +31,6 @@ def _get_src_dir():
 
 
 def _prepare_wheel_building_kwargs(ireq):
-    format_control = pip_shims.FormatControl(set(), set())
-    wheel_cache = pip_shims.WheelCache(CACHE_DIR, format_control)
-
     download_dir = os.path.join(CACHE_DIR, "pkgs")
     mkdir_p(download_dir)
 
@@ -54,7 +51,6 @@ def _prepare_wheel_building_kwargs(ireq):
         build_dir = cheesy_temporary_directory(prefix="passa-build")
 
     return {
-        "wheel_cache": wheel_cache,
         "build_dir": build_dir,
         "src_dir": src_dir,
         "download_dir": download_dir,
@@ -90,7 +86,7 @@ def _get_pip_session(trusted_hosts):
     return session
 
 
-def _get_internal_objects(sources):
+def _get_finder_session(sources):
     index_urls, trusted_hosts = _get_pip_index_urls(sources)
     session = _get_pip_session(trusted_hosts)
     finder = pip_shims.PackageFinder(
@@ -103,23 +99,22 @@ def _get_internal_objects(sources):
     return finder, session
 
 
-def _build_wheel_pre10(ireq, output_dir, finder, kwargs):
+def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
+    kwargs["wheel_cache"] = wheel_cache
     reqset = pip_shims.RequirementSet(**kwargs)
     builder = WheelBuilder(reqset, finder)
     return builder._build_one(ireq, output_dir)
 
 
-def _build_wheel_10x(ireq, output_dir, finder, kwargs):
+def _build_wheel_10x(ireq, output_dir, finder, wheel_cache, kwargs):
     kwargs.update({"progress_bar": "off", "build_isolation": False})
-    wheel_cache = kwargs.pop("wheel_cache")
     preparer = pip_shims.RequirementPreparer(**kwargs)
     builder = WheelBuilder(finder, preparer, wheel_cache)
     return builder._build_one(ireq, output_dir)
 
 
-def _build_wheel_modern(ireq, output_dir, finder, kwargs):
+def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
     kwargs.update({"progress_bar": "off", "build_isolation": False})
-    wheel_cache = kwargs.pop("wheel_cache")
     with pip_shims.RequirementTracker() as req_tracker:
         kwargs["req_tracker"] = req_tracker
         preparer = pip_shims.RequirementPreparer(**kwargs)
@@ -155,7 +150,7 @@ def build_wheel(ireq, sources):
     Returns the wheel's path on disk, or None if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
-    finder, session = _get_internal_objects(sources)
+    finder, session = _get_finder_session(sources)
 
     # Not for upgrade, hash not required.
     ireq.populate_link(finder, False, False)
@@ -192,7 +187,9 @@ def build_wheel(ireq, sources):
 
     # Othereise we need to build an ephemeral wheel.
     output_dir = cheesy_temporary_directory(prefix="ephem")
-    wheel_path = _build_wheel(ireq, output_dir, finder, kwargs)
+    format_control = pip_shims.FormatControl(set(), set())
+    wheel_cache = pip_shims.WheelCache(CACHE_DIR, format_control)
+    wheel_path = _build_wheel(ireq, output_dir, finder, wheel_cache, kwargs)
     return wheel_path
 
 
@@ -217,5 +214,5 @@ def get_vcs_ref(requirement):
 
 
 def find_installation_candidates(ireq, sources):
-    finder, _ = _get_internal_objects(sources)
+    finder, _ = _get_finder_session(sources)
     return finder.find_all_candidates(ireq.name)
