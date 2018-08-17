@@ -6,7 +6,7 @@ import pip_shims
 import six
 
 from .caches import CACHE_DIR
-from .utils import cheesy_temporary_directory, mkdir_p
+from .utils import cheesy_temporary_directory, ensure_mkdir_p, mkdir_p
 
 
 # HACK: Can we get pip_shims to support these in time?
@@ -18,7 +18,19 @@ WheelBuilder = _import_module_of(pip_shims.Wheel).WheelBuilder
 unpack_url = _import_module_of(pip_shims.is_file_url).unpack_url
 
 
-def _prepare_wheel_building_kwargs():
+@ensure_mkdir_p(mode=0o775)
+def _get_src_dir():
+    src = os.environ.get("PIP_SRC")
+    if src:
+        return src
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        return os.path.join(virtual_env, "src")
+    temp_src = cheesy_temporary_directory(prefix='passa-src')
+    return temp_src
+
+
+def _prepare_wheel_building_kwargs(ireq):
     format_control = pip_shims.FormatControl(set(), set())
     wheel_cache = pip_shims.WheelCache(CACHE_DIR, format_control)
 
@@ -28,8 +40,18 @@ def _prepare_wheel_building_kwargs():
     wheel_download_dir = os.path.join(CACHE_DIR, "wheels")
     mkdir_p(wheel_download_dir)
 
-    build_dir = cheesy_temporary_directory(prefix="build")
-    src_dir = cheesy_temporary_directory(prefix="source")
+    if ireq.source_dir is None:
+        src_dir = _get_src_dir()
+    else:
+        src_dir = ireq.source_dir
+
+    # This logic matches pip's behavior, although I don't fully understand the
+    # intention. I guess the idea is to build editables in-place, otherwise out
+    # of the source tree?
+    if ireq.editable:
+        build_dir = src_dir
+    else:
+        build_dir = cheesy_temporary_directory(prefix="passa-build")
 
     return {
         "wheel_cache": wheel_cache,
@@ -132,12 +154,20 @@ def build_wheel(ireq, sources):
 
     Returns the wheel's path on disk, or None if the wheel cannot be built.
     """
-    kwargs = _prepare_wheel_building_kwargs()
+    kwargs = _prepare_wheel_building_kwargs(ireq)
     finder, session = _get_internal_objects(sources)
 
     # Not for upgrade, hash not required.
     ireq.populate_link(finder, False, False)
-    ireq.ensure_has_source_dir(kwargs["src_dir"])
+
+    # Ensure ireq.source_dir is set.
+    # This is intentionally set to build_dir, not src_dir. Comments from pip:
+    #   [...] if filesystem packages are not marked editable in a req, a non
+    #   deterministic error occurs when the script attempts to unpack the
+    #   build directory.
+    # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
+    # is editable, build_dir is actually src_dir, making the build in-place.
+    ireq.ensure_has_source_dir(kwargs["build_dir"])
 
     # Ensure the remote artifact is downloaded locally. For wheels, it is
     # enough to just download because we'll use them directly. For an sdist,
@@ -177,22 +207,10 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
     return vcs_obj.get_revision(target_dir)
 
 
-def _get_src():
-    src = os.environ.get("PIP_SRC")
-    if src:
-        return src
-    virtual_env = os.environ.get("VIRTUAL_ENV")
-    if virtual_env:
-        return os.path.join(virtual_env, "src")
-    temp_src = cheesy_temporary_directory(prefix='passa-src')
-    return temp_src
-
-
 def get_vcs_ref(requirement):
     backend = pip_shims.VcsSupport()._registry.get(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
-    src = _get_src()
-    mkdir_p(src, mode=0o775)
+    src = _get_src_dir()
     name = requirement.normalized_name
     ref = _obtrain_ref(vcs, src, name, rev=requirement.req.ref)
     return ref
