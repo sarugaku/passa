@@ -1,8 +1,4 @@
-import copy
-
 from packaging.markers import Marker
-
-from .utils import identify_requirment
 
 
 def _strip_extra(elements):
