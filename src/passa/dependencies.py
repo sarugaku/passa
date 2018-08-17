@@ -104,7 +104,8 @@ def _get_dependencies_from_json(ireq, sources):
     :return: A set of dependency lines for generating new InstallRequirements.
     :rtype: set(str) or None
     """
-
+    if os.environ.get("PASSA_IGNORE_JSON_API"):
+        return
     if ireq.editable:
         return
 
