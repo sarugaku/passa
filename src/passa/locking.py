@@ -7,7 +7,7 @@ from resolvelib import Resolver
 
 from .caches import HashCache
 from .hashes import get_hashes
-from .markers import set_markers
+from .metadata import set_metadata
 from .providers import RequirementsLibProvider
 from .reporters import StdOutReporter
 from .traces import trace_graph
@@ -37,7 +37,7 @@ def resolve_requirements(requirements, sources, allow_pre):
     for r in state.mapping.values():
         r.hashes = get_hashes(hash_cache, r)
 
-    set_markers(
+    set_metadata(
         state.mapping, traces, requirements,
         provider.fetched_dependencies, provider.requires_pythons,
     )
