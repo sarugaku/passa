@@ -72,20 +72,18 @@ def _get_dependencies_from_cache(ireq):
 def _get_dependencies_from_json_url(url, session):
     response = session.get(url)
     response.raise_for_status()
-    data = response.json()
+    info = response.json()["info"]
 
-    if not any(entry["filename"].endswith(".whl") for entry in data["urls"]):
-        # The JSON API is prone to drop dependencies from sdist. Don't trust
-        # it unless there is at least one wheel.
-        return
+    try:
+        requirement_lines = info["requires_dist"]
+    except KeyError:
+        requirement_lines = info["requires"]
 
-    info = data["info"]
-    requirement_lines = info.get("requires_dist", info["requires"])
-
-    # The API returns `null` for empty requirements for some reason, so we
-    # can't just pass this into the comprehension.
+    # The JSON API return null for empty requirements, for some reason, so we
+    # can't just pass it into the comprehension.
     if not requirement_lines:
         return []
+
     dependencies = [
         dep_req.as_line(include_hashes=False) for dep_req in (
             requirementslib.Requirement.from_line(line)
@@ -126,7 +124,6 @@ def _get_dependencies_from_json(ireq, sources):
     session = requests.session()
     version = str(ireq.specifier).lstrip("=")
 
-    dependencies = None
     for prefix in url_prefixes:
         url = "{prefix}/pypi/{name}/{version}/json".format(
             prefix=prefix,
@@ -136,10 +133,10 @@ def _get_dependencies_from_json(ireq, sources):
         try:
             dependencies = _get_dependencies_from_json_url(url, session)
             if dependencies is not None:
-                break
+                return dependencies
         except Exception:
             continue
-    return dependencies
+    return
 
 
 def _read_requirements(wheel, extras):
