@@ -25,6 +25,9 @@ def _prepare_wheel_building_kwargs():
     download_dir = os.path.join(CACHE_DIR, "pkgs")
     mkdir_p(download_dir)
 
+    wheel_download_dir = os.path.join(CACHE_DIR, "wheels")
+    mkdir_p(wheel_download_dir)
+
     build_dir = cheesy_temporary_directory(prefix="build")
     src_dir = cheesy_temporary_directory(prefix="source")
 
@@ -33,7 +36,7 @@ def _prepare_wheel_building_kwargs():
         "build_dir": build_dir,
         "src_dir": src_dir,
         "download_dir": download_dir,
-        "wheel_download_dir": download_dir,
+        "wheel_download_dir": wheel_download_dir,
     }
 
 
@@ -140,15 +143,21 @@ def build_wheel(ireq, sources):
     # enough to just download because we'll use them directly. For an sdist,
     # we need to unpack so we can build it.
     if not pip_shims.is_file_url(ireq.link):
+        if ireq.is_wheel:
+            only_download = True
+            download_dir = kwargs["wheel_download_dir"]
+        else:
+            only_download = False
+            download_dir = kwargs["download_dir"]
         unpack_url(
-            ireq.link, ireq.source_dir, kwargs["download_dir"],
-            only_download=ireq.is_wheel, session=session,
+            ireq.link, ireq.source_dir, download_dir,
+            only_download=only_download, session=session,
             hashes=ireq.hashes(True), progress_bar=False,
         )
 
     # If this is a wheel, use the downloaded thing.
     if ireq.is_wheel:
-        output_dir = kwargs["download_dir"]
+        output_dir = kwargs["wheel_download_dir"]
         return os.path.join(output_dir, ireq.link.filename)
 
     # Othereise we need to build an ephemeral wheel.

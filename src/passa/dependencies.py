@@ -81,9 +81,11 @@ def _get_dependencies_from_json_url(url, session):
 
     info = data["info"]
     requirement_lines = info.get("requires_dist", info["requires"])
+
+    # The API returns `null` for empty requirements for some reason, so we
+    # can't just pass this into the comprehension.
     if not requirement_lines:
         return []
-
     dependencies = [
         dep_req.as_line(include_hashes=False) for dep_req in (
             requirementslib.Requirement.from_line(line)
@@ -95,7 +97,7 @@ def _get_dependencies_from_json_url(url, session):
 
 
 def _get_dependencies_from_json(ireq, sources):
-    """Retrieves dependencies for the given install requirement from the json api.
+    """Retrieves dependencies for the install requirement from the JSON API.
 
     :param ireq: A single InstallRequirement
     :type ireq: :class:`~pip._internal.req.req_install.InstallRequirement`
