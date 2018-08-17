@@ -63,6 +63,7 @@ def _get_dependencies_from_cache(ireq):
         broken = True
 
     if broken:
+        print("dropping broken cache for {0}".format(ireq.name))
         del DEPENDENCY_CACHE[ireq]
         return
 
@@ -134,8 +135,9 @@ def _get_dependencies_from_json(ireq, sources):
             dependencies = _get_dependencies_from_json_url(url, session)
             if dependencies is not None:
                 return dependencies
-        except Exception:
-            continue
+        except Exception as e:
+            pass
+        print("unable to read dependencies via {0}".format(url))
     return
 
 

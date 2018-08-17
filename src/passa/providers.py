@@ -80,7 +80,7 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         except Exception as e:
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                 raise
-            print('failed to get dependencies for {0!r}: {1}'.format(
+            print("failed to get dependencies for {0!r}: {1}".format(
                 candidate.as_line(), e,
             ))
             return []
