@@ -1,4 +1,5 @@
 import atexit
+import functools
 import os
 import shutil
 import tempfile
@@ -19,12 +20,32 @@ def identify_requirment(r):
 
 
 def mkdir_p(path, mode=0o777):
+    """Mimic the behavior of POSIX's `mkdir -p`.
+
+    This is basically a backport of `os.makedirs(exist_ok=True)`, which is not
+    available in older Pythons.
+    """
     try:
         os.makedirs(path, mode=mode)
     except OSError:
-        # Backporting os.makedirs(exist_ok=True) from newer Pythons.
         if not os.path.isdir(path):
             raise
+
+
+def ensure_mkdir_p(mode=0o777):
+    """Decorator to ensure `mkdir_p` is called to the function's return value.
+    """
+    def decorator(f):
+
+        @functools.wraps(f)
+        def decorated(*args, **kwargs):
+            path = f(*args, **kwargs)
+            mkdir_p(path, mode=mode)
+            return path
+
+        return decorated
+
+    return decorator
 
 
 def cheesy_temporary_directory(*args, **kwargs):
