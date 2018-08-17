@@ -18,10 +18,8 @@ import os
 import six
 
 from plette import Lockfile, Pipfile
-from requirementslib.utils import temp_cd, temp_environ, fs_str
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
-from .caches import CACHE_DIR
 from .locking import build_lockfile
 from .reporters import print_title, print_requirement
 
@@ -38,98 +36,7 @@ def parse_arguments(argv):
         default="print",
         help="How to output the lockfile",
     )
-    parser.add_argument(
-        "--ignore-hashes",
-        action="store_true",
-        default=False,
-        help="Ignore hashes",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        default=False,
-        help="Print verbose logging to the console",
-    )
-    parser.add_argument(
-        "-i", "--index",
-        type=str, nargs="?",
-        help="Index to search for packages"
-    )
-    parser.add_argument(
-        "--cache-dir",
-        type=str,
-        nargs="?",
-        default=CACHE_DIR,
-        help="Cache directory to use",
-    )
-    parser.add_argument(
-        "--extra-index", "--extra-index-url",
-        type=str,
-        action="append",
-        help="Extra indexes to search",
-    )
-    parser.add_argument(
-        "--trusted-host",
-        type=str,
-        action="append",
-        help="Addresses where we will skip ssl verification",
-    )
-    parser.add_argument(
-        "--selective-upgrade",
-        action="store_true",
-        default=False,
-        help="Perform a selective upgrade.",
-    )
-    parser.add_argument(
-        "--src", "--src-dir",
-        nargs="?",
-        type=str,
-        help="Location to check out repositories",
-    )
     return parser.parse_args(argv)
-
-
-def setup_pip(options):
-    # XXX: Not working.
-    extra_indexes, trusted_hosts, sources = [], [], []
-    pipfile = Pipfile.load(options.project)
-    sources = [s.expanded.get('url') for s in pipfile.sources]
-    trusted_hosts = [
-        six.moves.urllib.parse(s.url).hostname
-        for s in pipfile.sources
-        if not s.verify_ssl
-    ]
-    if options.index:
-        sources.append(options.index)
-    if options.extra_index:
-        sources.extend(options.extra_index)
-    if options.trusted_host:
-        trusted_hosts.extend(options.trusted_host)
-    for i, source in enumerate(sources):
-        if i == 1:
-            os.environ["PIP_INDEX"] = fs_str(source)
-        else:
-            extra_indexes.append(source)
-    if trusted_hosts:
-        os.environ["PIP_TRUSTED_HOST"] = fs_str(" ".join(trusted_hosts))
-    if extra_indexes:
-        os.environ["PIP_EXTRA_INDEX_URL"] = fs_str(" ".join(extra_indexes))
-    if options.cache_dir:
-        os.environ["PIP_CACHE_DIR"] = fs_str(options.cache_dir)
-        os.environ["PIP_WHEEL_DIR"] = fs_str("{0}/wheels".format(options.cache_dir))
-        os.environ["PIP_DESTINATION_DIR"] = fs_str(
-            "{0}/pkgs".format(options.cache_dir)
-        )
-    if "PIP_SRC" not in os.environ and options.src:
-        os.environ["PIP_SRC"] = fs_str(options.src)
-    if not options.ignore_hashes:
-        os.environ["PIP_REQUIRE_HASHES"] = fs_str("1")
-    if options.selective_upgrade:
-        os.environ["PIP_UPGRADE"] = fs_str("1")
-        os.environ["PIP_UPGRADE_STRATEGY"] = fs_str("only-if-needed")
-        os.environ["PIP_EXISTS_ACTION"] = fs_str("w")
-    else:
-        os.environ["PIP_EXISTS_ACTION"] = fs_str("i")
 
 
 DEFAULT_NEWLINES = "\n"
@@ -210,10 +117,15 @@ def print_lockfile(project):
 def parsed_main(options):
     project = build_project(options.project_root)
 
+    cwd = os.getcwd()
+    os.chdir(options.project_root)
     try:
         lockfile = build_new_lockfile(project)
     except BuildFailure:
         return
+    finally:
+        os.chdir(cwd)
+
     project = project._replace(
         lockfile=project.lockfile._replace(model=lockfile),
     )
@@ -226,9 +138,7 @@ def parsed_main(options):
 
 def main(argv=None):
     options = parse_arguments(argv)
-    with temp_environ(), temp_cd(options.project_root):
-        # setup_pip(options)
-        parsed_main(options)
+    parsed_main(options)
 
 
 if __name__ == "__main__":

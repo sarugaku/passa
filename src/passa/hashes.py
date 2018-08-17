@@ -33,11 +33,21 @@ def _allow_all_wheels():
 
 
 def get_hashes(cache, req):
-    ireq = req.as_ireq()
-    if req.is_vcs or ireq.editable or not ireq.is_pinned:
+    if req.is_vcs:
         return set()
 
-    matching_candidates = set()
+    ireq = req.as_ireq()
+
+    if ireq.editable:
+        return set()
+
+    if req.is_file_or_url:
+        # TODO: Get the hash of the linked artifact?
+        return set()
+
+    if not ireq.is_pinned:
+        return set()
+
     with _allow_all_wheels():
         matching_candidates = req.find_all_matches()
 
