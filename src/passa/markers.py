@@ -162,6 +162,8 @@ def get_contained_extras(marker):
 
     Returns a list of str. Each str is a speficied extra in this marker.
     """
+    if not marker:
+        return set()
     marker = Marker(str(marker))
     extras = set()
     _markers_collect_extras(marker._markers, extras)
@@ -182,5 +184,7 @@ def _markers_contains_extra(markers):
 def contains_extra(marker):
     """Check whehter a marker contains an "extra == ..." operand.
     """
+    if not marker:
+        return False
     marker = Marker(str(marker))
     return _markers_contains_extra(marker._markers)
