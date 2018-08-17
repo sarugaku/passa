@@ -38,8 +38,8 @@ def resolve_requirements(requirements, sources, allow_pre):
         r.hashes = get_hashes(hash_cache, r)
 
     set_markers(
-        state.mapping, traces,
-        requirements, provider.fetched_dependencies,
+        state.mapping, traces, requirements,
+        provider.fetched_dependencies, provider.requires_pythons,
     )
     return state, traces
 

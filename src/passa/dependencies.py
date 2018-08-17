@@ -3,6 +3,7 @@ import os
 import sys
 
 import distlib.wheel
+import packaging.specifiers
 import packaging.utils
 import packaging.version
 import requests
@@ -10,12 +11,13 @@ import requirementslib
 import six
 
 from ._pip import build_wheel
-from .caches import DependencyCache
+from .caches import DependencyCache, RequiresPythonCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import is_pinned
 
 
 DEPENDENCY_CACHE = DependencyCache()
+REQUIRES_PYTHON_CACHE = RequiresPythonCache()
 
 
 def _cached(f, **kwargs):
@@ -24,7 +26,9 @@ def _cached(f, **kwargs):
     def wrapped(ireq):
         result = f(ireq, **kwargs)
         if result is not None and is_pinned(ireq):
-            DEPENDENCY_CACHE[ireq] = result
+            deps, requires_python = result
+            DEPENDENCY_CACHE[ireq] = deps
+            REQUIRES_PYTHON_CACHE[ireq] = requires_python
         return result
 
     return wrapped
@@ -42,20 +46,22 @@ def _is_cache_broken(line, parent_name):
 def _get_dependencies_from_cache(ireq):
     """Retrieves dependencies for the requirement from the dependency cache.
     """
-    if os.environ.get("PASSA_IGNORE_DEPENDENCY_CACHE"):
+    if os.environ.get("PASSA_IGNORE_LOCAL_CACHE"):
         return
     if ireq.editable:
         return
     try:
-        cached = DEPENDENCY_CACHE[ireq]
+        deps = DEPENDENCY_CACHE[ireq]
+        pyrq = REQUIRES_PYTHON_CACHE[ireq]
     except KeyError:
         return
 
     # Preserving sanity: Run through the cache and make sure every entry if
     # valid. If this fails, something is wrong with the cache. Drop it.
     try:
+        packaging.specifiers.SpecifierSet(pyrq)
         ireq_name = packaging.utils.canonicalize_name(ireq.name)
-        if any(_is_cache_broken(line, ireq_name) for line in cached):
+        if any(_is_cache_broken(line, ireq_name) for line in deps):
             broken = True
         else:
             broken = False
@@ -65,9 +71,10 @@ def _get_dependencies_from_cache(ireq):
     if broken:
         print("dropping broken cache for {0}".format(ireq.name))
         del DEPENDENCY_CACHE[ireq]
+        del REQUIRES_PYTHON_CACHE[ireq]
         return
 
-    return cached
+    return deps, pyrq
 
 
 def _get_dependencies_from_json_url(url, session):
@@ -75,6 +82,7 @@ def _get_dependencies_from_json_url(url, session):
     response.raise_for_status()
     info = response.json()["info"]
 
+    requires_python = info["requires_python"] or ""
     try:
         requirement_lines = info["requires_dist"]
     except KeyError:
@@ -83,7 +91,7 @@ def _get_dependencies_from_json_url(url, session):
     # The JSON API return null for empty requirements, for some reason, so we
     # can't just pass it into the comprehension.
     if not requirement_lines:
-        return []
+        return [], requires_python
 
     dependencies = [
         dep_req.as_line(include_hashes=False) for dep_req in (
@@ -92,7 +100,7 @@ def _get_dependencies_from_json_url(url, session):
         )
         if not contains_extra(dep_req.markers)
     ]
-    return dependencies
+    return dependencies, requires_python
 
 
 def _get_dependencies_from_json(ireq, sources):
@@ -189,7 +197,8 @@ def _get_dependencies_from_pip(ireq, sources):
     wheel = distlib.wheel.Wheel(wheel_path)
     extras = ireq.extras or ()
     requirements = _read_requirements(wheel, extras)
-    return requirements
+    requires_python = getattr(wheel.metadata, "requires_python", None)
+    return requirements, requires_python or ""
 
 
 def get_dependencies(requirement, sources):
@@ -208,12 +217,14 @@ def get_dependencies(requirement, sources):
     last_exc = None
     for getter in getters:
         try:
-            deps = getter(ireq)
+            result = getter(ireq)
         except Exception as e:
             last_exc = sys.exc_info()
             continue
-        if deps is not None:
-            return [requirementslib.Requirement.from_line(d) for d in deps]
+        if result is not None:
+            deps, pyreq = result
+            reqs = [requirementslib.Requirement.from_line(d) for d in deps]
+            return reqs, pyreq
     if last_exc:
         six.reraise(*last_exc)
     raise RuntimeError("failed to get dependencies for {}".format(

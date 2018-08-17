@@ -112,7 +112,7 @@ def _calculate_markersets_mapping(requirements, candidates, traces):
     return all_markersets
 
 
-def set_markers(candidates, traces, requirements, dependencies):
+def set_markers(candidates, traces, requirements, dependencies, pythons):
     """Add markers to candidates based on the dependency tree.
 
     :param candidates: A key-candidate mapping. Candidates in the mapping will
@@ -123,6 +123,8 @@ def set_markers(candidates, traces, requirements, dependencies):
         provided to be resolved.
     :param dependencies: A key-collection mapping containing what dependencies
         each candidate in `candidates` requested.
+    :param pythons: A key-str mapping containing Requires-Python information
+        of each candidate.
 
     Keys in mappings and entries in the trace are identifiers of a package, as
     implemented by the `identify` method of the resolver's provider.

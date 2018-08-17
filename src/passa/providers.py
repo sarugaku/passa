@@ -28,12 +28,13 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         self.allow_prereleases = bool(allow_prereleases)
         self.invalid_candidates = set()
 
-        # Remember dependencies of each pinned candidate. The resolver calls
+        # Remember requirements of each pinned candidate. The resolver calls
         # `get_dependencies()` only when it wants to repin, so the last time
         # the dependencies we got when it is last called on a package, are
         # the set used by the resolver. We use this later to trace how a given
         # dependency is specified by a package.
         self.fetched_dependencies = {}
+        self.requires_pythons = {}
 
     def identify(self, dependency):
         return identify_requirment(dependency)
@@ -76,7 +77,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
     def get_dependencies(self, candidate):
         sources = _filter_sources(candidate, self.sources)
         try:
-            dependencies = get_dependencies(candidate, sources=sources)
+            dependencies, requires_python = get_dependencies(
+                candidate, sources=sources,
+            )
         except Exception as e:
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                 raise
@@ -84,7 +87,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
                 candidate.as_line(), e,
             ))
             return []
-        self.fetched_dependencies[self.identify(candidate)] = {
+        candidate_key = self.identify(candidate)
+        self.fetched_dependencies[candidate_key] = {
             self.identify(r): r for r in dependencies
         }
+        self.requires_pythons[candidate_key] = requires_python
         return dependencies

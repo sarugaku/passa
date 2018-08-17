@@ -6,11 +6,10 @@ import os
 import sys
 
 import appdirs
-import requests
-import packaging.requirements
 import pip_shims
+import requests
 
-from .utils import get_pinned_version
+from .utils import get_pinned_version, mkdir_p
 
 
 CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))
@@ -131,72 +130,9 @@ def _read_cache_file(cache_file_path):
         return doc['dependencies']
 
 
-def _build_table(values, key=None, keyval=None, unique=False, use_lists=False):
-    """
-    Builds a dict-based lookup table (index) elegantly.
+class _JSONCache(object):
+    """A persistent cache backed by a JSON file.
 
-    Supports building normal and unique lookup tables.  For example:
-
-    >>> assert lookup_table(
-    ...     ['foo', 'bar', 'baz', 'qux', 'quux'], lambda s: s[0]) == {
-    ...     'b': {'bar', 'baz'},
-    ...     'f': {'foo'},
-    ...     'q': {'quux', 'qux'}
-    ... }
-
-    For key functions that uniquely identify values, set unique=True:
-
-    >>> assert lookup_table(
-    ...     ['foo', 'bar', 'baz', 'qux', 'quux'], lambda s: s[0],
-    ...     unique=True) == {
-    ...     'b': 'baz',
-    ...     'f': 'foo',
-    ...     'q': 'quux'
-    ... }
-
-    The values of the resulting lookup table will be values, not sets.
-
-    For extra power, you can even change the values while building up the LUT.
-    To do so, use the `keyval` function instead of the `key` arg:
-
-    >>> assert lookup_table(
-    ...     ['foo', 'bar', 'baz', 'qux', 'quux'],
-    ...     keyval=lambda s: (s[0], s[1:])) == {
-    ...     'b': {'ar', 'az'},
-    ...     'f': {'oo'},
-    ...     'q': {'uux', 'ux'}
-    ... }
-
-    """
-    if keyval is None:
-        if key is None:
-            keyval = (lambda v: v)
-        else:
-            keyval = (lambda v: (key(v), v))
-
-    if unique:
-        return dict(keyval(v) for v in values)
-
-    lut = {}
-    for value in values:
-        k, v = keyval(value)
-        try:
-            s = lut[k]
-        except KeyError:
-            if use_lists:
-                s = lut[k] = list()
-            else:
-                s = lut[k] = set()
-        if use_lists:
-            s.append(v)
-        else:
-            s.add(v)
-    return dict(lut)
-
-
-class DependencyCache(object):
-    """
-    Creates a new persistent dependency cache for the current Python version.
     The cache file is written to the appropriate user cache dir for the
     current platform, i.e.
 
@@ -204,20 +140,22 @@ class DependencyCache(object):
 
     Where X.Y indicates the Python version.
     """
-    def __init__(self, cache_dir=CACHE_DIR):
-        if not os.path.isdir(cache_dir):
-            os.makedirs(cache_dir)
-        py_version = '.'.join(str(digit) for digit in sys.version_info[:2])
-        cache_filename = 'depcache-py{}.json'.format(py_version)
+    filename_format = None
 
+    def __init__(self, cache_dir=CACHE_DIR):
+        mkdir_p(cache_dir)
+        python_version = ".".join(str(digit) for digit in sys.version_info[:2])
+        cache_filename = self.filename_format.format(
+            python_version=python_version,
+        )
         self._cache_file = os.path.join(cache_dir, cache_filename)
         self._cache = None
 
     @property
     def cache(self):
-        """
-        The dictionary that is the actual in-memory cache.  This property
-        lazily loads the cache from disk.
+        """The dictionary that is the actual in-memory cache.
+
+        This property lazily loads the cache from disk.
         """
         if self._cache is None:
             self.read_cache()
@@ -247,14 +185,16 @@ class DependencyCache(object):
         return name, "{}{}".format(version, extras_string)
 
     def read_cache(self):
-        """Reads the cached contents into memory."""
+        """Reads the cached contents into memory.
+        """
         if os.path.exists(self._cache_file):
             self._cache = _read_cache_file(self._cache_file)
         else:
             self._cache = {}
 
     def write_cache(self):
-        """Writes the cache to disk as JSON."""
+        """Writes the cache to disk as JSON.
+        """
         doc = {
             '__format__': 1,
             'dependencies': self._cache,
@@ -292,40 +232,14 @@ class DependencyCache(object):
         pkgname, pkgversion_and_extras = self.as_cache_key(ireq)
         return self.cache.get(pkgname, {}).get(pkgversion_and_extras, default)
 
-    def reverse_dependencies(self, ireqs):
-        """
-        Returns a lookup table of reverse dependencies for all the given ireqs.
 
-        Since this is all static, it only works if the dependency cache
-        contains the complete data, otherwise you end up with a partial view.
-        This is typically no problem if you use this function after the entire
-        dependency tree is resolved.
-        """
-        ireqs_as_cache_values = [self.as_cache_key(ireq) for ireq in ireqs]
-        return self._reverse_dependencies(ireqs_as_cache_values)
+class DependencyCache(_JSONCache):
+    """Cache the dependency of cancidates.
+    """
+    filename_format = "depcache-py{python_version}.json"
 
-    def _reverse_dependencies(self, cache_keys):
-        """Returns a lookup table of reverse dependencies for all given keys.
 
-        Example input::
-
-            [('pep8', '1.5.7'),
-             ('flake8', '2.4.0'),
-             ('mccabe', '0.3'),
-             ('pyflakes', '0.8.1')]
-
-        Example output::
-
-            {'pep8': ['flake8'],
-             'flake8': [],
-             'mccabe': ['flake8'],
-             'pyflakes': ['flake8']}
-
-        """
-        # First, collect all dependencies into a sequence of (parent, child)
-        # tuples, like `[('flake8', 'pep8'), ('flake8', 'mccabe'), ...]`.
-        return _build_table(
-            (_key_from_req(packaging.requirements.Requirement(dep_name)), name)
-            for name, version_and_extras in cache_keys
-            for dep_name in self.cache[name][version_and_extras]
-        )
+class RequiresPythonCache(_JSONCache):
+    """Cache a candidate's Requires-Python information.
+    """
+    filename_format = "pyreqcache-py{python_version}.json"
