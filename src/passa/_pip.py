@@ -86,7 +86,7 @@ def _get_pip_session(trusted_hosts):
     return session
 
 
-def _get_finder_session(sources):
+def _get_finder(sources):
     index_urls, trusted_hosts = _get_pip_index_urls(sources)
     session = _get_pip_session(trusted_hosts)
     finder = pip_shims.PackageFinder(
@@ -96,11 +96,21 @@ def _get_finder_session(sources):
         allow_all_prereleases=True,
         session=session,
     )
-    return finder, session
+    return finder
+
+
+def _get_wheel_cache():
+    format_control = pip_shims.FormatControl(set(), set())
+    WheelCache = pip_shims.WheelCache
+    if not WheelCache:
+        # HACK: Remove this after pip-shims updates. (sarugaku/pip-shims#6)
+        from pip.wheel import WheelCache
+    wheel_cache = WheelCache(CACHE_DIR, format_control)
+    return wheel_cache
 
 
 def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
-    kwargs["wheel_cache"] = wheel_cache
+    kwargs.update({"wheel_cache": wheel_cache, "session": finder.session})
     reqset = pip_shims.RequirementSet(**kwargs)
     builder = WheelBuilder(reqset, finder)
     return builder._build_one(ireq, output_dir)
@@ -122,6 +132,12 @@ def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
         return builder._build_one(ireq, output_dir)
 
 
+PIP_VERSION = packaging.version.parse(pip_shims.pip_version)
+
+VERSION_10 = packaging.version.parse("10")
+VERSION_18 = packaging.version.parse("18")
+
+
 def _build_wheel(*args):
     """Shim for wheel building in various pip versions.
 
@@ -132,12 +148,21 @@ def _build_wheel(*args):
     * finder: pip's internal Finder object to find the source out of ireq.
     * kwargs: Various keyword arguments from `_prepare_wheel_building_kwargs`.
     """
-    pip_version = packaging.version.parse(pip_shims.pip_version)
-    if pip_version < packaging.version.parse("10"):
+    if PIP_VERSION < VERSION_10:
         return _build_wheel_pre10(*args)
-    elif pip_version < packaging.version.parse("18"):
+    elif PIP_VERSION < VERSION_18:
         return _build_wheel_10x(*args)
     return _build_wheel_modern(*args)
+
+
+def _unpack_url(*args, **kwargs):
+    """Shim for unpack_url in various pip versions.
+
+    pip before 10.0 does not accept `progress_bar` here. Simply drop it.
+    """
+    if PIP_VERSION < VERSION_10:
+        kwargs.pop("progress_bar", None)
+    unpack_url(*args, **kwargs)
 
 
 def build_wheel(ireq, sources):
@@ -150,7 +175,7 @@ def build_wheel(ireq, sources):
     Returns the wheel's path on disk, or None if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
-    finder, session = _get_finder_session(sources)
+    finder = _get_finder(sources)
 
     # Not for upgrade, hash not required.
     ireq.populate_link(finder, False, False)
@@ -174,9 +199,9 @@ def build_wheel(ireq, sources):
         else:
             only_download = False
             download_dir = kwargs["download_dir"]
-        unpack_url(
+        _unpack_url(
             ireq.link, ireq.source_dir, download_dir,
-            only_download=only_download, session=session,
+            only_download=only_download, session=finder.session,
             hashes=ireq.hashes(True), progress_bar=False,
         )
 
@@ -186,10 +211,10 @@ def build_wheel(ireq, sources):
         return os.path.join(output_dir, ireq.link.filename)
 
     # Othereise we need to build an ephemeral wheel.
-    output_dir = cheesy_temporary_directory(prefix="ephem")
-    format_control = pip_shims.FormatControl(set(), set())
-    wheel_cache = pip_shims.WheelCache(CACHE_DIR, format_control)
-    wheel_path = _build_wheel(ireq, output_dir, finder, wheel_cache, kwargs)
+    wheel_path = _build_wheel(
+        ireq, cheesy_temporary_directory(prefix="ephem"),
+        finder, _get_wheel_cache(), kwargs,
+    )
     return wheel_path
 
 
@@ -214,5 +239,5 @@ def get_vcs_ref(requirement):
 
 
 def find_installation_candidates(ireq, sources):
-    finder, _ = _get_finder_session(sources)
+    finder = _get_finder(sources)
     return finder.find_all_candidates(ireq.name)
