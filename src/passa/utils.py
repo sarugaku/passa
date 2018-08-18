@@ -41,7 +41,7 @@ def ensure_mkdir_p(mode=0o777):
 def cheesy_temporary_directory(*args, **kwargs):
     """Uses a python 2/3 compatible TemporaryDirectory from `vistir`.
 
-    Registers a handler to cleanup after itself using a backported version of 
+    Registers a handler to cleanup after itself using a backported version of
     `weakref.finalize` if necessary.
     """
     temp_src = TemporaryDirectory(*args, **kwargs)
