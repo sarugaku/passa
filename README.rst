@@ -8,8 +8,8 @@ Passa: Resolver implementation for Pipfile projects
 .. image:: https://img.shields.io/pypi/l/passa.svg
     :target: https://pypi.python.org/pypi/passa
 
-.. image:: https://travis-ci.org/sarugaku/passa.svg?branch=master
-    :target: https://travis-ci.org/sarugaku/passa
+.. image:: https://api.travis-ci.com/sarugaku/passa.svg?branch=master
+    :target: https://travis-ci.com/sarugaku/passa
 
 .. image:: https://img.shields.io/pypi/pyversions/passa.svg
     :target: https://pypi.python.org/pypi/passa
