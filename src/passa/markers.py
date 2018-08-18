@@ -1,8 +1,6 @@
-import copy
-
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
 from packaging.markers import Marker
-
-from .utils import identify_requirment
 
 
 def _strip_extra(elements):
@@ -36,6 +34,11 @@ def _strip_extra(elements):
 
 def get_without_extra(marker):
     """Build a new marker without the `extra == ...` part.
+
+    #TODO: Why is this very deep in the internals? Why is a better solution
+    implementing it yourself when someone is already maintaining a codebase for
+    this? It's literally a grammar implementation that is required to meet the  demands
+    of a pep... -d
 
     The implementation relies very deep into packaging's internals, but I don't
     have a better way now (except implementing the whole thing myself).

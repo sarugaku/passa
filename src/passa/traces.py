@@ -1,3 +1,7 @@
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
+
+
 def _trace_visit_vertex(graph, current, target, visited, path, paths):
     if current == target:
         paths.append(path)

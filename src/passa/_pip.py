@@ -1,14 +1,18 @@
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
+
 import os
 
-import pip_shims
 import six
+from vistir.path import mkdir_p
 
-from ._pip_shims import (
-    build_wheel as _build_wheel,
-    unpack_url as _unpack_url,
-)
+import pip_shims
+
+from ._pip_shims import build_wheel as _build_wheel
+from ._pip_shims import unpack_url as _unpack_url
+from ._pip_shims import vcs
 from .caches import CACHE_DIR
-from .utils import cheesy_temporary_directory, ensure_mkdir_p, mkdir_p
+from .utils import cheesy_temporary_directory, ensure_mkdir_p
 
 
 @ensure_mkdir_p(mode=0o775)
@@ -128,6 +132,7 @@ def build_wheel(ireq, sources):
     # enough to just download because we'll use them directly. For an sdist,
     # we need to unpack so we can build it.
     if not pip_shims.is_file_url(ireq.link):
+
         if ireq.is_wheel:
             only_download = True
             download_dir = kwargs["wheel_download_dir"]
@@ -165,7 +170,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
 
 
 def get_vcs_ref(requirement):
-    backend = pip_shims.VcsSupport()._registry.get(requirement.vcs)
+    backend = vcs._registry.get(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
     src = _get_src_dir()
     name = requirement.normalized_name

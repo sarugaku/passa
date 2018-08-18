@@ -1,8 +1,11 @@
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
+
 import atexit
 import functools
-import os
-import shutil
-import tempfile
+
+from vistir.compat import TemporaryDirectory
+from vistir.path import mkdir_p
 
 
 def identify_requirment(r):
@@ -17,19 +20,6 @@ def identify_requirment(r):
     the same package apprearing multiple times.
     """
     return "{0}{1}".format(r.normalized_name, r.extras_as_pip)
-
-
-def mkdir_p(path, mode=0o777):
-    """Mimic the behavior of POSIX's `mkdir -p`.
-
-    This is basically a backport of `os.makedirs(exist_ok=True)`, which is not
-    available in older Pythons.
-    """
-    try:
-        os.makedirs(path, mode=mode)
-    except OSError:
-        if not os.path.isdir(path):
-            raise
 
 
 def ensure_mkdir_p(mode=0o777):
@@ -49,22 +39,15 @@ def ensure_mkdir_p(mode=0o777):
 
 
 def cheesy_temporary_directory(*args, **kwargs):
-    """A very naive tempeorary directory.
+    """Uses a python 2/3 compatible TemporaryDirectory from `vistir`.
 
-    This is intended as a last-resort when nothing viable is provided. Avoid
-    using this if possible. The directory is created with `tempfile.mkdtemp`,
-    and removed on program exit. The removal is done only with minimal effort.
+    Registers a handler to cleanup after itself using a backported version of 
+    `weakref.finalize` if necessary.
     """
-    temp_src = tempfile.mkdtemp(*args, **kwargs)
+    temp_src = TemporaryDirectory(*args, **kwargs)
 
-    def cleanup():
-        try:
-            shutil.rmtree(temp_src)
-        except Exception as e:
-            pass    # Whatever.
-
-    atexit.register(cleanup)
-    return temp_src
+    atexit.register(temp_src.cleanup)
+    return temp_src.name
 
 
 def get_pinned_version(ireq):

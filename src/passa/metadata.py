@@ -1,8 +1,12 @@
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
+
 import copy
 import itertools
 
 from packaging.markers import Marker
 from packaging.specifiers import SpecifierSet
+from vistir.misc import dedup
 
 from .markers import get_without_extra
 from .utils import identify_requirment
@@ -10,7 +14,7 @@ from .utils import identify_requirment
 
 def dedup_markers(s):
     # TODO: Implement better logic.
-    return sorted(set(s))
+    return sorted(dedup(s))
 
 
 class MetaSet(object):
@@ -32,7 +36,7 @@ class MetaSet(object):
         return " and ".join(dedup_markers(itertools.chain(
             (
                 "({0})".format(m) if " or " in m else m
-                for m in (str(marker) for marker in self.markerset)
+                for m in (str(marker.lower()) for marker in self.markerset)
             ),
             (   # Use double quotes (packaging's format) so we can dedup.
                 'python_version {0[0]} "{0[1]}"'.format(spec._spec)
@@ -88,7 +92,7 @@ def _calculate_metasets_mapping(requirements, candidates, pythons, traces):
     # Populate metadata from Pipfile.
     for r in requirements:
         specifiers = r.specifiers or SpecifierSet()
-        metaset = MetaSet() | (get_without_extra(r.markers), specifiers)
+        metaset = MetaSet() | (get_without_extra(r.markers.lower()), specifiers)
         all_metasets[identify_requirment(r)] = [metaset]
 
     traces = copy.deepcopy(traces)
