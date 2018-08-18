@@ -1,1 +1,18 @@
-include LICENSE* README*
+include README.rst LICENSE CHANGELOG.rst
+recursive-include src *LICENSE* *COPYING*
+include pyproject.toml
+exclude .coveragerc
+exclude .editorconfig
+exclude .travis.yml
+exclude appveyor.yml
+exclude tox.ini
+exclude Pipfile*
+
+recursive-include docs Makefile *.rst *.py *.bat
+recursive-exclude docs requirements*.txt
+
+prune .github
+prune docs/build
+prune news
+prune tasks
+prune tests
