@@ -1,143 +1,97 @@
-import contextlib
 import itertools
 
+
 from plette import Lockfile
-from plette.models import Hash
 from requirementslib import Requirement
-from pip_shims import VcsSupport, Wheel
 from resolvelib import Resolver
 
 from .caches import HashCache
+from .hashes import get_hashes
+from .metadata import set_metadata
 from .providers import RequirementsLibProvider
 from .reporters import StdOutReporter
+from .traces import trace_graph
+from .utils import identify_requirment
 
 
-def _wheel_supported(self, tags=None):
-    # Ignore current platform. Support everything.
-    return True
+def resolve_requirements(requirements, sources, allow_pre):
+    """Lock specified (abstract) requirements into (concrete) candidates.
 
+    The locking procedure consists of four stages:
 
-def _wheel_support_index_min(self, tags=None):
-    # All wheels are equal priority for sorting.
-    return 0
-
-
-@contextlib.contextmanager
-def _allow_all_wheels():
-    """Monkey patch pip.Wheel to allow all wheels
-
-    The usual checks against platforms and Python versions are ignored to allow
-    fetching all available entries in PyPI. This also saves the candidate cache
-    and set a new one, or else the results from the previous non-patched calls
-    will interfere.
+    * Resolve versions and dependency graph (powered by ResolveLib).
+    * Walk the graph to determine "why" each candidate came to be, i.e. what
+      top-level requirements result in a given candidate.
+    * Populate hashes for resolved candidates.
+    * Populate markers based on dependency specifications of each candidate,
+      and the dependency graph.
     """
-    original_wheel_supported = Wheel.supported
-    original_support_index_min = Wheel.support_index_min
-
-    Wheel.supported = _wheel_supported
-    Wheel.support_index_min = _wheel_support_index_min
-    yield
-    Wheel.supported = original_wheel_supported
-    Wheel.support_index_min = original_support_index_min
-
-
-def _get_hash(cache, req):
-    ireq = req.as_ireq()
-    if ireq.editable or not ireq.is_pinned:
-        return set()
-
-    vcs = VcsSupport()
-    if (ireq.link and
-            ireq.link.scheme in vcs.all_schemes and
-            'ssh' in ireq.link.scheme):
-        return set()
-
-    matching_candidates = set()
-    with _allow_all_wheels():
-        matching_candidates = req.find_all_matches()
-
-    return {
-        cache.get_hash(candidate.location)
-        for candidate in matching_candidates
-    }
-
-
-def _trace_visit_vertex(graph, current, target, visited, path, paths):
-    if current == target:
-        paths.append(path)
-        return
-    for v in graph.iter_children(current):
-        if v == current or v in visited:
-            continue
-        next_path = path + [current]
-        next_visited = visited | {current}
-        _trace_visit_vertex(graph, v, target, next_visited, next_path, paths)
-
-
-def _trace(graph):
-    """Build a collection of "traces" for each package.
-
-    A trace is a list of names that eventually leads to the package. For
-    example, if A and B are root dependencies, A depends on C and D, B
-    depends on C, and C depends on D, the return value would be like::
-
-        {
-            "A": [],
-            "B": [],
-            "C": [["A"], ["B"]],
-            "D": [["B", "C"], ["A"]],
-        }
-    """
-    result = {}
-    for vertex in graph:
-        result[vertex] = []
-        for root in graph.iter_children(None):
-            if root == vertex:
-                continue
-            paths = []
-            _trace_visit_vertex(graph, root, vertex, set(), [], paths)
-            result[vertex].extend(paths)
-    return result
-
-
-def _is_derived_from(k, traces, packages):
-    return k in packages or any(r[0] in packages for r in traces[k])
-
-
-def lock(pipfile):
-    # This comprehension dance ensures we merge packages from both sections,
-    # and definitions in the default section win.
-    requirements = {
-        name: Requirement.from_pipfile(name, package._data)
-        for name, package in itertools.chain(
-            pipfile.dev_packages.items(), pipfile.packages.items(),
-        )
-    }.values()
-
-    provider = RequirementsLibProvider(requirements)
+    provider = RequirementsLibProvider(requirements, sources, allow_pre)
     reporter = StdOutReporter(requirements)
     resolver = Resolver(provider, reporter)
 
     state = resolver.resolve(requirements)
-
-    traces = _trace(state.graph)
-    default = {
-        k: v for k, v in state.mapping.items()
-        if _is_derived_from(k, traces, pipfile.packages)
-    }
-    develop = {
-        k: v for k, v in state.mapping.items()
-        if _is_derived_from(k, traces, pipfile.dev_packages)
-    }
+    traces = trace_graph(state.graph)
 
     hash_cache = HashCache()
-    hashes = {k: _get_hash(hash_cache, v) for k, v in state.mapping.items()}
-    for mapping in [default, develop]:
-        for k, v in mapping.items():
-            v.hashes = [Hash.from_line(v) for v in hashes.get(k, [])]
+    for r in state.mapping.values():
+        r.hashes = get_hashes(hash_cache, r)
+
+    set_metadata(
+        state.mapping, traces, requirements,
+        provider.fetched_dependencies, provider.requires_pythons,
+    )
+    return state, traces
+
+
+def _get_requirements(pipfile, section_name):
+    """Produce a mapping of identifier: requirement from the section.
+    """
+    return {identify_requirment(r): r for r in (
+        Requirement.from_pipfile(name, package._data)
+        for name, package in pipfile.get(section_name, {}).items()
+    )}
+
+
+def _get_derived_entries(state, traces, names):
+    """Produce a mapping containing all candidates derived from `names`.
+
+    `name` should provide a collection of requirement identifications from
+    a section (i.e. `packages` or `dev-packages`). This function uses `trace`
+    to filter out candidates in the state that are present because of an entry
+    in that collection.
+    """
+    if not names:
+        return {}
+    return {
+        v.normalized_name: next(iter(v.as_pipfile().values()))
+        for k, v in state.mapping.items()
+        if k in names or any(r[0] in names for r in traces[k])
+    }
+
+
+def build_lockfile(pipfile):
+    default_reqs = _get_requirements(pipfile, "packages")
+    develop_reqs = _get_requirements(pipfile, "dev-packages")
+
+    # This comprehension dance ensures we merge packages from both
+    # sections, and definitions in the default section win.
+    requirements = {k: r for k, r in itertools.chain(
+        develop_reqs.items(), default_reqs.items(),
+    )}.values()
+
+    sources = [s._data.copy() for s in pipfile.sources]
+    try:
+        allow_pre = bool(pipfile["pipenv"]["allow_prereleases"])
+    except (KeyError, TypeError):
+        allow_pre = False
+    state, traces = resolve_requirements(requirements, sources, allow_pre)
 
     lockfile = Lockfile.with_meta_from(pipfile)
-    lockfile["default"] = {k: v.as_pipfile()[k] for k, v in default.items()}
-    lockfile["develop"] = {k: v.as_pipfile()[k] for k, v in develop.items()}
-
+    lockfile["default"] = _get_derived_entries(state, traces, default_reqs)
+    lockfile["develop"] = _get_derived_entries(state, traces, develop_reqs)
     return lockfile
+
+
+def are_in_sync(pipfile, lockfile):
+    return lockfile and lockfile.is_up_to_date(pipfile)

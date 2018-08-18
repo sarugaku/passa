@@ -1,48 +1,132 @@
-# -*- coding=utf-8 -*-
-import contextlib
+import atexit
+import functools
 import os
-import stat
+import shutil
 import tempfile
 
 
-@contextlib.contextmanager
-def atomic_binary_open_for_write(target):
-    """Atomically open `target` in binary mode for writing.
+def identify_requirment(r):
+    """Produce an identifier for a requirement to use in the resolver.
 
-    This is based on Lektor's `atomic_open()` utility, but simplified a lot
-    to handle only writing, and skip many multi-process/thread edge cases
-    handled by Werkzeug.
+    Note that we are treating the same package with different extras as
+    distinct. This allows semantics like "I only want this extra in
+    development, not production".
 
-    How this works:
-
-    * Create a temp file (in the same directory of the actual target), and
-      yield for surrounding code to write to it.
-    * If some thing goes wrong, try to remove the temp file. The actual target
-      is not touched whatsoever.
-    * If everything goes well, close the temp file, and replace the actual
-      target with this new file.
+    This also makes the resolver's implementation much simpler, with the minor
+    costs of possibly needing a few extra resolution steps if we happen to have
+    the same package apprearing multiple times.
     """
-    f = tempfile.NamedTemporaryFile(
-        dir=os.path.dirname(target),
-        prefix=".__atomic-write",
-        mode="w+b",
-        delete=False,
-    )
-    # set permissions to 0644
-    os.chmod(f.name, stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    return "{0}{1}".format(r.normalized_name, r.extras_as_pip)
+
+
+def mkdir_p(path, mode=0o777):
+    """Mimic the behavior of POSIX's `mkdir -p`.
+
+    This is basically a backport of `os.makedirs(exist_ok=True)`, which is not
+    available in older Pythons.
+    """
     try:
-        yield f
-    except BaseException:
-        f.close()
+        os.makedirs(path, mode=mode)
+    except OSError:
+        if not os.path.isdir(path):
+            raise
+
+
+def ensure_mkdir_p(mode=0o777):
+    """Decorator to ensure `mkdir_p` is called to the function's return value.
+    """
+    def decorator(f):
+
+        @functools.wraps(f)
+        def decorated(*args, **kwargs):
+            path = f(*args, **kwargs)
+            mkdir_p(path, mode=mode)
+            return path
+
+        return decorated
+
+    return decorator
+
+
+def cheesy_temporary_directory(*args, **kwargs):
+    """A very naive tempeorary directory.
+
+    This is intended as a last-resort when nothing viable is provided. Avoid
+    using this if possible. The directory is created with `tempfile.mkdtemp`,
+    and removed on program exit. The removal is done only with minimal effort.
+    """
+    temp_src = tempfile.mkdtemp(*args, **kwargs)
+
+    def cleanup():
         try:
-            os.remove(f.name)
-        except OSError:
-            pass
-        raise
-    else:
-        f.close()
-        try:
-            os.remove(target)  # This is needed on Windows.
-        except OSError:
-            pass
-        os.rename(f.name, target)  # No os.replace() on Python 2.
+            shutil.rmtree(temp_src)
+        except Exception as e:
+            pass    # Whatever.
+
+    atexit.register(cleanup)
+    return temp_src
+
+
+def get_pinned_version(ireq):
+    """Get the pinned version of an InstallRequirement.
+
+    An InstallRequirement is considered pinned if:
+
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+
+    Raises `TypeError` if the input is not a valid InstallRequirement, or
+    `ValueError` if the InstallRequirement is not pinned.
+    """
+    try:
+        specifier = ireq.specifier
+    except AttributeError:
+        raise TypeError("Expected InstallRequirement, not {}".format(
+            type(ireq).__name__,
+        ))
+
+    if ireq.editable:
+        raise ValueError("InstallRequirement is editable")
+    if not specifier:
+        raise ValueError("InstallRequirement has no version specification")
+    if len(specifier._specs) != 1:
+        raise ValueError("InstallRequirement has multiple specifications")
+
+    op, version = next(iter(specifier._specs))._spec
+    if op not in ('==', '===') or version.endswith('.*'):
+        raise ValueError("InstallRequirement not pinned (is {0!r})".format(
+            op + version,
+        ))
+
+    return version
+
+
+def is_pinned(ireq):
+    """Returns whether an InstallRequirement is a "pinned" requirement.
+
+    An InstallRequirement is considered pinned if:
+
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+    """
+    try:
+        get_pinned_version(ireq)
+    except (TypeError, ValueError):
+        return False
+    return True

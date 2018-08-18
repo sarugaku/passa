@@ -2,55 +2,66 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import operator
+import os
 
-import packaging.markers
 import resolvelib
 
-from requirementslib import Requirement
+from .candidates import find_candidates
+from .dependencies import get_dependencies
+from .utils import identify_requirment
+
+
+def _filter_sources(requirement, sources):
+    if not sources or not requirement.index:
+        return sources
+    for s in sources:
+        if s.get("name") == requirement.index:
+            return [s]
+    return sources
 
 
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
-    def __init__(self, root_requirements):
-        self.sources = None
+    def __init__(self, root_requirements, sources, allow_prereleases):
+        self.sources = sources
+        self.allow_prereleases = bool(allow_prereleases)
         self.invalid_candidates = set()
-        self.non_named_requirements = {
-            requirement.name: requirement
-            for requirement in root_requirements
-            if not requirement.is_named
-        }
+
+        # Remember requirements of each pinned candidate. The resolver calls
+        # `get_dependencies()` only when it wants to repin, so the last time
+        # the dependencies we got when it is last called on a package, are
+        # the set used by the resolver. We use this later to trace how a given
+        # dependency is specified by a package.
+        self.fetched_dependencies = {}
+        self.requires_pythons = {}
 
     def identify(self, dependency):
-        return dependency.normalized_name
+        return identify_requirment(dependency)
 
     def get_preference(self, resolution, candidates, information):
         return len(candidates)
 
     def find_matches(self, requirement):
-        name = requirement.normalized_name
-        if name in self.non_named_requirements:
-            # TODO: Need to lock ref for VCS requirements here.
-            return [self.non_named_requirements[name]]
-        ireq = requirement.as_ireq()
-        markers = ireq.markers
-        extras = ireq.extras
-        candidates = sorted(
-            requirement.find_all_matches(sources=self.sources),
-            key=operator.attrgetter('version'),
-        )
-        return [
-            Requirement.from_metadata(name, c.version, extras, markers)
-            for c in candidates
-        ]
+        # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
+        allow_prereleases = self.allow_prereleases
+        sources = _filter_sources(requirement, self.sources)
+        candidates = find_candidates(requirement, sources, allow_prereleases)
+        return candidates
 
     def is_satisfied_by(self, requirement, candidate):
-        name = requirement.normalized_name
-        if name in self.non_named_requirements:
-            return self.non_named_requirements[name] == requirement
-        if not requirement.specifiers:  # Short circuit for speed.
+        # A non-named requirement has exactly one candidate, as implemented in
+        # `find_matches()`. It must match.
+        if not requirement.is_named:
             return True
+
+        # Optimization: Everything matches if there are no specifiers.
+        if not requirement.specifiers:
+            return True
+
+        # We can't handle old version strings before PEP 440. Drop them all.
+        # Practically this shouldn't be a problem if the user is specifying a
+        # remotely reasonable dependency not from before 2013.
         candidate_line = candidate.as_line()
         if candidate_line in self.invalid_candidates:
             return False
@@ -60,31 +71,25 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             print('ignoring invalid version {}'.format(candidate_line))
             self.invalid_candidates.add(candidate_line)
             return False
+
         return requirement.as_ireq().specifier.contains(version)
 
     def get_dependencies(self, candidate):
+        sources = _filter_sources(candidate, self.sources)
         try:
-            dependencies = candidate.get_dependencies(sources=self.sources)
+            dependencies, requires_python = get_dependencies(
+                candidate, sources=sources,
+            )
         except Exception as e:
-            print('failed to get dependencies for {0!r}: {1}'.format(
+            if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                raise
+            print("failed to get dependencies for {0!r}: {1}".format(
                 candidate.as_line(), e,
             ))
             return []
-        ireq = candidate.as_ireq()
-        if ireq.markers:
-            markers = set(ireq.markers)
-        else:
-            markers = set()
-        requirements = []
-        for d in dependencies:
-            requirement = Requirement.from_line(d)
-            ireq = requirement.as_ireq()
-            if ireq.markers and ireq.match_markers():
-                markers = markers.add(ireq.markers)
-                markers = packaging.markers.Marker(
-                    " or ".join(str(m) for m in markers),
-                )
-                ireq.req.markers = markers
-                requirement = Requirement.from_ireq(ireq)
-            requirements.append(requirement)
-        return requirements
+        candidate_key = self.identify(candidate)
+        self.fetched_dependencies[candidate_key] = {
+            self.identify(r): r for r in dependencies
+        }
+        self.requires_pythons[candidate_key] = requires_python
+        return dependencies
