@@ -85,13 +85,6 @@
             ],
             "version": "==2.7"
         },
-        "importlib": {
-            "hashes": [
-                "sha256:b6ee7066fea66e35f8d0acee24d98006de1a0a8a94a8ce6efe73a9a23c8d9826"
-            ],
-            "markers": "python_version < '2.7'",
-            "version": "==1.0.4"
-        },
         "iso8601": {
             "hashes": [
                 "sha256:210e0134677cc0d02f6028087fee1df1e1d76d372ee1db0bf30bf66c5c1c89a3",
@@ -121,10 +114,11 @@
         },
         "pip-shims": {
             "hashes": [
-                "sha256:2e3f042ddb9d15333bb482280b42012bdbfaf29e54ea04bd34af7c427d5b44bd",
-                "sha256:f54c0cd5a02e00b566880a98a86b3d1d8e4b0ad4c521d1b39e45263a81fa0f55"
+                "sha256:9c8a568b4a8ce4000a2982224f48a35736fca81214dfdb30dcae24287866a7e4",
+                "sha256:ebc2bb29ddd21fa00c0cf28a5d8c725100f2f7ee98703aba237efd02e205c1c1"
             ],
-            "version": "==0.1.1"
+            "markers": "python_version != '3.3.*' and python_version >= '2.7' and python_version != '3.1.*' and python_version != '3.0.*' and python_version != '3.2.*'",
+            "version": "==0.1.2"
         },
         "plette": {
             "hashes": [
@@ -229,11 +223,18 @@
         },
         "vistir": {
             "hashes": [
-                "sha256:d0c5e0a3f0d8684ad7107bd260a7fcfb050a8bc514a95d2d034fc55bc6e80cc2",
-                "sha256:dd60114001c636d72779c3cf985ef0516bd013c65998d183d52cd97fda85bff2"
+                "sha256:a455d73376b447eaa8ce207c30bb3229a03117eeb9b3719a78146d2d9fd1cc97",
+                "sha256:a660c06fe21cfd25731a4fb074b8af2476f47247e27e8bc818d46efd86b04ad9"
             ],
-            "markers": "python_version != '3.0.*' and python_version != '3.3.*' and python_version < '4' and python_version >= '2.6' and python_version != '3.2.*' and python_version != '3.1.*'",
-            "version": "==0.1.1"
+            "markers": "python_version >= '2.6' and python_version != '3.3.*' and python_version != '3.1.*' and python_version < '4' and python_version != '3.0.*' and python_version != '3.2.*'",
+            "version": "==0.1.2"
+        },
+        "wheel": {
+            "hashes": [
+                "sha256:0a2e54558a0628f2145d2fc822137e322412115173e8a2ddbe1c9024338ae83c",
+                "sha256:80044e51ec5bbf6c894ba0bc48d26a8c20a9ba629f4ca19ea26ecfcf87685f5f"
+            ],
+            "version": "==0.31.1"
         }
     },
     "develop": {
@@ -382,6 +383,12 @@
                 "sha256:fcbfeaea0be121980e15bc97b3817b5202ca73d0eae185b4550cbfce2a3ebb3d"
             ],
             "version": "==4.3.0"
+        },
+        "ordereddict": {
+            "hashes": [
+                "sha256:1c35b4ac206cef2d24816c89f89cf289dd3d38cf7c449bb3fab7bf6d43f01b1f"
+            ],
+            "version": "==1.1"
         },
         "packaging": {
             "hashes": [
@@ -552,7 +559,6 @@
                 "sha256:0a2e54558a0628f2145d2fc822137e322412115173e8a2ddbe1c9024338ae83c",
                 "sha256:80044e51ec5bbf6c894ba0bc48d26a8c20a9ba629f4ca19ea26ecfcf87685f5f"
             ],
-            "index": "pypi",
             "version": "==0.31.1"
         }
     }
