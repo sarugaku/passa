@@ -60,6 +60,7 @@ class MetaSet(object):
             markerset.add(str(marker))
         metaset = MetaSet()
         metaset.markerset = frozenset(markerset)
+        # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.
         metaset.pyspecset &= self.pyspecset & specset
         return metaset
 
