@@ -2,11 +2,6 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import atexit
-import functools
-
-import vistir
-
 
 def identify_requirment(r):
     """Produce an identifier for a requirement to use in the resolver.
@@ -20,40 +15,6 @@ def identify_requirment(r):
     the same package apprearing multiple times.
     """
     return "{0}{1}".format(r.normalized_name, r.extras_as_pip)
-
-
-def ensure_mkdir_p(mode=0o777):
-    """Decorator to ensure `mkdir_p` is called to the function's return value.
-    """
-    def decorator(f):
-
-        @functools.wraps(f)
-        def decorated(*args, **kwargs):
-            path = f(*args, **kwargs)
-            vistir.mkdir_p(path, mode=mode)
-            return path
-
-        return decorated
-
-    return decorator
-
-
-TRACKED_TEMPORARY_DIRECTORIES = []
-
-
-def create_tracked_tempdir(*args, **kwargs):
-    """Create a tracked temporary directory.
-
-    This uses `TemporaryDirectory`, but does not remove the directory when
-    the return value goes out of scope, instead registers a handler to cleanup
-    on program exit.
-
-    The return value is the path to the created directory.
-    """
-    tempdir = vistir.TemporaryDirectory(*args, **kwargs)
-    TRACKED_TEMPORARY_DIRECTORIES.append(tempdir)
-    atexit.register(tempdir.cleanup)
-    return tempdir.name
 
 
 def get_pinned_version(ireq):

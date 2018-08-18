@@ -10,10 +10,9 @@ import vistir
 
 from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
 from .caches import CACHE_DIR
-from .utils import create_tracked_tempdir, ensure_mkdir_p
 
 
-@ensure_mkdir_p(mode=0o775)
+@vistir.path.ensure_mkdir_p(mode=0o775)
 def _get_src_dir():
     src = os.environ.get("PIP_SRC")
     if src:
@@ -21,7 +20,7 @@ def _get_src_dir():
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         return os.path.join(virtual_env, "src")
-    temp_src = create_tracked_tempdir(prefix='passa-src')
+    temp_src = vistir.path.create_tracked_tempdir(prefix='passa-src')
     return temp_src
 
 
