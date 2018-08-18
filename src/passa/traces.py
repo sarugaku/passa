@@ -23,19 +23,18 @@ def trace_graph(graph):
     depends on C, and C depends on D, the return value would be like::
 
         {
-            "A": [],
-            "B": [],
-            "C": [["A"], ["B"]],
-            "D": [["B", "C"], ["A"]],
+            None: [],
+            "A": [None],
+            "B": [None],
+            "C": [[None, "A"], [None, "B"]],
+            "D": [[None, "B", "C"], [None, "A"]],
         }
     """
-    result = {}
+    result = {None: []}
     for vertex in graph:
         result[vertex] = []
         for root in graph.iter_children(None):
-            if root == vertex:
-                continue
             paths = []
-            _trace_visit_vertex(graph, root, vertex, set(), [], paths)
+            _trace_visit_vertex(graph, root, vertex, {None}, [None], paths)
             result[vertex].extend(paths)
     return result

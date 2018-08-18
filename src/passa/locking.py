@@ -41,7 +41,7 @@ def resolve_requirements(requirements, sources, allow_pre):
         r.hashes = get_hashes(hash_cache, r)
 
     set_metadata(
-        state.mapping, traces, requirements,
+        state.mapping, traces,
         provider.fetched_dependencies, provider.requires_pythons,
     )
     return state, traces
@@ -69,7 +69,7 @@ def _get_derived_entries(state, traces, names):
     return {
         v.normalized_name: next(iter(v.as_pipfile().values()))
         for k, v in state.mapping.items()
-        if k in names or any(r[0] in names for r in traces[k])
+        if k in names or any(r[1] in names for r in traces[k] if len(r) > 1)
     }
 
 

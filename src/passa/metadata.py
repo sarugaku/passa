@@ -11,12 +11,12 @@ import vistir
 import vistir.misc
 
 from .markers import get_without_extra
-from .utils import identify_requirment
 
 
 def dedup_markers(s):
     # TODO: Implement better logic.
-    return sorted(vistir.misc.dedup(s))
+    deduped = sorted(vistir.misc.dedup(s))
+    return deduped
 
 
 class MetaSet(object):
@@ -31,7 +31,7 @@ class MetaSet(object):
 
     def __repr__(self):
         return "MetaSet(markerset={0!r}, pyspecset={1!r})".format(
-            ",".join(sorted(self.markerset)), self.pyspecset,
+            ",".join(sorted(self.markerset)), str(self.pyspecset),
         )
 
     def __str__(self):
@@ -64,20 +64,20 @@ class MetaSet(object):
         return metaset
 
 
-def _add_metasets(candidates, pythons, key, trace, all_metasets):
+def _build_metasets(dependencies, pythons, key, trace, all_metasets):
     all_parent_metasets = []
     for route in trace:
         parent = route[-1]
         try:
             parent_metasets = all_metasets[parent]
         except KeyError:    # Parent not calculated yet. Wait for it.
-            return False
+            return
         all_parent_metasets.append((parent, parent_metasets))
 
     metaset_iters = []
     for parent, parent_metasets in all_parent_metasets:
-        r = candidates[parent][key]
-        python = pythons[parent]
+        r = dependencies[parent][key]
+        python = pythons[key]
         metaset = (
             get_without_extra(r.markers),
             packaging.specifiers.SpecifierSet(python),
@@ -86,40 +86,27 @@ def _add_metasets(candidates, pythons, key, trace, all_metasets):
             parent_metaset | metaset
             for parent_metaset in parent_metasets
         )
-    metasets = list(itertools.chain.from_iterable(metaset_iters))
-
-    try:
-        current = all_metasets[key]
-    except KeyError:
-        all_metasets[key] = metasets
-    else:
-        all_metasets[key] = current + metasets
-    return True
+    return list(itertools.chain.from_iterable(metaset_iters))
 
 
-def _calculate_metasets_mapping(requirements, candidates, pythons, traces):
-    all_metasets = {}
+def _calculate_metasets_mapping(dependencies, pythons, traces):
+    all_metasets = {None: [MetaSet()]}
 
-    # Populate metadata from Pipfile.
-    for r in requirements:
-        specifiers = r.specifiers or packaging.specifiers.SpecifierSet()
-        metaset = MetaSet() | (get_without_extra(r.markers), specifiers)
-        all_metasets[identify_requirment(r)] = [metaset]
-
-    traces = copy.deepcopy(traces)
     del traces[None]
     while traces:
-        successful_keys = set()
+        new_metasets = {}
         for key, trace in traces.items():
-            successful = _add_metasets(
-                candidates, pythons, key, trace, all_metasets,
+            assert key not in all_metasets, key     # Sanity check for debug.
+            metasets = _build_metasets(
+                dependencies, pythons, key, trace, all_metasets,
             )
-            if not successful:
+            if metasets is None:
                 continue
-            successful_keys.add(key)
-        if not successful_keys:
+            new_metasets[key] = metasets
+        if not new_metasets:
             break   # No progress? Deadlocked. Give up.
-        for key in successful_keys:
+        all_metasets.update(new_metasets)
+        for key in new_metasets:
             del traces[key]
 
     return all_metasets
@@ -137,7 +124,7 @@ def _format_metasets(metasets):
     )))
 
 
-def set_metadata(candidates, traces, requirements, dependencies, pythons):
+def set_metadata(candidates, traces, dependencies, pythons):
     """Add "metadata" to candidates based on the dependency tree.
 
     Metadata for a candidate includes markers and a specifier for Python
@@ -147,8 +134,6 @@ def set_metadata(candidates, traces, requirements, dependencies, pythons):
         have their markers set.
     :param traces: A graph trace (produced by `traces.trace_graph`) providing
         information about dependency relationships between candidates.
-    :param requirements: A collection of requirements that was originally
-        provided to be resolved.
     :param dependencies: A key-collection mapping containing what dependencies
         each candidate in `candidates` requested.
     :param pythons: A key-str mapping containing Requires-Python information
@@ -160,7 +145,7 @@ def set_metadata(candidates, traces, requirements, dependencies, pythons):
     The candidates are modified in-place.
     """
     metasets_mapping = _calculate_metasets_mapping(
-        requirements, dependencies, pythons, traces,
+        dependencies, pythons, copy.deepcopy(traces),
     )
     for key, candidate in candidates.items():
         candidate.markers = _format_metasets(metasets_mapping[key])

@@ -33,8 +33,10 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         # the dependencies we got when it is last called on a package, are
         # the set used by the resolver. We use this later to trace how a given
         # dependency is specified by a package.
-        self.fetched_dependencies = {}
-        self.requires_pythons = {}
+        self.fetched_dependencies = {None: {
+            self.identify(r): r for r in root_requirements
+        }}
+        self.requires_pythons = {None: ""}  # TODO: Use the value in Pipfile?
 
     def identify(self, dependency):
         return identify_requirment(dependency)

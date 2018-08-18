@@ -78,11 +78,12 @@ class StdOutReporter(resolvelib.BaseReporter):
         for k in sorted(state.mapping):
             print(state.mapping[k].as_line())
             paths = path_lists[k]
-            if not paths:
-                print('  User requirement')
             for path in paths:
+                if path == [None]:
+                    print('    User requirement')
+                    continue
                 print('   ', end='')
-                for v in reversed(path):
+                for v in reversed(path[1:]):
                     print(' <=', state.mapping[v].as_line(), end='')
                 print()
         print()
