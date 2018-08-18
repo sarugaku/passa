@@ -36,12 +36,13 @@ class MetaSet(object):
 
     def __str__(self):
         return " and ".join(dedup_markers(itertools.chain(
+            # Make sure to always use the same quotes so we can dedup properly.
             (
-                "({0})".format(m) if " or " in m else m
-                for m in (str(marker) for marker in self.markerset)
+                "({0})".format(ms) if " or " in ms else ms
+                for ms in (str(m).replace('"', "'") for m in self.markerset)
             ),
-            (   # Use double quotes (packaging's format) so we can dedup.
-                'python_version {0[0]} "{0[1]}"'.format(spec._spec)
+            (
+                "python_version {0[0]} '{0[1]}'".format(spec._spec)
                 for spec in self.pyspecset._specs
             ),
         )))
