@@ -12,7 +12,9 @@ import requests
 from vistir.contextmanagers import open_file
 from vistir.path import mkdir_p
 
-from ._pip_shims import FAVORITE_HASH, SafeFileCache, vcs
+from pip_shims import FAVORITE_HASH, SafeFileCache
+
+from ._pip_shims import vcs
 from .utils import get_pinned_version
 
 CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))

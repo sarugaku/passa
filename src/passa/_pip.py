@@ -10,7 +10,7 @@ import pip_shims
 
 from ._pip_shims import build_wheel as _build_wheel
 from ._pip_shims import unpack_url as _unpack_url
-from ._pip_shims import vcs
+from ._pip_shims import vcs as pip_vcs
 from .caches import CACHE_DIR
 from .utils import cheesy_temporary_directory, ensure_mkdir_p
 
@@ -170,7 +170,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
 
 
 def get_vcs_ref(requirement):
-    backend = vcs._registry.get(requirement.vcs)
+    backend = pip_vcs._registry.get(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
     src = _get_src_dir()
     name = requirement.normalized_name
