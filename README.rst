@@ -1,6 +1,6 @@
-===============================================================================
-passa: A resolver implementation for generating and interacting with Pipenv-compatible Lockfiles.
-===============================================================================
+===================================================
+Passa: Resolver implementation for Pipfile projects
+===================================================
 
 .. image:: https://img.shields.io/pypi/v/passa.svg
     :target: https://pypi.python.org/pypi/passa
@@ -23,57 +23,55 @@ passa: A resolver implementation for generating and interacting with Pipenv-comp
 
 
 Installation
-*************
+============
 
-Install from `PyPI`_:
-
-  ::
+Install from PyPI_::
 
     $ pipenv install --pre passa
 
-Install from `Github`_:
-
-  ::
+Install from GitHub_::
 
     $ pipenv install -e git+https://github.com/sarugaku/passa.git#egg=passa
 
 
 .. _PyPI: https://www.pypi.org/project/passa
-.. _Github: https://github.com/sarugaku/passa
+.. _GitHub: https://github.com/sarugaku/passa
 
 
-.. _`Summary`:
+
+.. _Summary:
 
 Summary
-********
+=======
 
-**Passa** is a resolver layer which is designed for performing dependency resolution using a
-stateful backtracking algorithm to resolve dependency conflicts gracefully and with minimal 
-intervention.  It is implemented using the directed acyclic graph built in `resolvelib`_. 
-**Passa** is intended to operate on a `Pipfile`_ in order to produce a Lockfile in a valid
-state.  It was designed to be used as the backing resolver for `pipenv`_ and is built on
-top of elements from `requirementslib`_, the current interface layer between pipenv's
-requirements and its internals.
+**Passa** is a resolver layer which is designed for performing dependency
+resolution using a stateful backtracking algorithm to resolve dependency
+conflicts gracefully and with minimal intervention.  It is implemented using
+the directed acyclic graph built in resolvelib_. **Passa** is intended to
+operate on a Pipfile_ in order to produce a Lockfile in a valid state.  It
+was designed to be used as the backing resolver for Pipenv_ and is built on
+top of elements from requirementslib_, the current interface layer between Pipenv's requirements and its internals.
 
-.. _pipenv: https://github.com/pypa/pipenv
+.. _Pipenv: https://github.com/pypa/pipenv
 .. _pipfile: https://github.com/sarugaku/pipfile
 .. _resolvelib: https://github.com/sarugaku/resolvelib
 .. _requirementslib: https://github.com/sarugaku/requirementslib
 
 
-.. _`Usage`:
+
+.. _Usage:
 
 Usage
-******
+=====
 
-Loading a *pipfile*
-///////////////////////
+Loading a *Pipfile*
+-------------------
 
-You can use passa to import your **pipfile** and resolve its dependencies:
+You can use Passa to import your **Pipfile** project, and resolve its
+dependencies::
 
-  ::
+    pipenv run python -m passa path/to/project
 
-    import passa
-    pipfile = passa.load('/path/to/project/dir/or/Pipfile')
-    lockfile = passa.resolve(pipfile)
-    lockfile.create()
+Pass the `--output` flag to control how the lock file is outputed. Possible
+values are `print` (the default, prints to stdout), `write` (write to
+Pipfile.lock in the project root), and `none` (suppress the output).

@@ -1,14 +1,19 @@
+# -*- coding=utf-8 -*-
+
+from __future__ import absolute_import, unicode_literals
+
 import os
 
 import pip_shims
 import six
+import vistir
 
-from ._pip_shims import (
-    build_wheel as _build_wheel,
-    unpack_url as _unpack_url,
-)
+from ._pip_shims import build_wheel as _build_wheel, unpack_url
 from .caches import CACHE_DIR
-from .utils import cheesy_temporary_directory, ensure_mkdir_p, mkdir_p
+from .utils import create_tracked_tempdir, ensure_mkdir_p
+
+
+VCS_SUPPORT = pip_shims.VcsSupport()
 
 
 @ensure_mkdir_p(mode=0o775)
@@ -19,16 +24,16 @@ def _get_src_dir():
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         return os.path.join(virtual_env, "src")
-    temp_src = cheesy_temporary_directory(prefix='passa-src')
+    temp_src = create_tracked_tempdir(prefix='passa-src')
     return temp_src
 
 
 def _prepare_wheel_building_kwargs(ireq):
     download_dir = os.path.join(CACHE_DIR, "pkgs")
-    mkdir_p(download_dir)
+    vistir.mkdir_p(download_dir)
 
     wheel_download_dir = os.path.join(CACHE_DIR, "wheels")
-    mkdir_p(wheel_download_dir)
+    vistir.mkdir_p(wheel_download_dir)
 
     if ireq.source_dir is None:
         src_dir = _get_src_dir()
@@ -41,7 +46,7 @@ def _prepare_wheel_building_kwargs(ireq):
     if ireq.editable:
         build_dir = src_dir
     else:
-        build_dir = cheesy_temporary_directory(prefix="passa-build")
+        build_dir = create_tracked_tempdir(prefix="passa-build")
 
     return {
         "build_dir": build_dir,
@@ -128,13 +133,14 @@ def build_wheel(ireq, sources):
     # enough to just download because we'll use them directly. For an sdist,
     # we need to unpack so we can build it.
     if not pip_shims.is_file_url(ireq.link):
+
         if ireq.is_wheel:
             only_download = True
             download_dir = kwargs["wheel_download_dir"]
         else:
             only_download = False
             download_dir = kwargs["download_dir"]
-        _unpack_url(
+        unpack_url(
             ireq.link, ireq.source_dir, download_dir,
             only_download=only_download, session=finder.session,
             hashes=ireq.hashes(True), progress_bar=False,
@@ -147,7 +153,7 @@ def build_wheel(ireq, sources):
 
     # Othereise we need to build an ephemeral wheel.
     wheel_path = _build_wheel(
-        ireq, cheesy_temporary_directory(prefix="ephem"),
+        ireq, create_tracked_tempdir(prefix="ephem"),
         finder, _get_wheel_cache(), kwargs,
     )
     return wheel_path
@@ -165,7 +171,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
 
 
 def get_vcs_ref(requirement):
-    backend = pip_shims.VcsSupport()._registry.get(requirement.vcs)
+    backend = VCS_SUPPORT._registry.get(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
     src = _get_src_dir()
     name = requirement.normalized_name

@@ -1,3 +1,6 @@
+# -*- coding=utf-8 -*-
+from __future__ import absolute_import, unicode_literals
+
 import os
 import sys
 
@@ -31,8 +34,7 @@ def _filter_matching_python_requirement(candidates, python_version):
 
 
 def _copy_requirement(requirement):
-    name, data = next(iter(requirement.as_pipfile().items()))
-    return requirementslib.Requirement.from_pipfile(name, data)
+    return requirement.copy()
 
 
 def _requirement_from_metadata(name, version, extras, index):

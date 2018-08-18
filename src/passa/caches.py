@@ -1,4 +1,7 @@
-import contextlib
+# -*- coding=utf-8 -*-
+
+from __future__ import absolute_import, unicode_literals
+
 import copy
 import hashlib
 import json
@@ -8,44 +11,13 @@ import sys
 import appdirs
 import pip_shims
 import requests
+import vistir
 
-from .utils import get_pinned_version, mkdir_p
+from ._pip import VCS_SUPPORT
+from .utils import get_pinned_version
 
 
 CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))
-
-
-@contextlib.contextmanager
-def _open_local_or_remote_file(link, session):
-    """
-    Open local or remote file for reading.
-
-    :type link: pip._internal.index.Link
-    :type session: requests.Session
-    :raises ValueError: If link points to a local directory.
-    :return: a context manager to the opened file-like object
-    """
-    try:
-        url = link.url_without_fragment
-    except AttributeError:
-        url = link
-
-    if pip_shims.is_file_url(link):
-        # Local URL
-        local_path = pip_shims.url_to_path(url)
-        if os.path.isdir(local_path):
-            raise ValueError("Cannot open directory for read: {}".format(url))
-        else:
-            with open(local_path, 'rb') as local_file:
-                yield local_file
-    else:
-        # Remote URL
-        headers = {"Accept-Encoding": "identity"}
-        response = session.get(url, headers=headers, stream=True)
-        try:
-            yield response.raw
-        finally:
-            response.close()
 
 
 class HashCache(pip_shims.SafeFileCache):
@@ -65,10 +37,9 @@ class HashCache(pip_shims.SafeFileCache):
         # If there is no location hash (i.e., md5, sha256, etc.), we don't want
         # to store it.
         hash_value = None
-        vcs = pip_shims.VcsSupport()
         orig_scheme = location.scheme
         new_location = copy.deepcopy(location)
-        if orig_scheme in vcs.all_schemes:
+        if orig_scheme in VCS_SUPPORT.all_schemes:
             new_location.url = new_location.url.split("+", 1)[-1]
         can_hash = new_location.hash
         if can_hash:
@@ -83,15 +54,13 @@ class HashCache(pip_shims.SafeFileCache):
 
     def _get_file_hash(self, location):
         h = hashlib.new(pip_shims.FAVORITE_HASH)
-        with _open_local_or_remote_file(location, self.session) as fp:
+        with vistir.open_file(location, self.session) as fp:
             for chunk in iter(lambda: fp.read(8096), b""):
                 h.update(chunk)
         return ":".join([h.name, h.hexdigest()])
 
 
 # pip-tools's dependency cache implementation.
-
-
 class CorruptCacheError(Exception):
     def __init__(self, path):
         self.path = path
@@ -143,7 +112,7 @@ class _JSONCache(object):
     filename_format = None
 
     def __init__(self, cache_dir=CACHE_DIR):
-        mkdir_p(cache_dir)
+        vistir.mkdir_p(cache_dir)
         python_version = ".".join(str(digit) for digit in sys.version_info[:2])
         cache_filename = self.filename_format.format(
             python_version=python_version,

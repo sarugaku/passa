@@ -1,8 +1,11 @@
+# -*- coding=utf-8 -*-
+
+from __future__ import absolute_import, unicode_literals
+
 import atexit
 import functools
-import os
-import shutil
-import tempfile
+
+import vistir
 
 
 def identify_requirment(r):
@@ -19,19 +22,6 @@ def identify_requirment(r):
     return "{0}{1}".format(r.normalized_name, r.extras_as_pip)
 
 
-def mkdir_p(path, mode=0o777):
-    """Mimic the behavior of POSIX's `mkdir -p`.
-
-    This is basically a backport of `os.makedirs(exist_ok=True)`, which is not
-    available in older Pythons.
-    """
-    try:
-        os.makedirs(path, mode=mode)
-    except OSError:
-        if not os.path.isdir(path):
-            raise
-
-
 def ensure_mkdir_p(mode=0o777):
     """Decorator to ensure `mkdir_p` is called to the function's return value.
     """
@@ -40,7 +30,7 @@ def ensure_mkdir_p(mode=0o777):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             path = f(*args, **kwargs)
-            mkdir_p(path, mode=mode)
+            vistir.mkdir_p(path, mode=mode)
             return path
 
         return decorated
@@ -48,23 +38,22 @@ def ensure_mkdir_p(mode=0o777):
     return decorator
 
 
-def cheesy_temporary_directory(*args, **kwargs):
-    """A very naive tempeorary directory.
+TRACKED_TEMPORARY_DIRECTORIES = []
 
-    This is intended as a last-resort when nothing viable is provided. Avoid
-    using this if possible. The directory is created with `tempfile.mkdtemp`,
-    and removed on program exit. The removal is done only with minimal effort.
+
+def create_tracked_tempdir(*args, **kwargs):
+    """Create a tracked temporary directory.
+
+    This uses `TemporaryDirectory`, but does not remove the directory when
+    the return value goes out of scope, instead registers a handler to cleanup
+    on program exit.
+
+    The return value is the path to the created directory.
     """
-    temp_src = tempfile.mkdtemp(*args, **kwargs)
-
-    def cleanup():
-        try:
-            shutil.rmtree(temp_src)
-        except Exception as e:
-            pass    # Whatever.
-
-    atexit.register(cleanup)
-    return temp_src
+    tempdir = vistir.TemporaryDirectory(*args, **kwargs)
+    TRACKED_TEMPORARY_DIRECTORIES.append(tempdir)
+    atexit.register(tempdir.cleanup)
+    return tempdir.name
 
 
 def get_pinned_version(ireq):
