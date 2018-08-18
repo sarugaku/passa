@@ -1,5 +1,5 @@
 # -*- coding=utf-8 -*-
-from __future__ import absolute_import, unicode_literals
+
 """Shims to make the pip interface more consistent accross versions.
 
 There are currently two members:
@@ -8,11 +8,9 @@ There are currently two members:
 * unpack_url wraps the actual function in pip to accept modern parameters.
 """
 
-import pip_shims
+from __future__ import absolute_import, unicode_literals
 
-SafeFileCache = pip_shims.SafeFileCache
-vcs = pip_shims.VcsSupport()
-FAVORITE_HASH = pip_shims.FAVORITE_HASH
+import pip_shims
 
 
 def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
@@ -51,11 +49,9 @@ def _unpack_url_pre10(*args, **kwargs):
 PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
 
 VERSION_10 = pip_shims.utils._parse("10")
-VERSION_18 = pip_shims.utils._parse("18")
 
 
 build_wheel = _build_wheel_modern
-
 
 if PIP_VERSION < VERSION_10:
     build_wheel = _build_wheel_pre10

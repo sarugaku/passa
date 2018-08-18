@@ -1,12 +1,13 @@
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, unicode_literals
 
 import copy
 import itertools
 
-from packaging.markers import Marker
-from packaging.specifiers import SpecifierSet
-from vistir.misc import dedup
+import packaging.markers
+import packaging.specifiers
+import vistir
 
 from .markers import get_without_extra
 from .utils import identify_requirment
@@ -14,7 +15,7 @@ from .utils import identify_requirment
 
 def dedup_markers(s):
     # TODO: Implement better logic.
-    return sorted(dedup(s))
+    return sorted(vistir.dedup(s))
 
 
 class MetaSet(object):
@@ -25,7 +26,7 @@ class MetaSet(object):
     """
     def __init__(self):
         self.markerset = frozenset()
-        self.pyspecset = SpecifierSet()
+        self.pyspecset = packaging.specifiers.SpecifierSet()
 
     def __repr__(self):
         return "MetaSet(markerset={0!r}, pyspecset={1!r})".format(
@@ -71,7 +72,10 @@ def _add_metasets(candidates, pythons, key, trace, all_metasets):
             return False
         r = candidates[parent][key]
         python = pythons[parent]
-        metaset = (get_without_extra(r.markers), SpecifierSet(python))
+        metaset = (
+            get_without_extra(r.markers),
+            packaging.specifiers.SpecifierSet(python),
+        )
         metaset_iters.append(
             parent_metaset | metaset
             for parent_metaset in parent_metasets
@@ -91,7 +95,7 @@ def _calculate_metasets_mapping(requirements, candidates, pythons, traces):
 
     # Populate metadata from Pipfile.
     for r in requirements:
-        specifiers = r.specifiers or SpecifierSet()
+        specifiers = r.specifiers or packaging.specifiers.SpecifierSet()
         metaset = MetaSet() | (get_without_extra(r.markers), specifiers)
         all_metasets[identify_requirment(r)] = [metaset]
 
@@ -120,7 +124,7 @@ def _format_metasets(metasets):
         return None
 
     # This extra str(Marker()) call helps simplify the expression.
-    return str(Marker(" or ".join(
+    return str(packaging.markers.Marker(" or ".join(
         "({0})".format(s) if " and " in s else s
         for s in dedup_markers(str(metaset) for metaset in metasets)
     )))

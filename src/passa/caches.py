@@ -1,4 +1,5 @@
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, unicode_literals
 
 import copy
@@ -8,19 +9,18 @@ import os
 import sys
 
 import appdirs
+import pip_shims
 import requests
-from vistir.contextmanagers import open_file
-from vistir.path import mkdir_p
+import vistir
 
-from pip_shims import FAVORITE_HASH, SafeFileCache
-
-from ._pip_shims import vcs
+from ._pip import VCS_SUPPORT
 from .utils import get_pinned_version
+
 
 CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))
 
 
-class HashCache(SafeFileCache):
+class HashCache(pip_shims.SafeFileCache):
     """Caches hashes of PyPI artifacts so we do not need to re-download them.
 
     Hashes are only cached when the URL appears to contain a hash in it and the
@@ -39,7 +39,7 @@ class HashCache(SafeFileCache):
         hash_value = None
         orig_scheme = location.scheme
         new_location = copy.deepcopy(location)
-        if orig_scheme in vcs.all_schemes:
+        if orig_scheme in VCS_SUPPORT.all_schemes:
             new_location.url = new_location.url.split("+", 1)[-1]
         can_hash = new_location.hash
         if can_hash:
@@ -53,8 +53,8 @@ class HashCache(SafeFileCache):
         return hash_value.decode('utf8')
 
     def _get_file_hash(self, location):
-        h = hashlib.new(FAVORITE_HASH)
-        with open_file(location, self.session) as fp:
+        h = hashlib.new(pip_shims.FAVORITE_HASH)
+        with vistir.open_file(location, self.session) as fp:
             for chunk in iter(lambda: fp.read(8096), b""):
                 h.update(chunk)
         return ":".join([h.name, h.hexdigest()])
@@ -112,7 +112,7 @@ class _JSONCache(object):
     filename_format = None
 
     def __init__(self, cache_dir=CACHE_DIR):
-        mkdir_p(cache_dir)
+        vistir.mkdir_p(cache_dir)
         python_version = ".".join(str(digit) for digit in sys.version_info[:2])
         cache_filename = self.filename_format.format(
             python_version=python_version,

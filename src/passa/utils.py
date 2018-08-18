@@ -1,11 +1,11 @@
 # -*- coding=utf-8 -*-
+
 from __future__ import absolute_import, unicode_literals
 
 import atexit
 import functools
 
-from vistir.compat import TemporaryDirectory
-from vistir.path import mkdir_p
+import vistir
 
 
 def identify_requirment(r):
@@ -30,7 +30,7 @@ def ensure_mkdir_p(mode=0o777):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             path = f(*args, **kwargs)
-            mkdir_p(path, mode=mode)
+            vistir.mkdir_p(path, mode=mode)
             return path
 
         return decorated
@@ -38,16 +38,22 @@ def ensure_mkdir_p(mode=0o777):
     return decorator
 
 
-def cheesy_temporary_directory(*args, **kwargs):
-    """Uses a python 2/3 compatible TemporaryDirectory from `vistir`.
+TRACKED_TEMPORARY_DIRECTORIES = []
 
-    Registers a handler to cleanup after itself using a backported version of
-    `weakref.finalize` if necessary.
+
+def create_tracked_tempdir(*args, **kwargs):
+    """Create a tracked temporary directory.
+
+    This uses `TemporaryDirectory`, but does not remove the directory when
+    the return value goes out of scope, instead registers a handler to cleanup
+    on program exit.
+
+    The return value is the path to the created directory.
     """
-    temp_src = TemporaryDirectory(*args, **kwargs)
-
-    atexit.register(temp_src.cleanup)
-    return temp_src.name
+    tempdir = vistir.TemporaryDirectory(*args, **kwargs)
+    TRACKED_TEMPORARY_DIRECTORIES.append(tempdir)
+    atexit.register(tempdir.cleanup)
+    return tempdir.name
 
 
 def get_pinned_version(ireq):
