@@ -64,13 +64,17 @@ class MetaSet(object):
 
 
 def _add_metasets(candidates, pythons, key, trace, all_metasets):
-    metaset_iters = []
+    all_parent_metasets = []
     for route in trace:
         parent = route[-1]
         try:
             parent_metasets = all_metasets[parent]
         except KeyError:    # Parent not calculated yet. Wait for it.
             return False
+        all_parent_metasets.append((parent, parent_metasets))
+
+    metaset_iters = []
+    for parent, parent_metasets in all_parent_metasets:
         r = candidates[parent][key]
         python = pythons[parent]
         metaset = (
@@ -82,6 +86,7 @@ def _add_metasets(candidates, pythons, key, trace, all_metasets):
             for parent_metaset in parent_metasets
         )
     metasets = list(itertools.chain.from_iterable(metaset_iters))
+
     try:
         current = all_metasets[key]
     except KeyError:
