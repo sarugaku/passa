@@ -66,11 +66,12 @@ def _get_derived_entries(state, traces, names):
     """
     if not names:
         return {}
-    return {
-        v.normalized_name: next(iter(v.as_pipfile().values()))
-        for k, v in state.mapping.items()
-        if k in names or any(r[1] in names for r in traces[k] if len(r) > 1)
-    }
+    return_map = {}
+    for req_name_from_state, req in state.mapping.items():
+        req_traces = [trace[1] for trace in traces[req_name_from_state] if len(trace) > 1]
+        if req_name_from_state in names or len(set(names) & set(req_traces)) :
+            return_map[req.normalized_name] = next(iter(req.as_pipfile().values()))
+    return return_map
 
 
 def build_lockfile(pipfile):
