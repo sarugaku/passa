@@ -3,6 +3,7 @@ passa = { editable = true, path = '.' }
 requirementslib = { editable = true, path = './../requirementslib' }
 
 [dev-packages]
+passa = { editable = true, path = '.', extras = ['tests'] }
 black = '*'
 invoke = '*'
 parver = '*'
