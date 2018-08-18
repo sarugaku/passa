@@ -36,7 +36,9 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         self.fetched_dependencies = {None: {
             self.identify(r): r for r in root_requirements
         }}
-        self.requires_pythons = {None: ""}  # TODO: Use the value in Pipfile?
+        # TODO: Find a way to resolve with multiple versions (by tricking runtime)
+        # Include multiple keys in pipfiles?
+        self.requires_pythons = {None: ""}  # TODO: Don't use any value
 
     def identify(self, dependency):
         return identify_requirment(dependency)
@@ -46,6 +48,8 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
 
     def find_matches(self, requirement):
         # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
+        # TODO: Make sure we are locking candidates that only have a prerelease version
+        # no matter what the user says about allowing prereleases
         allow_prereleases = self.allow_prereleases
         sources = _filter_sources(requirement, self.sources)
         candidates = find_candidates(requirement, sources, allow_prereleases)
