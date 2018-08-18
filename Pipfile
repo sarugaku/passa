@@ -24,6 +24,3 @@ build = "setup.py sdist bdist_wheel"
 upload = "twine upload dist/*"
 docs = "inv build-docs"
 mdchangelog = "pandoc CHANGELOG.rst -f rst -t markdown -o CHANGELOG.md"
-
-[pipenv]
-allow_prereleases = true

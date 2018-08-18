@@ -8,6 +8,7 @@ import itertools
 import packaging.markers
 import packaging.specifiers
 import vistir
+import vistir.misc
 
 from .markers import get_without_extra
 from .utils import identify_requirment
@@ -15,7 +16,7 @@ from .utils import identify_requirment
 
 def dedup_markers(s):
     # TODO: Implement better logic.
-    return sorted(vistir.dedup(s))
+    return sorted(vistir.misc.dedup(s))
 
 
 class MetaSet(object):

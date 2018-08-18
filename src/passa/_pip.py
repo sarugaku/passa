@@ -8,12 +8,9 @@ import pip_shims
 import six
 import vistir
 
-from ._pip_shims import build_wheel as _build_wheel, unpack_url
+from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
 from .caches import CACHE_DIR
 from .utils import create_tracked_tempdir, ensure_mkdir_p
-
-
-VCS_SUPPORT = pip_shims.VcsSupport()
 
 
 @ensure_mkdir_p(mode=0o775)
@@ -98,10 +95,8 @@ def _get_finder(sources):
 
 
 def _get_wheel_cache():
-    # HACK: Remove this after pip-shims updates. (sarugaku/pip-shims#6)
-    from ._pip_shims import WheelCache
     format_control = pip_shims.FormatControl(set(), set())
-    wheel_cache = WheelCache(CACHE_DIR, format_control)
+    wheel_cache = pip_shims.WheelCache(CACHE_DIR, format_control)
     return wheel_cache
 
 

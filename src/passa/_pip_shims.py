@@ -4,6 +4,7 @@
 
 There are currently two members:
 
+* VCS_SUPPORT is an instance of VcsSupport.
 * build_wheel abstracts the process to build a wheel out of a bunch parameters.
 * unpack_url wraps the actual function in pip to accept modern parameters.
 """
@@ -43,15 +44,17 @@ def _unpack_url_pre10(*args, **kwargs):
     pip before 10.0 does not accept `progress_bar` here. Simply drop it.
     """
     kwargs.pop("progress_bar", None)
-    return unpack_url(*args, **kwargs)
+    return pip_shims.unpack_url(*args, **kwargs)
 
 
 PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
-
 VERSION_10 = pip_shims.utils._parse("10")
 
 
+VCS_SUPPORT = pip_shims.VcsSupport()
+
 build_wheel = _build_wheel_modern
+unpack_url = pip_shims.unpack_url
 
 if PIP_VERSION < VERSION_10:
     build_wheel = _build_wheel_pre10

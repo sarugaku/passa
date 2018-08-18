@@ -13,7 +13,7 @@ import pip_shims
 import requests
 import vistir
 
-from ._pip import VCS_SUPPORT
+from ._pip_shims import VCS_SUPPORT
 from .utils import get_pinned_version
 
 
