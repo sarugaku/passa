@@ -92,7 +92,8 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             print("failed to get dependencies for {0!r}: {1}".format(
                 candidate.as_line(), e,
             ))
-            return []
+            dependencies = []
+            requires_python = ""
         candidate_key = self.identify(candidate)
         self.fetched_dependencies[candidate_key] = {
             self.identify(r): r for r in dependencies
