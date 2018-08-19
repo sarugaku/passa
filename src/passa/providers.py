@@ -23,8 +23,9 @@ def _filter_sources(requirement, sources):
 class RequirementsLibProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
-    def __init__(self, root_requirements, sources, allow_prereleases):
+    def __init__(self, root_requirements, sources, pins, allow_prereleases):
         self.sources = sources
+        self.preferred_pins = pins
         self.allow_prereleases = bool(allow_prereleases)
         self.invalid_candidates = set()
 
@@ -53,6 +54,12 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         allow_prereleases = self.allow_prereleases
         sources = _filter_sources(requirement, self.sources)
         candidates = find_candidates(requirement, sources, allow_prereleases)
+        try:
+            # Add the preferred pin. Remember the resolve prefer candidates
+            # at the end of the list, so the most preferred should be last.
+            candidates.append(self.preferred_pins[self.identify(requirement)])
+        except KeyError:
+            pass
         return candidates
 
     def is_satisfied_by(self, requirement, candidate):

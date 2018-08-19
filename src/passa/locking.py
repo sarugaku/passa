@@ -17,7 +17,7 @@ from .traces import trace_graph
 from .utils import identify_requirment
 
 
-def resolve_requirements(requirements, sources, allow_pre):
+def resolve_requirements(requirements, sources, pins, allow_pre):
     """Lock specified (abstract) requirements into (concrete) candidates.
 
     The locking procedure consists of four stages:
@@ -29,7 +29,7 @@ def resolve_requirements(requirements, sources, allow_pre):
     * Populate markers based on dependency specifications of each candidate,
       and the dependency graph.
     """
-    provider = RequirementsLibProvider(requirements, sources, allow_pre)
+    provider = RequirementsLibProvider(requirements, sources, pins, allow_pre)
     reporter = StdOutReporter(requirements)
     resolver = Resolver(provider, reporter)
 
@@ -38,7 +38,9 @@ def resolve_requirements(requirements, sources, allow_pre):
 
     hash_cache = HashCache()
     for r in state.mapping.values():
-        r.hashes = get_hashes(hash_cache, r)
+        # XXX: Is this good? Should wa always fetch fresh hashes instead?
+        if not r.hashes:
+            r.hashes = get_hashes(hash_cache, r)
 
     set_metadata(
         state.mapping, traces,
@@ -74,9 +76,14 @@ def _get_derived_entries(state, traces, names):
     return return_map
 
 
-def build_lockfile(pipfile):
+def build_lockfile(pipfile, lockfile):
     default_reqs = _get_requirements(pipfile, "packages")
     develop_reqs = _get_requirements(pipfile, "dev-packages")
+
+    pins = {}
+    if lockfile:
+        pins = _get_requirements(lockfile, "develop")
+        pins.update(_get_requirements(lockfile, "default"))
 
     # This comprehension dance ensures we merge packages from both
     # sections, and definitions in the default section win.
@@ -86,12 +93,14 @@ def build_lockfile(pipfile):
 
     sources = [s._data.copy() for s in pipfile.sources]
     try:
-        allow_pre = bool(pipfile["pipenv"]["allow_prereleases"])
+        allow_prereleases = bool(pipfile["pipenv"]["allow_prereleases"])
     except (KeyError, TypeError):
-        allow_pre = False
-    state, traces = resolve_requirements(requirements, sources, allow_pre)
+        allow_prereleases = False
+    state, traces = resolve_requirements(
+        requirements, sources, pins, allow_prereleases,
+    )
 
-    lockfile = Lockfile.with_meta_from(pipfile)
-    lockfile["default"] = _get_derived_entries(state, traces, default_reqs)
-    lockfile["develop"] = _get_derived_entries(state, traces, develop_reqs)
-    return lockfile
+    new_lock = Lockfile.with_meta_from(pipfile)
+    new_lock["default"] = _get_derived_entries(state, traces, default_reqs)
+    new_lock["develop"] = _get_derived_entries(state, traces, develop_reqs)
+    return new_lock

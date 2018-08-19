@@ -119,6 +119,7 @@ class Project(object):
         lockfile = self.lockfile
         if not force and lockfile and lockfile.is_up_to_date(self.pipfile):
             return False
+        lockfile = None if force else self.lockfile
         with vistir.cd(self.root):
-            self.lockfile = build_lockfile(self.pipfile)
+            self.lockfile = build_lockfile(self.pipfile, lockfile)
         return True
