@@ -38,7 +38,6 @@ def resolve_requirements(requirements, sources, pins, allow_pre):
 
     hash_cache = HashCache()
     for r in state.mapping.values():
-        # XXX: Is this good? Should wa always fetch fresh hashes instead?
         if not r.hashes:
             r.hashes = get_hashes(hash_cache, r)
 
