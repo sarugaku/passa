@@ -95,7 +95,3 @@ def build_lockfile(pipfile):
     lockfile["default"] = _get_derived_entries(state, traces, default_reqs)
     lockfile["develop"] = _get_derived_entries(state, traces, develop_reqs)
     return lockfile
-
-
-def are_in_sync(pipfile, lockfile):
-    return lockfile and lockfile.is_up_to_date(pipfile)
