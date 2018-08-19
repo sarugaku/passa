@@ -3,7 +3,6 @@
 from __future__ import absolute_import, unicode_literals
 
 import argparse
-import itertools
 import os
 
 from passa.projects import Project
@@ -14,17 +13,19 @@ from .lock import lock
 def parse_arguments(argv):
     parser = argparse.ArgumentParser("passa-add")
     parser.add_argument(
-        "requirement_lines", metavar="requirement",
-        nargs="*",
+        "packages", metavar="package",
+        nargs="+",
     )
-    parser.add_argument(
-        "-e", "--editable",
-        metavar="requirement", dest="editable_lines",
-        action="append", default=[],
+    dev_group = parser.add_mutually_exclusive_group()
+    dev_group.add_argument(
+        "--dev", dest="only",
+        action="store_const", const="dev",
+        help="Only try to remove from [dev-packages]",
     )
-    parser.add_argument(
-        "--dev",
-        action="store_true",
+    dev_group.add_argument(
+        "--default", dest="only",
+        action="store_const", const="default",
+        help="Only try to remove from [packages]",
     )
     parser.add_argument(
         "--project", dest="project_root",
@@ -32,18 +33,16 @@ def parse_arguments(argv):
         type=os.path.abspath,
     )
     options = parser.parse_args(argv)
-    if not options.editable_lines and not options.requirement_lines:
-        parser.error("Must supply either a requirement or --editable")
     return options
 
 
 def parsed_main(options):
-    lines = list(itertools.chain(
-        options.requirement_lines,
-        ("-e {}".format(e) for e in options.editable_lines),
-    ))
     project = Project(options.project_root)
-    project.add_lines_to_pipfile(lines, develop=options.dev)
+    project.remove_lines_to_pipfile(
+        options.packages,
+        default=(options.only != "dev"),
+        develop=(options.only != "default"),
+    )
 
     success, updated = lock(project)
     if not success:

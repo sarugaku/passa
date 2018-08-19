@@ -2,6 +2,7 @@ import io
 import os
 
 import attr
+import packaging.utils
 import plette
 import six
 import tomlkit
@@ -88,18 +89,19 @@ class Project(object):
     def lockfile(self, new):
         self._l.model = new
 
-    def _get_pipfile_section(self, dev):
+    def _get_pipfile_section(self, dev, insert=True):
         name = "dev-packages" if dev else "packages"
         try:
             section = self.pipfile[name]
         except KeyError:
             section = plette.models.PackageCollection(tomlkit.table())
-            self.pipfile[name] = section
+            if insert:
+                self.pipfile[name] = section
         return section
 
-    def add_lines_to_pipfile(self, lines, dev):
+    def add_lines_to_pipfile(self, lines, develop):
         from requirementslib import Requirement
-        section = self._get_pipfile_section(dev)
+        section = self._get_pipfile_section(dev=develop)
         for line in lines:
             requirement = Requirement.from_line(line)
             key = requirement.normalized_name
@@ -113,6 +115,24 @@ class Project(object):
                     table[k] = v
                 entry = table
             section[key] = entry
+
+    def remove_lines_to_pipfile(self, lines, default, develop):
+        keys_to_remove = {
+            packaging.utils.canonicalize_name(line)
+            for line in lines
+        }
+        sections = []
+        if default:
+            sections.append(self._get_pipfile_section(dev=False, insert=False))
+        if develop:
+            sections.append(self._get_pipfile_section(dev=True, insert=False))
+        for section in sections:
+            removals = set()
+            for name in section:
+                if packaging.utils.canonicalize_name(name) in keys_to_remove:
+                    removals.add(name)
+            for key in removals:
+                del section._data[key]
 
     def lock(self, force=False):
         from .locking import build_lockfile
