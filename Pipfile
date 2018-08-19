@@ -1,6 +1,5 @@
 [packages]
 passa = { editable = true, path = '.' }
-requirementslib = { editable = true, path = './../requirementslib' }
 
 [dev-packages]
 passa = { editable = true, path = '.', extras = ['tests'] }
@@ -16,7 +15,7 @@ recursive-monkey-patch = "*"
 
 [scripts]
 release = 'inv release'
-black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist|src/passa/_vendor)/"'
+black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"'
 mknews = "towncrier"
 tests = "pytest -v tests"
 draft = "towncrier --draft"
