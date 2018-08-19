@@ -4,6 +4,7 @@ import os
 import attr
 import plette
 import six
+import tomlkit
 import vistir
 
 
@@ -25,21 +26,22 @@ class ProjectFile(object):
     model = attr.ib()
 
     @classmethod
-    def read(cls, location, model_cls, non_exist_ok=False):
-        if non_exist_ok and not os.path.exists(location):
-            model = None
-            line_ending = DEFAULT_NEWLINES
-        else:
+    def read(cls, location, model_cls, invalid_ok=False):
+        try:
             with io.open(location, encoding="utf-8") as f:
                 model = model_cls.load(f)
                 line_ending = preferred_newlines(f)
+        except Exception:
+            if not invalid_ok:
+                raise
+            model = None
+            line_ending = DEFAULT_NEWLINES
         return cls(location=location, line_ending=line_ending, model=model)
 
     def write(self):
-        kwargs = {"encocing": "utf-8", "newline": self.line_ending}
+        kwargs = {"encoding": "utf-8", "newline": self.line_ending}
         with io.open(self.location, "w", **kwargs) as f:
             self.model.dump(f)
-            f.write("\n")
 
     def dumps(self):
         strio = six.StringIO()
@@ -63,7 +65,7 @@ class Project(object):
         self._l = ProjectFile.read(
             os.path.join(root, "Pipfile.lock"),
             plette.Lockfile,
-            non_exist_ok=True,
+            invalid_ok=True,
         )
 
     @property
@@ -85,6 +87,32 @@ class Project(object):
     @lockfile.setter
     def lockfile(self, new):
         self._l.model = new
+
+    def _get_pipfile_section(self, dev):
+        name = "dev-packages" if dev else "packages"
+        try:
+            section = self.pipfile[name]
+        except KeyError:
+            section = plette.models.PackageCollection(tomlkit.table())
+            self.pipfile[name] = section
+        return section
+
+    def add_lines_to_pipfile(self, lines, dev):
+        from requirementslib import Requirement
+        section = self._get_pipfile_section(dev)
+        for line in lines:
+            requirement = Requirement.from_line(line)
+            key = requirement.normalized_name
+            entry = next(iter(requirement.as_pipfile().values()))
+            if isinstance(entry, dict):
+                # HACK: TOMLKit prefers to expand tables by default, but we
+                # always want inline tables here. Also tomlkit.inline_table
+                # does not have `update()`.
+                table = tomlkit.inline_table()
+                for k, v in entry.items():
+                    table[k] = v
+                entry = table
+            section[key] = entry
 
     def lock(self, force=False):
         from .locking import build_lockfile
