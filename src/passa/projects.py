@@ -134,6 +134,27 @@ class Project(object):
             for key in removals:
                 del section._data[key]
 
+    def remove_entries_from_lockfile(self, keys):
+        keys_to_remove = {
+            packaging.utils.canonicalize_name(key)
+            for key in keys
+        }
+
+        removed = False
+        for key in ("default", "develop"):
+            try:
+                section = self.lockfile[key]
+            except KeyError:
+                continue
+            removals = {}
+            for name in section:
+                if packaging.utils.canonicalize_name(name) in keys_to_remove:
+                    removals.add(name)
+            removed = removed or bool(removals)
+            for key in removals:
+                del section._data[key]
+        return removed
+
     def lock(self):
         if self.lockfile and self.lockfile.is_up_to_date(self.pipfile):
             return False
