@@ -42,7 +42,7 @@ def _prepare_wheel_building_kwargs(ireq):
     if ireq.editable:
         build_dir = src_dir
     else:
-        build_dir = create_tracked_tempdir(prefix="passa-build")
+        build_dir = vistir.path.create_tracked_tempdir(prefix="passa-build")
 
     return {
         "build_dir": build_dir,
@@ -147,7 +147,7 @@ def build_wheel(ireq, sources):
 
     # Othereise we need to build an ephemeral wheel.
     wheel_path = _build_wheel(
-        ireq, create_tracked_tempdir(prefix="ephem"),
+        ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
         finder, _get_wheel_cache(), kwargs,
     )
     return wheel_path
