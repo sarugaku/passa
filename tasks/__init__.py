@@ -12,7 +12,7 @@ from towncrier._settings import load_config
 
 
 def _get_git_root(ctx):
-    return Path(ctx.run('git rev-parse --show-toplevel', hide=True).stdout.strip())
+    return pathlib.Path(ctx.run('git rev-parse --show-toplevel', hide=True).stdout.strip())
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
