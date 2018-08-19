@@ -11,7 +11,7 @@ from .lock import lock
 
 
 def parse_arguments(argv):
-    parser = argparse.ArgumentParser("passa-add")
+    parser = argparse.ArgumentParser("passa-remove")
     parser.add_argument(
         "packages", metavar="package",
         nargs="+",

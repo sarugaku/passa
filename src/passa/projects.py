@@ -116,10 +116,10 @@ class Project(object):
                 entry = table
             section[key] = entry
 
-    def remove_lines_to_pipfile(self, lines, default, develop):
+    def remove_keys_from_pipfile(self, keys, default, develop):
         keys_to_remove = {
-            packaging.utils.canonicalize_name(line)
-            for line in lines
+            packaging.utils.canonicalize_name(key)
+            for key in keys
         }
         sections = []
         if default:
