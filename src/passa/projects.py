@@ -134,12 +134,10 @@ class Project(object):
             for key in removals:
                 del section._data[key]
 
-    def lock(self, force=False):
-        from .locking import build_lockfile
-        lockfile = self.lockfile
-        if not force and lockfile and lockfile.is_up_to_date(self.pipfile):
+    def lock(self):
+        if self.lockfile and self.lockfile.is_up_to_date(self.pipfile):
             return False
-        lockfile = None if force else self.lockfile
+        from .locking import build_lockfile
         with vistir.cd(self.root):
-            self.lockfile = build_lockfile(self.pipfile, lockfile)
+            self.lockfile = build_lockfile(self.pipfile, self.lockfile)
         return True

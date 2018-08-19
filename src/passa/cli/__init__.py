@@ -30,8 +30,9 @@ def parse_arguments(argv):
 
 def parsed_main(options):
     project = Project(options.project_root)
+    project.lockfile = None     # Ignore existing lock file, always relock.
 
-    success, updated = lock(project, force=True)
+    success, updated = lock(project)
     if not success:
         return
 

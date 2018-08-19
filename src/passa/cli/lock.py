@@ -7,10 +7,10 @@ from resolvelib import NoVersionsAvailable, ResolutionImpossible
 from passa.reporters import print_requirement
 
 
-def lock(project, force=False):
+def lock(project):
     success = updated = False
     try:
-        updated = project.lock(force=force)
+        updated = project.lock()
     except NoVersionsAvailable as e:
         print("\nCANNOT RESOLVE. NO CANDIDATES FOUND FOR:")
         print("{:>40}".format(e.requirement.as_line(include_hashes=False)))
