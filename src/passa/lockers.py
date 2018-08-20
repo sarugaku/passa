@@ -60,7 +60,7 @@ class AbstractLocker(object):
     * Update the project to have the new lock file
     """
     def __init__(self, project):
-        self.root = project.root
+        self.project = project
         self.default_requirements = _get_requirements(
             project.pipfile, "packages",
         )
@@ -80,14 +80,8 @@ class AbstractLocker(object):
             project.pipfile.get("pipenv", {}).get("allow_prereleases", False),
         )
 
-        def on_locking_success():
-            project.lockfile = self.lockfile
-
-        self._on_locking_success = on_locking_success
-        self.lockfile = plette.Lockfile.with_meta_from(project.pipfile)
-
     def __repr__(self):
-        return "<{0} @ {1!r}>".format(type(self).__name__, self.root)
+        return "<{0} @ {1!r}>".format(type(self).__name__, self.project.root)
 
     def get_provider(self):
         raise NotImplementedError
@@ -112,7 +106,7 @@ class AbstractLocker(object):
         reporter = self.get_reporter()
         resolver = resolvelib.Resolver(provider, reporter)
 
-        with vistir.cd(self.root):
+        with vistir.cd(self.project.root):
             state = resolver.resolve(self.requirements)
 
         traces = trace_graph(state.graph)
@@ -127,14 +121,14 @@ class AbstractLocker(object):
             provider.fetched_dependencies, provider.requires_pythons,
         )
 
-        self.lockfile["default"] = dict(_iter_derived_entries(
+        lockfile = plette.Lockfile.with_meta_from(self.project.pipfile)
+        lockfile["default"] = dict(_iter_derived_entries(
             state, traces, self.default_requirements,
         ))
-        self.lockfile["develop"] = dict(_iter_derived_entries(
+        lockfile["develop"] = dict(_iter_derived_entries(
             state, traces, self.develop_requirements,
         ))
-
-        self._on_locking_success()
+        self.project.lockfile = lockfile
 
 
 class BasicLocker(AbstractLocker):
