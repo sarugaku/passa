@@ -33,7 +33,7 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
-    from passa.lockers import Locker
+    from passa.lockers import PinReuseLocker
     from passa.projects import Project
     from .lock import lock
 
@@ -47,7 +47,7 @@ def parsed_main(options):
         develop=(options.only != "default"),
     )
 
-    locker = Locker(project)
+    locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
         return

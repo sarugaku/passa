@@ -20,12 +20,11 @@ def _filter_sources(requirement, sources):
     return sources
 
 
-class RequirementsLibProvider(resolvelib.AbstractProvider):
+class BasicProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
-    def __init__(self, root_requirements, sources, pins, allow_prereleases):
+    def __init__(self, root_requirements, sources, allow_prereleases):
         self.sources = sources
-        self.preferred_pins = pins
         self.allow_prereleases = bool(allow_prereleases)
         self.invalid_candidates = set()
 
@@ -54,12 +53,6 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         allow_prereleases = self.allow_prereleases
         sources = _filter_sources(requirement, self.sources)
         candidates = find_candidates(requirement, sources, allow_prereleases)
-        try:
-            # Add the preferred pin. Remember the resolve prefer candidates
-            # at the end of the list, so the most preferred should be last.
-            candidates.append(self.preferred_pins[self.identify(requirement)])
-        except KeyError:
-            pass
         return candidates
 
     def is_satisfied_by(self, requirement, candidate):
@@ -109,7 +102,28 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         return dependencies
 
 
-class EagerRequirementsLibProvider(RequirementsLibProvider):
+class PinReuseProvider(BasicProvider):
+    """A provider that reuses preferred pins if possible.
+
+    This is used to implement "add", "remove", and "only-if-needed upgrade",
+    where already-pinned candidates in Pipfile.lock should be preferred.
+    """
+    def __init__(self, preferred_pins, *args, **kwargs):
+        super(PinReuseProvider, self).__init__(*args, **kwargs)
+        self.preferred_pins = preferred_pins
+
+    def find_matches(self, requirement):
+        candidates = super(PinReuseProvider, self).find_matches(requirement)
+        try:
+            # Add the preferred pin. Remember the resolve prefer candidates
+            # at the end of the list, so the most preferred should be last.
+            candidates.append(self.preferred_pins[self.identify(requirement)])
+        except KeyError:
+            pass
+        return candidates
+
+
+class EagerUpgradeProvider(PinReuseProvider):
     """A specialized provider to handle an "eager" upgrade strategy.
 
     An eager upgrade tries to upgrade not only packages specified, but also
@@ -121,8 +135,7 @@ class EagerRequirementsLibProvider(RequirementsLibProvider):
     specified packages to upgrade, and free their pins when it has a chance.
     """
     def __init__(self, tracked_names, *args, **kwargs):
-        super_self = super(EagerRequirementsLibProvider, self)
-        super_self.__init__(*args, **kwargs)
+        super(EagerUpgradeProvider, self).__init__(*args, **kwargs)
         self.tracked_names = set(tracked_names)
         for name in tracked_names:
             self.preferred_pins.pop(name, None)
@@ -133,17 +146,21 @@ class EagerRequirementsLibProvider(RequirementsLibProvider):
             pin._preferred_by_provider = True
 
     def is_satisfied_by(self, requirement, candidate):
+        # If this is a tracking package, tell the resolver out of using the
+        # preferred pin, and into a "normal" candidate selection process.
         if (self.identify(requirement) in self.tracked_names and
                 getattr(candidate, "_preferred_by_provider", False)):
             return False
-        super_self = super(EagerRequirementsLibProvider, self)
-        return super_self.is_satisfied_by(requirement, candidate)
+        return super(EagerUpgradeProvider, self).is_satisfied_by(
+            requirement, candidate,
+        )
 
     def get_dependencies(self, candidate):
         # If this package is being tracked for upgrade, remove pins of its
         # dependencies, and start tracking these new packages.
-        super_self = super(EagerRequirementsLibProvider, self)
-        dependencies = super_self.get_dependencies(candidate)
+        dependencies = super(EagerUpgradeProvider, self).get_dependencies(
+            candidate,
+        )
         if self.identify(candidate) in self.tracked_names:
             for dependency in dependencies:
                 name = self.identify(dependency)

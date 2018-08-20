@@ -12,7 +12,7 @@ import vistir
 from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
-from .providers import EagerRequirementsLibProvider, RequirementsLibProvider
+from .providers import BasicProvider, EagerUpgradeProvider, PinReuseProvider
 from .reporters import StdOutReporter
 from .traces import trace_graph
 from .utils import identify_requirment
@@ -48,19 +48,24 @@ def _iter_derived_entries(state, traces, names):
         )
 
 
-class Locker(object):
+class AbstractLocker(object):
     """Helper class to produce a new lock file for a project.
+
+    This is not intended for instantiation. You should use one of its concrete
+    subclasses instead. The class contains logic to:
+
+    * Prepare a project for locking
+    * Perform the actually resolver invocation
+    * Convert resolver output into lock file format
+    * Update the project to have the new lock file
     """
     def __init__(self, project):
-        pipfile = project.pipfile
-        lockfile = project.lockfile
-
         self.root = project.root
         self.default_requirements = _get_requirements(
-            pipfile, "packages",
+            project.pipfile, "packages",
         )
         self.develop_requirements = _get_requirements(
-            pipfile, "dev-packages",
+            project.pipfile, "dev-packages",
         )
 
         # This comprehension dance ensures we merge packages from both
@@ -70,28 +75,22 @@ class Locker(object):
             self.default_requirements.items(),
         )}.values()
 
-        self.sources = [s._data.copy() for s in pipfile.sources]
+        self.sources = [s._data.copy() for s in project.pipfile.sources]
         self.allow_prereleases = bool(
-            pipfile.get("pipenv", {}).get("allow_prereleases", False),
+            project.pipfile.get("pipenv", {}).get("allow_prereleases", False),
         )
-
-        if lockfile:
-            self.preferred_pins = _get_requirements(lockfile, "develop")
-            self.preferred_pins.update(_get_requirements(lockfile, "default"))
-        else:
-            self.preferred_pins = {}
 
         def on_locking_success():
             project.lockfile = self.lockfile
 
-        self.on_locking_success = on_locking_success
+        self._on_locking_success = on_locking_success
         self.lockfile = plette.Lockfile.with_meta_from(project.pipfile)
 
+    def __repr__(self):
+        return "<{0} @ {1!r}>".format(type(self).__name__, self.root)
+
     def get_provider(self):
-        return RequirementsLibProvider(
-            self.requirements, self.sources, self.preferred_pins,
-            self.allow_prereleases,
-        )
+        raise NotImplementedError
 
     def get_reporter(self):
         # TODO: Build SpinnerReporter, and use this only in verbose mode.
@@ -135,22 +134,54 @@ class Locker(object):
             state, traces, self.develop_requirements,
         ))
 
-        self.on_locking_success()
+        self._on_locking_success()
 
 
-class EagerLocker(Locker):
+class BasicLocker(AbstractLocker):
+    """Basic concrete locker.
+
+    This takes a project, generates a lock file from its Pipfile, and sets
+    the lock file property to the project.
+    """
+    def get_provider(self):
+        return BasicProvider(
+            self.requirements, self.sources, self.allow_prereleases,
+        )
+
+
+class PinReuseLocker(AbstractLocker):
+    """A specialized locker to handle re-locking based on existing pins.
+
+    See :class:`passa.providers.PinReuseProvider` for more information.
+    """
+    def __init__(self, project):
+        super(PinReuseLocker, self).__init__(project)
+        if project.lockfile:
+            pins = _get_requirements(project.lockfile, "develop")
+            pins.update(_get_requirements(project.lockfile, "default"))
+        else:
+            pins = {}
+        self.preferred_pins = pins
+
+    def get_provider(self):
+        return PinReuseProvider(
+            self.preferred_pins,
+            self.requirements, self.sources, self.allow_prereleases,
+        )
+
+
+class EagerUpgradeLocker(PinReuseLocker):
     """A specialized locker to handle the "eager" upgrade strategy.
 
-    See :class:`passa.providers.EagerRequirementsLibProvider` for more
+    See :class:`passa.providers.EagerUpgradeProvider` for more
     information.
     """
     def __init__(self, tracked_names, *args, **kwargs):
-        super(EagerLocker, self).__init__(*args, **kwargs)
+        super(EagerUpgradeLocker, self).__init__(*args, **kwargs)
         self.tracked_names = tracked_names
 
     def get_provider(self):
-        return EagerRequirementsLibProvider(
-            self.tracked_names,
-            self.requirements, self.sources, self.preferred_pins,
-            self.allow_prereleases,
+        return EagerUpgradeProvider(
+            self.tracked_names, self.preferred_pins,
+            self.requirements, self.sources, self.allow_prereleases,
         )

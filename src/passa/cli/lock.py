@@ -42,15 +42,11 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
-    from passa.lockers import Locker
+    from passa.lockers import BasicLocker
     from passa.projects import Project
 
     project = Project(options.project_root)
-
-    # Remove the whole lock file to re-lock from scratch.
-    project.lockfile = None
-
-    locker = Locker(project)
+    locker = BasicLocker(project)
     success = lock(locker)
     if not success:
         return

@@ -17,7 +17,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from .lockers import Locker
+from .lockers import BasicLocker
 from .projects import Project
 from .reporters import print_title
 
@@ -41,11 +41,7 @@ def parse_arguments(argv):
 
 def parsed_main(options):
     project = Project(options.project_root)
-
-    # Remove the whole lock file to re-lock from scratch.
-    project.lockfile = None
-
-    locker = Locker(project)
+    locker = BasicLocker(project)
     success = lock(locker)
     if not success:
         return

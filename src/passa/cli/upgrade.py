@@ -27,7 +27,7 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
-    from passa.lockers import EagerLocker, Locker
+    from passa.lockers import EagerUpgradeLocker, PinReuseLocker
     from passa.projects import Project
     from .lock import lock
 
@@ -38,9 +38,9 @@ def parsed_main(options):
     project.remove_entries_from_lockfile(packages)
 
     if options.strategy == "eager":
-        locker = EagerLocker(project, packages)
+        locker = EagerUpgradeLocker(project, packages)
     else:
-        locker = Locker(project)
+        locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
         return
