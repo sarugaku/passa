@@ -18,12 +18,14 @@ from .traces import trace_graph
 from .utils import identify_requirment
 
 
-def _get_requirements(pipfile, section_name):
+def _get_requirements(model, section_name):
     """Produce a mapping of identifier: requirement from the section.
     """
+    if not model:
+        return {}
     return {identify_requirment(r): r for r in (
         requirementslib.Requirement.from_pipfile(name, package._data)
-        for name, package in pipfile.get(section_name, {}).items()
+        for name, package in model.get(section_name, {}).items()
     )}
 
 
@@ -150,11 +152,8 @@ class PinReuseLocker(AbstractLocker):
     """
     def __init__(self, project):
         super(PinReuseLocker, self).__init__(project)
-        if project.lockfile:
-            pins = _get_requirements(project.lockfile, "develop")
-            pins.update(_get_requirements(project.lockfile, "default"))
-        else:
-            pins = {}
+        pins = _get_requirements(project.lockfile, "develop")
+        pins.update(_get_requirements(project.lockfile, "default"))
         self.preferred_pins = pins
 
     def get_provider(self):
