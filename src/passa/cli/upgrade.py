@@ -13,6 +13,11 @@ def parse_arguments(argv):
         nargs="+",
     )
     parser.add_argument(
+        "--strategy",
+        choices=["eager", "only-if-needed"],
+        default="only-if-needed",
+    )
+    parser.add_argument(
         "--project", dest="project_root",
         default=os.getcwd(),
         type=os.path.abspath,
@@ -22,7 +27,7 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
-    from passa.lockers import Locker
+    from passa.lockers import EagerLocker, Locker
     from passa.projects import Project
     from .lock import lock
 
@@ -32,7 +37,10 @@ def parsed_main(options):
     project = Project(options.project_root)
     project.remove_entries_from_lockfile(packages)
 
-    locker = Locker(project)
+    if options.strategy == "eager":
+        locker = EagerLocker(project, packages)
+    else:
+        locker = Locker(project)
     success = lock(locker)
     if not success:
         return

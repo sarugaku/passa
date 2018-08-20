@@ -12,7 +12,7 @@ import vistir
 from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
-from .providers import RequirementsLibProvider
+from .providers import EagerRequirementsLibProvider, RequirementsLibProvider
 from .reporters import StdOutReporter
 from .traces import trace_graph
 from .utils import identify_requirment
@@ -136,3 +136,21 @@ class Locker(object):
         ))
 
         self.on_locking_success()
+
+
+class EagerLocker(Locker):
+    """A specialized locker to handle the "eager" upgrade strategy.
+
+    See :class:`passa.providers.EagerRequirementsLibProvider` for more
+    information.
+    """
+    def __init__(self, tracked_names, *args, **kwargs):
+        super(EagerLocker, self).__init__(*args, **kwargs)
+        self.tracked_names = tracked_names
+
+    def get_provider(self):
+        return EagerRequirementsLibProvider(
+            self.tracked_names,
+            self.requirements, self.sources, self.preferred_pins,
+            self.allow_prereleases,
+        )
