@@ -70,7 +70,7 @@ def _get_derived_entries(state, traces, names):
     return_map = {}
     for req_name_from_state, req in state.mapping.items():
         req_traces = [trace[1] for trace in traces[req_name_from_state] if len(trace) > 1]
-        if req_name_from_state in names or len(set(names) & set(req_traces)) :
+        if req_name_from_state in names or len(set(names) & set(req_traces)):
             return_map[req.normalized_name] = next(iter(req.as_pipfile().values()))
     return return_map
 
