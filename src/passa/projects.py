@@ -4,9 +4,9 @@ import os
 import attr
 import packaging.utils
 import plette
+import plette.models
 import six
 import tomlkit
-import vistir
 
 
 DEFAULT_NEWLINES = "\n"
@@ -57,6 +57,8 @@ class Project(object):
     _p = attr.ib(init=False)
     _l = attr.ib(init=False)
 
+    _dirty = attr.ib(init=False, default=False)
+
     def __attrs_post_init__(self):
         self.root = root = os.path.abspath(self.root)
         self._p = ProjectFile.read(
@@ -88,6 +90,9 @@ class Project(object):
     @lockfile.setter
     def lockfile(self, new):
         self._l.model = new
+
+    def is_synced(self):
+        return self.lockfile and self.lockfile.is_up_to_date(self.pipfile)
 
     def _get_pipfile_section(self, dev, insert=True):
         name = "dev-packages" if dev else "packages"
@@ -153,12 +158,8 @@ class Project(object):
             removed = removed or bool(removals)
             for key in removals:
                 del section._data[key]
-        return removed
 
-    def lock(self):
-        if self.lockfile and self.lockfile.is_up_to_date(self.pipfile):
-            return False
-        from .locking import build_lockfile
-        with vistir.cd(self.root):
-            self.lockfile = build_lockfile(self.pipfile, self.lockfile)
-        return True
+        if removed:
+            # HACK: The lock file no longer represents the Pipfile at this
+            # point. Set the hash to an arbitrary invalid value.
+            self.lockfile.meta.hash = plette.models.Hash({"__invalid__": ""})

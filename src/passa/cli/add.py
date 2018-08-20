@@ -6,10 +6,6 @@ import argparse
 import itertools
 import os
 
-from passa.projects import Project
-
-from .lock import lock
-
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser("passa-add")
@@ -38,20 +34,26 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
+    from passa.lockers import Locker
+    from passa.projects import Project
+    from .lock import lock
+
     lines = list(itertools.chain(
         options.requirement_lines,
         ("-e {}".format(e) for e in options.editable_lines),
     ))
+    # TODO: Ensure all lines are valid.
+
     project = Project(options.project_root)
     project.add_lines_to_pipfile(lines, develop=options.dev)
 
-    success, updated = lock(project)
+    locker = Locker(project)
+    success = lock(locker)
     if not success:
         return
 
     project._p.write()
-    if updated:
-        project._l.write()
+    project._l.write()
     print("Written to project at", project.root)
 
 

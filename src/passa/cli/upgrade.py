@@ -5,10 +5,6 @@ from __future__ import absolute_import, unicode_literals
 import argparse
 import os
 
-from passa.projects import Project
-
-from .lock import lock
-
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser("passa-upgrade")
@@ -26,18 +22,22 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
+    from passa.lockers import Locker
+    from passa.projects import Project
+    from .lock import lock
+
+    packages = options.packages
+    # TODO: Ensure all lines are valid.
+
     project = Project(options.project_root)
-    changed = project.remove_entries_from_lockfile(options.packages)
+    project.remove_entries_from_lockfile(packages)
 
-    if changed:     # Remove the hash to trigger re-locking.
-        project.lockfile.meta.hash = None
-
-    success, updated = lock(project)
+    locker = Locker(project)
+    success = lock(locker)
     if not success:
         return
 
-    if updated:
-        project._l.write()
+    project._l.write()
     print("Written to project at", project.root)
 
 

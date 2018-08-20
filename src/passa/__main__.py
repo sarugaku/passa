@@ -17,8 +17,9 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from passa.projects import Project
-from passa.reporters import print_title
+from .lockers import Locker
+from .projects import Project
+from .reporters import print_title
 
 from .cli.lock import lock
 
@@ -44,16 +45,14 @@ def parsed_main(options):
     # Remove the whole lock file to re-lock from scratch.
     project.lockfile = None
 
-    success, updated = lock(project)
+    locker = Locker(project)
+    success = lock(locker)
     if not success:
         return
 
     if options.output == "write":
-        if updated:
-            project._l.write()
-            print("Lock file written to", project._l.location)
-        else:
-            print("Not updating identical lock file")
+        project._l.write()
+        print("Lock file written to", project._l.location)
     if options.output == "print":
         print_title(" LOCK FILE ")
         print(project._l.dumps())
