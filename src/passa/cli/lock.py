@@ -5,16 +5,14 @@ from __future__ import absolute_import, print_function, unicode_literals
 import argparse
 import os
 
-from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
-from passa.projects import Project
-from passa.reporters import print_requirement
+def lock(locker):
+    from passa.reporters import print_requirement
+    from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
-
-def lock(project):
-    success = updated = False
+    success = False
     try:
-        updated = project.lock()
+        locker.lock()
     except NoVersionsAvailable as e:
         print("\nCANNOT RESOLVE. NO CANDIDATES FOUND FOR:")
         print("{:>40}".format(e.requirement.as_line(include_hashes=False)))
@@ -29,7 +27,7 @@ def lock(project):
             print_requirement(r)
     else:
         success = True
-    return success, updated
+    return success
 
 
 def parse_arguments(argv):
@@ -44,12 +42,12 @@ def parse_arguments(argv):
 
 
 def parsed_main(options):
+    from passa.lockers import BasicLocker
+    from passa.projects import Project
+
     project = Project(options.project_root)
-
-    # Remove the whole lock file to re-lock from scratch.
-    project.lockfile = None
-
-    success, _ = lock(project)
+    locker = BasicLocker(project)
+    success = lock(locker)
     if not success:
         return
 
