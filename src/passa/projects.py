@@ -57,8 +57,6 @@ class Project(object):
     _p = attr.ib(init=False)
     _l = attr.ib(init=False)
 
-    _dirty = attr.ib(init=False, default=False)
-
     def __attrs_post_init__(self):
         self.root = root = os.path.abspath(self.root)
         self._p = ProjectFile.read(
