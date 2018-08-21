@@ -2,8 +2,11 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import argparse
-import os
+from ._base import BaseCommand
+
+
+NAME = "lock"
+DESC = "Generate Pipfile.lock."
 
 
 def lock(locker):
@@ -30,18 +33,7 @@ def lock(locker):
     return success
 
 
-def parse_arguments(argv):
-    parser = argparse.ArgumentParser("passa-lock")
-    parser.add_argument(
-        "--project", dest="project_root",
-        default=os.getcwd(),
-        type=os.path.abspath,
-    )
-    options = parser.parse_args(argv)
-    return options
-
-
-def parsed_main(options):
+def main(options):
     from passa.lockers import BasicLocker
     from passa.projects import Project
 
@@ -55,7 +47,9 @@ def parsed_main(options):
     print("Written to project at", project.root)
 
 
+class Command(BaseCommand):
+    parsed_main = main
+
+
 if __name__ == "__main__":
-    from ._base import Command
-    command = Command(parse_arguments, parsed_main)
-    command()
+    Command.run_current_module()
