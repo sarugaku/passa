@@ -76,7 +76,7 @@ class StdOutReporter(resolvelib.BaseReporter):
         print_title(" STABLE PINS ")
         path_lists = trace_graph(state.graph)
         for k in sorted(state.mapping):
-            print(state.mapping[k].as_line())
+            print(state.mapping[k].as_line(include_hashes=False))
             paths = path_lists[k]
             for path in paths:
                 if path == [None]:
