@@ -19,6 +19,35 @@ def dedup_markers(s):
     return deduped
 
 
+def _merge_python_specifiers(*specsets):
+    merged = set()
+    for specset in specsets:
+        for s in str(specset).split(","):
+            s = s.strip()
+            if not s:
+                continue
+            if s.endswith(".*"):
+                s = s[:-2]
+                merged.add(s)
+                continue
+            version = s.lstrip("><=!")
+            if not version.isdigit():
+                merged.add(s)
+                continue
+            number = int(version)
+            operator = s[:-len(version)]
+            if operator == "==":
+                # "==3" => ">=3.0,<4.0".
+                merged.add(">={}.0".format(number))
+                merged.add("<{}.0".format(number + 1))
+            else:
+                # ">=3" => ">=3.0", "<4" => "<4.0", etc.
+                merged.add("{}{}.0".format(operator, number))
+    string = ",".join(merged)
+    specset = packaging.specifiers.SpecifierSet(string)
+    return specset
+
+
 class MetaSet(object):
     """Representation of a "metadata set".
 
@@ -60,8 +89,7 @@ class MetaSet(object):
             markerset.add(str(marker))
         metaset = MetaSet()
         metaset.markerset = frozenset(markerset)
-        # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.
-        metaset.pyspecset &= self.pyspecset & specset
+        metaset.pyspecset = _merge_python_specifiers(self.pyspecset, specset)
         return metaset
 
 
