@@ -153,7 +153,7 @@ def _get_dependencies_from_json(ireq, sources):
     return
 
 
-def _read_requirements(wheel, extras):
+def _read_requirements(metadata, extras):
     """Read wheel metadata to know what it depends on.
 
     The `run_requires` attribute contains a list of dict or str specifying
@@ -168,7 +168,7 @@ def _read_requirements(wheel, extras):
     """
     extras = extras or ()
     requirements = []
-    for entry in wheel.metadata.run_requires:
+    for entry in metadata.run_requires:
         if isinstance(entry, six.text_type):
             entry = {"requires": [entry]}
             extra = None
@@ -189,6 +189,27 @@ def _read_requirements(wheel, extras):
     return requirements
 
 
+def _read_requires_python(metadata):
+    """Read wheel metadata to know the value of Requires-Python.
+
+    This is surprisingly poorly supported in Distlib. This function tries
+    several ways to get this information:
+
+    * Metadata 2.0: metadata.dictionary.get("requires_python") is not None
+    * Metadata 2.1: metadata._legacy.get("Requires-Python") is not None
+    * Metadata 1.2: metadata._legacy.get("Requires-Python") != "UNKNOWN"
+    """
+    # TODO: Support more metadata formats.
+    value = metadata.dictionary.get("requires_python")
+    if value is not None:
+        return value
+    if metadata._legacy:
+        value = metadata._legacy.get("Requires-Python")
+        if value is not None and value != "UNKNOWN":
+            return value
+    return ""
+
+
 def _get_dependencies_from_pip(ireq, sources):
     """Retrieves dependencies for the requirement from pip internals.
 
@@ -200,9 +221,9 @@ def _get_dependencies_from_pip(ireq, sources):
         raise RuntimeError("failed to build wheel from {}".format(ireq))
     wheel = distlib.wheel.Wheel(wheel_path)
     extras = ireq.extras or ()
-    requirements = _read_requirements(wheel, extras)
-    requires_python = getattr(wheel.metadata, "requires_python", None)
-    return requirements, requires_python or ""
+    requirements = _read_requirements(wheel.metadata, extras)
+    requires_python = _read_requires_python(wheel.metadata)
+    return requirements, requires_python
 
 
 def get_dependencies(requirement, sources):
