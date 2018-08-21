@@ -5,6 +5,7 @@ from __future__ import absolute_import, unicode_literals
 import argparse
 import itertools
 import os
+import sys
 
 
 def parse_arguments(argv):
@@ -42,25 +43,28 @@ def parsed_main(options):
         options.requirement_lines,
         ("-e {}".format(e) for e in options.editable_lines),
     ))
-    # TODO: Ensure all lines are valid.
 
     project = Project(options.project_root)
-    project.add_lines_to_pipfile(lines, develop=options.dev)
+    for line in lines:
+        try:
+            project.add_line_to_pipfile(line, develop=options.dev)
+        except (TypeError, ValueError) as e:
+            print("Cannot add {line!r} to Pipfile: {error}".format(
+                line=line, error=str(e),
+            ), file=sys.stderr)
+            return 2
 
     locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
-        return
+        return 1
 
     project._p.write()
     project._l.write()
     print("Written to project at", project.root)
 
 
-def main(argv=None):
-    options = parse_arguments(argv)
-    parsed_main(options)
-
-
 if __name__ == "__main__":
-    main()
+    from ._base import Command
+    command = Command(parse_arguments, parsed_main)
+    command()

@@ -55,10 +55,7 @@ def parsed_main(options):
     print("Written to project at", project.root)
 
 
-def main(argv=None):
-    options = parse_arguments(argv)
-    parsed_main(options)
-
-
 if __name__ == "__main__":
-    main()
+    from ._base import Command
+    command = Command(parse_arguments, parsed_main)
+    command()

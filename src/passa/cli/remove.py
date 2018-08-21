@@ -37,30 +37,25 @@ def parsed_main(options):
     from passa.projects import Project
     from .lock import lock
 
-    packages = options.packages
-    # TODO: Ensure all lines are valid.
+    default = (options.only != "dev")
+    develop = (options.only != "default")
 
     project = Project(options.project_root)
-    project.remove_lines_to_pipfile(
-        packages,
-        default=(options.only != "dev"),
-        develop=(options.only != "default"),
+    project.remove_keys_from_pipfile(
+        options.packages, default=default, develop=develop,
     )
 
     locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
-        return
+        return 1
 
     project._p.write()
     project._l.write()
     print("Written to project at", project.root)
 
 
-def main(argv=None):
-    options = parse_arguments(argv)
-    parsed_main(options)
-
-
 if __name__ == "__main__":
-    main()
+    from ._base import Command
+    command = Command(parse_arguments, parsed_main)
+    command()

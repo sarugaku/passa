@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 
 import argparse
 import os
+import sys
 
 
 def parse_arguments(argv):
@@ -31,10 +32,15 @@ def parsed_main(options):
     from passa.projects import Project
     from .lock import lock
 
-    packages = options.packages
-    # TODO: Ensure all lines are valid.
-
     project = Project(options.project_root)
+    packages = options.packages
+    for package in packages:
+        if not project.contains_key_in_pipfile(package):
+            print("{package!r} not found in Pipfile".format(
+                package=package,
+            ), file=sys.stderr)
+            return 2
+
     project.remove_entries_from_lockfile(packages)
 
     if options.strategy == "eager":
@@ -43,16 +49,13 @@ def parsed_main(options):
         locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
-        return
+        return 1
 
     project._l.write()
     print("Written to project at", project.root)
 
 
-def main(argv=None):
-    options = parse_arguments(argv)
-    parsed_main(options)
-
-
 if __name__ == "__main__":
-    main()
+    from ._base import Command
+    command = Command(parse_arguments, parsed_main)
+    command()

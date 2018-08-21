@@ -92,8 +92,8 @@ class Project(object):
     def is_synced(self):
         return self.lockfile and self.lockfile.is_up_to_date(self.pipfile)
 
-    def _get_pipfile_section(self, dev, insert=True):
-        name = "dev-packages" if dev else "packages"
+    def _get_pipfile_section(self, develop, insert=True):
+        name = "dev-packages" if develop else "packages"
         try:
             section = self.pipfile[name]
         except KeyError:
@@ -102,56 +102,64 @@ class Project(object):
                 self.pipfile[name] = section
         return section
 
-    def add_lines_to_pipfile(self, lines, develop):
+    def contains_key_in_pipfile(self, key):
+        sections = [
+            self._get_pipfile_section(develop=False, insert=False),
+            self._get_pipfile_section(develop=True, insert=False),
+        ]
+        return any(
+            (packaging.utils.canonicalize_name(name) ==
+             packaging.utils.canonicalize_name(key))
+            for section in sections
+            for name in section
+        )
+
+    def add_line_to_pipfile(self, line, develop):
         from requirementslib import Requirement
-        section = self._get_pipfile_section(dev=develop)
-        for line in lines:
-            requirement = Requirement.from_line(line)
-            key = requirement.normalized_name
-            entry = next(iter(requirement.as_pipfile().values()))
-            if isinstance(entry, dict):
-                # HACK: TOMLKit prefers to expand tables by default, but we
-                # always want inline tables here. Also tomlkit.inline_table
-                # does not have `update()`.
-                table = tomlkit.inline_table()
-                for k, v in entry.items():
-                    table[k] = v
-                entry = table
-            section[key] = entry
+        requirement = Requirement.from_line(line)
+        section = self._get_pipfile_section(develop=develop)
+        key = requirement.normalized_name
+        entry = next(iter(requirement.as_pipfile().values()))
+        if isinstance(entry, dict):
+            # HACK: TOMLKit prefers to expand tables by default, but we
+            # always want inline tables here. Also tomlkit.inline_table
+            # does not have `update()`.
+            table = tomlkit.inline_table()
+            for k, v in entry.items():
+                table[k] = v
+            entry = table
+        section[key] = entry
 
     def remove_keys_from_pipfile(self, keys, default, develop):
-        keys_to_remove = {
-            packaging.utils.canonicalize_name(key)
-            for key in keys
-        }
+        keys = {packaging.utils.canonicalize_name(key) for key in keys}
         sections = []
         if default:
-            sections.append(self._get_pipfile_section(dev=False, insert=False))
+            sections.append(self._get_pipfile_section(
+                develop=False, insert=False,
+            ))
         if develop:
-            sections.append(self._get_pipfile_section(dev=True, insert=False))
+            sections.append(self._get_pipfile_section(
+                develop=True, insert=False,
+            ))
         for section in sections:
             removals = set()
             for name in section:
-                if packaging.utils.canonicalize_name(name) in keys_to_remove:
+                if packaging.utils.canonicalize_name(name) in keys:
                     removals.add(name)
             for key in removals:
                 del section._data[key]
 
-    def remove_entries_from_lockfile(self, keys):
-        keys_to_remove = {
-            packaging.utils.canonicalize_name(key)
-            for key in keys
-        }
-
+    def remove_keys_from_lockfile(self, keys):
+        keys = {packaging.utils.canonicalize_name(key) for key in keys}
         removed = False
-        for key in ("default", "develop"):
+        for section_name in ("default", "develop"):
             try:
-                section = self.lockfile[key]
+                section = self.lockfile[section_name]
             except KeyError:
                 continue
             removals = {}
             for name in section:
-                if packaging.utils.canonicalize_name(name) in keys_to_remove:
+                if packaging.utils.canonicalize_name(name) in keys:
                     removals.add(name)
             removed = removed or bool(removals)
             for key in removals:
