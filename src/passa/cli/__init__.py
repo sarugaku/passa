@@ -22,10 +22,10 @@ def main(argv=None):
 
     # This needs to be imported locally, otherwise there would be an import
     # order mismatch when we run a passa.cli.[subcommand] module directly.
-    from . import add, lock, remove, upgrade
+    from . import add, freeze, lock, remove, upgrade
 
     subparsers = root_parser.add_subparsers()
-    for module in [add, remove, upgrade, lock]:
+    for module in [add, remove, upgrade, lock, freeze]:
         klass = module.Command
         parser = subparsers.add_parser(klass.name, help=klass.description)
         command = klass(parser)
