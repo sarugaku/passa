@@ -10,6 +10,8 @@ import sys
 class BaseCommand(object):
     """A CLI command.
     """
+    name = None
+    description = None
     parsed_main = None
 
     def __init__(self, parser):
@@ -18,10 +20,9 @@ class BaseCommand(object):
 
     @classmethod
     def run_current_module(cls):
-        module = sys.modules[cls.__module__]
         parser = argparse.ArgumentParser(
-            prog="passa {}".format(module.NAME),
-            description=module.DESC,
+            prog="passa {}".format(cls.name),
+            description=cls.description,
         )
         cls(parser)()
 

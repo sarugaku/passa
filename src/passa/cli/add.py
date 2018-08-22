@@ -8,10 +8,6 @@ import sys
 from ._base import BaseCommand
 
 
-NAME = "add"
-DESC = "Add given packages to project."
-
-
 def main(options):
     from passa.lockers import PinReuseLocker
     from passa.projects import Project
@@ -44,6 +40,8 @@ def main(options):
 
 class Command(BaseCommand):
 
+    name = "add"
+    description = "Add packages to project."
     parsed_main = main
 
     def add_arguments(self):

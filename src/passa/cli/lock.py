@@ -5,10 +5,6 @@ from __future__ import absolute_import, print_function, unicode_literals
 from ._base import BaseCommand
 
 
-NAME = "lock"
-DESC = "Generate Pipfile.lock."
-
-
 def lock(locker):
     from passa.reporters import print_requirement
     from resolvelib import NoVersionsAvailable, ResolutionImpossible
@@ -48,6 +44,8 @@ def main(options):
 
 
 class Command(BaseCommand):
+    name = "lock"
+    description = "Generate Pipfile.lock."
     parsed_main = main
 
 

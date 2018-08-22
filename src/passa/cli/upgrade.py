@@ -7,10 +7,6 @@ import sys
 from ._base import BaseCommand
 
 
-NAME = "upgrade"
-DESC = "Upgrade given packages in project."
-
-
 def main(options):
     from passa.lockers import EagerUpgradeLocker, PinReuseLocker
     from passa.projects import Project
@@ -41,6 +37,8 @@ def main(options):
 
 class Command(BaseCommand):
 
+    name = "upgrade"
+    description = "Upgrade packages in project."
     parsed_main = main
 
     def add_arguments(self):

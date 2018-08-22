@@ -7,11 +7,6 @@ import sys
 
 from passa import __version__
 
-from . import add, lock, remove, upgrade
-
-
-SUBCOMMANDS = [add, remove, upgrade, lock]
-
 
 def main(argv=None):
     root_parser = argparse.ArgumentParser(
@@ -25,10 +20,15 @@ def main(argv=None):
         help="show the version and exit",
     )
 
+    # This needs to be imported locally, otherwise there would be an import
+    # order mismatch when we run a passa.cli.[subcommand] module directly.
+    from . import add, lock, remove, upgrade
+
     subparsers = root_parser.add_subparsers()
-    for module in SUBCOMMANDS:
-        parser = subparsers.add_parser(module.NAME, help=module.DESC)
-        command = module.Command(parser)
+    for module in [add, remove, upgrade, lock]:
+        klass = module.Command
+        parser = subparsers.add_parser(klass.name, help=klass.description)
+        command = klass(parser)
         parser.set_defaults(func=command.main)
 
     options = root_parser.parse_args(argv)

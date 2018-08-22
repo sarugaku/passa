@@ -5,10 +5,6 @@ from __future__ import absolute_import, unicode_literals
 from ._base import BaseCommand
 
 
-NAME = "remove"
-DESC = "Remove given packages from project."
-
-
 def main(options):
     from passa.lockers import PinReuseLocker
     from passa.projects import Project
@@ -34,6 +30,8 @@ def main(options):
 
 class Command(BaseCommand):
 
+    name = "remove"
+    description = "Remove packages from project."
     parsed_main = main
 
     def add_arguments(self):
