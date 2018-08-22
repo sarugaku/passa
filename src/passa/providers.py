@@ -20,7 +20,7 @@ def _filter_sources(requirement, sources):
     return sources
 
 
-class RequirementsLibProvider(resolvelib.AbstractProvider):
+class BasicProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
     def __init__(self, root_requirements, sources, allow_prereleases):
@@ -36,20 +36,20 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
         self.fetched_dependencies = {None: {
             self.identify(r): r for r in root_requirements
         }}
-        # TODO: Find a way to resolve with multiple versions (by tricking runtime)
-        # Include multiple keys in pipfiles?
+        # TODO: Find a way to resolve with multiple versions (by tricking
+        # runtime) Include multiple keys in pipfiles?
         self.requires_pythons = {None: ""}  # TODO: Don't use any value
 
     def identify(self, dependency):
         return identify_requirment(dependency)
 
     def get_preference(self, resolution, candidates, information):
+        # TODO: Provide better sorting logic. This simply resolve the ones with
+        # less choices first. Not sophisticated, but sounds reasonable?
         return len(candidates)
 
     def find_matches(self, requirement):
         # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
-        # TODO: Make sure we are locking candidates that only have a prerelease version
-        # no matter what the user says about allowing prereleases
         allow_prereleases = self.allow_prereleases
         sources = _filter_sources(requirement, self.sources)
         candidates = find_candidates(requirement, sources, allow_prereleases)
@@ -92,10 +92,85 @@ class RequirementsLibProvider(resolvelib.AbstractProvider):
             print("failed to get dependencies for {0!r}: {1}".format(
                 candidate.as_line(), e,
             ))
-            return []
+            dependencies = []
+            requires_python = ""
         candidate_key = self.identify(candidate)
         self.fetched_dependencies[candidate_key] = {
             self.identify(r): r for r in dependencies
         }
         self.requires_pythons[candidate_key] = requires_python
         return dependencies
+
+
+class PinReuseProvider(BasicProvider):
+    """A provider that reuses preferred pins if possible.
+
+    This is used to implement "add", "remove", and "only-if-needed upgrade",
+    where already-pinned candidates in Pipfile.lock should be preferred.
+    """
+    def __init__(self, preferred_pins, *args, **kwargs):
+        super(PinReuseProvider, self).__init__(*args, **kwargs)
+        self.preferred_pins = preferred_pins
+
+    def find_matches(self, requirement):
+        candidates = super(PinReuseProvider, self).find_matches(requirement)
+        try:
+            # Add the preferred pin. Remember the resolve prefer candidates
+            # at the end of the list, so the most preferred should be last.
+            candidates.append(self.preferred_pins[self.identify(requirement)])
+        except KeyError:
+            pass
+        return candidates
+
+
+class EagerUpgradeProvider(PinReuseProvider):
+    """A specialized provider to handle an "eager" upgrade strategy.
+
+    An eager upgrade tries to upgrade not only packages specified, but also
+    their dependeices (recursively). This contrasts to the "only-if-needed"
+    default, which only promises to upgrade the specified package, and
+    prevents touching anything else if at all possible.
+
+    The provider is implemented as to keep track of all dependencies of the
+    specified packages to upgrade, and free their pins when it has a chance.
+    """
+    def __init__(self, tracked_names, *args, **kwargs):
+        super(EagerUpgradeProvider, self).__init__(*args, **kwargs)
+        self.tracked_names = set(tracked_names)
+        for name in tracked_names:
+            self.preferred_pins.pop(name, None)
+
+        # HACK: Set this special flag to distinguish preferred pins from
+        # regular, to tell the resolver to NOT use them for tracked packages.
+        for pin in self.preferred_pins.values():
+            pin._preferred_by_provider = True
+
+    def is_satisfied_by(self, requirement, candidate):
+        # If this is a tracking package, tell the resolver out of using the
+        # preferred pin, and into a "normal" candidate selection process.
+        if (self.identify(requirement) in self.tracked_names and
+                getattr(candidate, "_preferred_by_provider", False)):
+            return False
+        return super(EagerUpgradeProvider, self).is_satisfied_by(
+            requirement, candidate,
+        )
+
+    def get_dependencies(self, candidate):
+        # If this package is being tracked for upgrade, remove pins of its
+        # dependencies, and start tracking these new packages.
+        dependencies = super(EagerUpgradeProvider, self).get_dependencies(
+            candidate,
+        )
+        if self.identify(candidate) in self.tracked_names:
+            for dependency in dependencies:
+                name = self.identify(dependency)
+                self.tracked_names.add(name)
+                self.preferred_pins.pop(name, None)
+        return dependencies
+
+    def get_preference(self, resolution, candidates, information):
+        # Resolve tracking packages so we have a chance to unpin them first.
+        name = self.identify(candidates[0])
+        if name in self.tracked_names:
+            return -1
+        return len(candidates)
