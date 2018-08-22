@@ -7,13 +7,12 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import PinReuseLocker
-    from passa.projects import Project
     from .lock import lock
 
     default = (options.only != "dev")
     develop = (options.only != "default")
 
-    project = Project(options.project_root)
+    project = options.project
     project.remove_keys_from_pipfile(
         options.packages, default=default, develop=develop,
     )

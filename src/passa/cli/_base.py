@@ -7,6 +7,13 @@ import os
 import sys
 
 
+def build_project(root):
+    # This is imported lazily to reduce import overhead. Not evey command
+    # needs the project instance.
+    from passa.projects import Project
+    return Project(os.path.abspath(root))
+
+
 class BaseCommand(object):
     """A CLI command.
     """
@@ -35,9 +42,9 @@ class BaseCommand(object):
     def add_arguments(self):
         self.parser.add_argument(
             "--project",
-            dest="project_root", metavar="project",
+            metavar="project",
             default=os.getcwd(),
-            type=os.path.abspath,
+            type=build_project,
             help="path to project root (directory containing Pipfile)",
         )
 

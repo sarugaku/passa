@@ -31,9 +31,8 @@ def lock(locker):
 
 def main(options):
     from passa.lockers import BasicLocker
-    from passa.projects import Project
 
-    project = Project(options.project_root)
+    project = options.project
     locker = BasicLocker(project)
     success = lock(locker)
     if not success:

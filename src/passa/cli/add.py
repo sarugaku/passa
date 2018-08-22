@@ -10,7 +10,6 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import PinReuseLocker
-    from passa.projects import Project
     from .lock import lock
 
     lines = list(itertools.chain(
@@ -18,7 +17,7 @@ def main(options):
         ("-e {}".format(e) for e in options.editable_lines),
     ))
 
-    project = Project(options.project_root)
+    project = options.project
     for line in lines:
         try:
             project.add_line_to_pipfile(line, develop=options.dev)

@@ -9,10 +9,9 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import EagerUpgradeLocker, PinReuseLocker
-    from passa.projects import Project
     from .lock import lock
 
-    project = Project(options.project_root)
+    project = options.project
     packages = options.packages
     for package in packages:
         if not project.contains_key_in_pipfile(package):
