@@ -2,7 +2,14 @@
 
 from __future__ import absolute_import, unicode_literals
 
+from packaging.specifiers import SpecifierSet, Specifier
 from packaging.markers import Marker
+import vistir
+import operator
+import itertools
+
+
+PYTHON_BOUNDARIES = {2: 7, 3: 9}
 
 
 def _strip_extra(elements):
@@ -99,3 +106,98 @@ def contains_extra(marker):
         return False
     marker = Marker(str(marker))
     return _markers_contains_extra(marker._markers)
+
+
+def format_pyspec(specifier):
+    if isinstance(specifier, str):
+        if not any(operator in specifier.operators.keys()):
+            new_op = "=="
+            new_version = specifier
+            return Specifier("{0}{1}".format(new_op, new_version))
+    version = specifier._coerce_version(specifier.version.replace(".*", ""))
+    if specifier.operator in (">", "<="):
+        # Prefer to always pick the operator for version n+1
+        if version.release[1] < PYTHON_BOUNDARIES.get(version.release[0], 0):
+            if specifier.operator == ">":
+                new_op = ">="
+            else:
+                new_op = "<"
+            new_version = version.release[1] + 1
+            specifier = Specifier("{0}{1}".format(new_op, new_version))
+    return specifier
+
+
+def make_version_tuple(version):
+    return tuple([int(x) for x in version.split(".")])
+
+
+def version_to_str(version):
+    return ".".join([str(i) for i in version])
+
+
+def get_specs(specset):
+    if isinstance(specset, Specifier):
+        specset = str(specset)
+    if isinstance(specset, str):
+        specset = SpecifierSet(specset.replace(".*", ""))
+
+    specs = getattr(specset, "_specs", None)
+    return [(spec._spec[0], make_version_tuple(spec._spec[1])) for spec in list(specs)]
+
+
+def group_by_version(versions):
+    versions = sorted(map(lambda x: make_version_tuple(x)))
+    grouping = itertools.groupby(versions, key=operator.itemgetter(0))
+    return grouping
+
+
+def group_by_op(specs):
+    specs = [get_specs(x) for x in list(specs)]
+    flattened = [(op, version) for spec in specs for op, version in spec]
+    specs = sorted(flattened, key=operator.itemgetter(1))
+    grouping = itertools.groupby(specs, key=operator.itemgetter(0))
+    return grouping
+
+
+def cleanup_specs(specs, operator="or"):
+    specs = {format_pyspec(spec) for spec in specs}
+    # for != operator we want to group by version
+    # if all are consecutive, join as a list
+    results = set()
+    for op, versions in group_by_op(specs):
+        versions = [version[1] for version in versions]
+        versions = sorted(vistir.misc.dedup(versions))
+        # if we are doing an or operation, we need to use the min for >=
+        # this way OR(>=2.6, >=2.7, >=3.6) picks >=2.6
+        # if we do an AND operation we need to use MAX to be more selective
+        if op in (">", ">="):
+            if operator == "or":
+                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(min(versions))))
+            else:
+                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(max(versions))))
+            results |= specifier._specs
+        # we use inverse logic here so we will take the max value if we are using OR
+        # but the min value if we are using AND
+        elif op in ("<=", "<"):
+            if operator == "or":
+                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(max(versions))))
+            else:
+                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(min(versions))))
+            results |= specifier._specs
+        # leave these the same no matter what operator we use
+        elif op in ("!=", "==", "~="):
+            version = ",".join(["{0}{1}".format(op, version_to_str(version)) for version in versions])
+            if len(version) == 1:
+                specifier = Specifier("{0}".format(version))
+                results |= specifier
+            else:
+                print("{0}".format(version))
+                specifier = SpecifierSet("{0}".format(version))
+                results |= specifier._specs
+        else:
+            if len(version) == 1:
+                specifier = Specifier("{0}".format(version))
+                results |= specifier
+            else:
+                results |= SpecifierSet("{0}".format(version))._specs
+    return results

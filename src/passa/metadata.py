@@ -10,7 +10,7 @@ import packaging.specifiers
 import vistir
 import vistir.misc
 
-from .markers import get_without_extra
+from .markers import get_without_extra, cleanup_specs
 
 
 def dedup_markers(s):
@@ -38,12 +38,12 @@ class MetaSet(object):
         return " and ".join(dedup_markers(itertools.chain(
             # Make sure to always use the same quotes so we can dedup properly.
             (
-                "({0})".format(ms) if " or " in ms else ms
+                "{0}".format(ms) if " or " in ms else ms
                 for ms in (str(m).replace('"', "'") for m in self.markerset)
             ),
             (
                 "python_version {0[0]} '{0[1]}'".format(spec._spec)
-                for spec in self.pyspecset._specs
+                for spec in cleanup_specs(self.pyspecset)
             ),
         )))
 
@@ -120,7 +120,7 @@ def _format_metasets(metasets):
 
     # This extra str(Marker()) call helps simplify the expression.
     return str(packaging.markers.Marker(" or ".join(
-        "({0})".format(s) if " and " in s else s
+        "{0}".format(s) if " and " in s else s
         for s in dedup_markers(str(metaset) for metaset in metasets)
     )))
 
