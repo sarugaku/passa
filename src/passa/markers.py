@@ -2,11 +2,13 @@
 
 from __future__ import absolute_import, unicode_literals
 
+import itertools
+import operator
+
+import vistir
+
 from packaging.specifiers import SpecifierSet, Specifier
 from packaging.markers import Marker
-import vistir
-import operator
-import itertools
 
 
 PYTHON_BOUNDARIES = {2: 7, 3: 9}
