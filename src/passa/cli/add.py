@@ -2,39 +2,17 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import argparse
 import itertools
-import os
 import sys
 
-
-def parse_arguments(argv):
-    parser = argparse.ArgumentParser("passa-add")
-    parser.add_argument(
-        "requirement_lines", metavar="requirement",
-        nargs="*",
-    )
-    parser.add_argument(
-        "-e", "--editable",
-        metavar="requirement", dest="editable_lines",
-        action="append", default=[],
-    )
-    parser.add_argument(
-        "--dev",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--project", dest="project_root",
-        default=os.getcwd(),
-        type=os.path.abspath,
-    )
-    options = parser.parse_args(argv)
-    if not options.editable_lines and not options.requirement_lines:
-        parser.error("Must supply either a requirement or --editable")
-    return options
+from ._base import BaseCommand
 
 
-def parsed_main(options):
+NAME = "add"
+DESC = "Add given packages to project."
+
+
+def main(options):
     from passa.lockers import PinReuseLocker
     from passa.projects import Project
     from .lock import lock
@@ -64,7 +42,34 @@ def parsed_main(options):
     print("Written to project at", project.root)
 
 
+class Command(BaseCommand):
+
+    parsed_main = main
+
+    def add_arguments(self):
+        super(Command, self).add_arguments()
+        self.parser.add_argument(
+            "requirement_lines", metavar="requirement",
+            nargs="*",
+            help="requirement to add (can be used multiple times)",
+        )
+        self.parser.add_argument(
+            "-e", "--editable",
+            metavar="requirement", dest="editable_lines",
+            action="append", default=[],
+            help="editable requirement to add (can be used multiple times)",
+        )
+        self.parser.add_argument(
+            "--dev",
+            action="store_true",
+            help="add packages to [dev-packages]",
+        )
+
+    def main(self, options):
+        if not options.editable_lines and not options.requirement_lines:
+            self.parser.error("Must supply either a requirement or --editable")
+        return super(Command, self).main(options)
+
+
 if __name__ == "__main__":
-    from ._base import Command
-    command = Command(parse_arguments, parsed_main)
-    command()
+    Command.run_current_module()

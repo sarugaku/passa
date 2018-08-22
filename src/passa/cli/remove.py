@@ -2,37 +2,14 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import argparse
-import os
+from ._base import BaseCommand
 
 
-def parse_arguments(argv):
-    parser = argparse.ArgumentParser("passa-remove")
-    parser.add_argument(
-        "packages", metavar="package",
-        nargs="+",
-    )
-    dev_group = parser.add_mutually_exclusive_group()
-    dev_group.add_argument(
-        "--dev", dest="only",
-        action="store_const", const="dev",
-        help="Only try to remove from [dev-packages]",
-    )
-    dev_group.add_argument(
-        "--default", dest="only",
-        action="store_const", const="default",
-        help="Only try to remove from [packages]",
-    )
-    parser.add_argument(
-        "--project", dest="project_root",
-        default=os.getcwd(),
-        type=os.path.abspath,
-    )
-    options = parser.parse_args(argv)
-    return options
+NAME = "remove"
+DESC = "Remove given packages from project."
 
 
-def parsed_main(options):
+def main(options):
     from passa.lockers import PinReuseLocker
     from passa.projects import Project
     from .lock import lock
@@ -55,7 +32,29 @@ def parsed_main(options):
     print("Written to project at", project.root)
 
 
+class Command(BaseCommand):
+
+    parsed_main = main
+
+    def add_arguments(self):
+        super(Command, self).add_arguments()
+        self.parser.add_argument(
+            "packages", metavar="package",
+            nargs="+",
+            help="package to remove (can be used multiple times)",
+        )
+        dev_group = self.parser.add_mutually_exclusive_group()
+        dev_group.add_argument(
+            "--dev", dest="only",
+            action="store_const", const="dev",
+            help="only try to remove from [dev-packages]",
+        )
+        dev_group.add_argument(
+            "--default", dest="only",
+            action="store_const", const="default",
+            help="only try to remove from [packages]",
+        )
+
+
 if __name__ == "__main__":
-    from ._base import Command
-    command = Command(parse_arguments, parsed_main)
-    command()
+    Command.run_current_module()
