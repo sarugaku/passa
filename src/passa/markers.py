@@ -124,8 +124,8 @@ def format_pyspec(specifier):
                 new_op = ">="
             else:
                 new_op = "<"
-            new_version = version.release[1] + 1
-            specifier = Specifier("{0}{1}".format(new_op, new_version))
+            new_version = (version.release[0], version.release[1] + 1)
+            specifier = Specifier("{0}{1}".format(new_op, version_to_str(new_version)))
     return specifier
 
 
@@ -203,3 +203,12 @@ def cleanup_specs(specs, operator="or"):
             else:
                 results |= SpecifierSet("{0}".format(version))._specs
     return results
+
+
+if __name__ == "__main__":
+    # (">3.0", {">=3.1"}),
+    # (">=2.7,<3.4", {">=2.7", "<=3.3"}),
+    # cleaned = {Specifier("") for s in cleaned}
+    spec = SpecifierSet(">=2.7,<=3.3")
+    cleaned_spec = cleanup_specs(spec)
+    print(cleaned_spec)
