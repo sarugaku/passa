@@ -112,7 +112,7 @@ def contains_extra(marker):
 
 def format_pyspec(specifier):
     if isinstance(specifier, str):
-        if not any(operator in specifier.operators.keys()):
+        if not any(operator in specifier for operator in Specifier._operators.keys()):
             new_op = "=="
             new_version = specifier
             return Specifier("{0}{1}".format(new_op, new_version))
@@ -203,12 +203,3 @@ def cleanup_specs(specs, operator="or"):
             else:
                 results |= SpecifierSet("{0}".format(version))._specs
     return results
-
-
-if __name__ == "__main__":
-    # (">3.0", {">=3.1"}),
-    # (">=2.7,<3.4", {">=2.7", "<=3.3"}),
-    # cleaned = {Specifier("") for s in cleaned}
-    spec = SpecifierSet(">=2.7,<=3.3")
-    cleaned_spec = cleanup_specs(spec)
-    print(cleaned_spec)
