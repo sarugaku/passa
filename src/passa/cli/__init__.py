@@ -3,9 +3,14 @@
 from __future__ import absolute_import, unicode_literals
 
 import argparse
+import importlib
+import pkgutil
 import sys
 
 from passa import __version__
+
+
+CURRENT_MODULE_PATH = sys.modules[__name__].__path__
 
 
 def main(argv=None):
@@ -20,13 +25,13 @@ def main(argv=None):
         help="show the version and exit",
     )
 
-    # This needs to be imported locally, otherwise there would be an import
-    # order mismatch when we run a passa.cli.[subcommand] module directly.
-    from . import add, freeze, lock, remove, upgrade
-
     subparsers = root_parser.add_subparsers()
-    for module in [add, remove, upgrade, lock, freeze]:
-        klass = module.Command
+    for _, name, _ in pkgutil.iter_modules(CURRENT_MODULE_PATH, "."):
+        module = importlib.import_module(name, __name__)
+        try:
+            klass = module.Command
+        except AttributeError:
+            continue
         parser = subparsers.add_parser(klass.name, help=klass.description)
         command = klass(parser)
         parser.set_defaults(func=command.main)
