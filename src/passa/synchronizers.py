@@ -33,13 +33,18 @@ def _build_paths():
 def _install_as_editable(requirement):
     ireq = requirement.as_ireq()
     with vistir.cd(ireq.setup_py_dir):
-        setuptools.dist.distutils.core.run_setup(ireq.setup_py, ["develop"])
+        # Access from Setuptools to make sure we have currect patches.
+        setuptools.dist.distutils.core.run_setup(
+            ireq.setup_py, ["develop", "--no-deps"],
+        )
 
 
 def _install_as_wheel(requirement, sources, paths):
     ireq = requirement.as_ireq()
     sources = filter_sources(requirement, sources)
     hashes = requirement.hashes or None
+    # TODO: Provide some sort of cache so we don't need to build each ephemeral
+    # wheels twice if lock and sync is done in the same process.
     wheel_path = build_wheel(ireq, sources, hashes)
     if not wheel_path or not os.path.exists(wheel_path):
         raise RuntimeError("failed to build wheel from {}".format(ireq))
@@ -47,15 +52,11 @@ def _install_as_wheel(requirement, sources, paths):
     wheel.install(paths, distlib.scripts.ScriptMaker(None, None))
 
 
-def _install_section(section, sources, paths):
-    for name, package in section.items():
-        requirement = requirementslib.Requirement.from_pipfile(
-            name, package._data,
-        )
-        if requirement.editable:
-            _install_as_editable(requirement)
-        else:
-            _install_as_wheel(requirement, sources, paths)
+def _install_requirement(requirement, sources, paths):
+    if requirement.editable:
+        _install_as_editable(requirement)
+    else:
+        _install_as_wheel(requirement, sources, paths)
 
 
 class Synchronizer(object):
@@ -68,13 +69,22 @@ class Synchronizer(object):
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self.project.root)
 
-    def install(self, default, develop):
-        lockfile = self.project.lockfile
-        sources = lockfile.meta.sources._data
-        # XXX: This could have problems if there are duplicate entries between
-        # sections with different content (like extras)? We might need to
-        # consolidate first, and then install.
+    def _get_packages(self, default, develop):
+        # Don't need to worry about duplicates because only extras can differ.
+        # Extras don't matter because they only affect dependencies, and we
+        # don't install dependencies anyway!
+        packages = {}
         if default:
-            _install_section(lockfile.default, sources, self.paths)
+            packages.update(self.project.lockfile.default)
         if develop:
-            _install_section(lockfile.develop, sources, self.paths)
+            packages.update(self.project.lockfile.develop)
+        return packages
+
+    def install(self, default, develop):
+        sources = self.project.lockfile.meta.sources._data
+        for name, package in self._get_packages(default, develop).items():
+            # TODO: Specify installation order? (pypa/pipenv#2274)
+            requirement = requirementslib.Requirement.from_pipfile(
+                name, package._data,
+            )
+            _install_requirement(requirement, sources, self.paths)
