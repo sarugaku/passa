@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 
 import os
 import sys
+import sysconfig
 
 import distlib.scripts
 import distlib.wheel
@@ -17,42 +18,22 @@ from .utils import filter_sources
 
 def _build_paths():
     """Prepare paths for distlib.wheel.Wheel to install into.
-
-    I reverse-engineered a lot for most of these. They could be terribly wrong.
-    We'll find out.
     """
-    prefix = os.environ.get("VIRTUAL_ENV")
-    if not prefix:
-        raise RuntimeError("virtual environment required for sync")
-    if sys.platform == "win32":
-        return {
-            "prefix": prefix,
-            "scripts": os.path.join(prefix, "Scripts"),
-            "headers": os.path.join(prefix, "Include"),
-            "data": prefix,     # ?
-            "purelib": os.path.join(prefix, "Lib", "site-packages"),
-            "platlib": os.path.join(prefix, "Lib", "site-packages"),
-        }
-    libpath = os.path.join(
-        prefix, "lib",
-        "python{0[0]}.{0[1]}".format(sys.version_info),
-        "site-packages",
-    )
+    paths = sysconfig.get_paths()
     return {
-        "prefix": prefix,
-        "scripts": os.path.join(prefix, "bin"),
-        "headers": os.path.join(prefix, "include"),
-        "data": prefix,     # ?
-        "purelib": libpath,
-        "platlib": libpath,
+        "prefix": sys.prefix,
+        "data": paths["data"],
+        "scripts": paths["scripts"],
+        "headers": paths["include"],
+        "purelib": paths["purelib"],
+        "platlib": paths["platlib"],
     }
 
 
-def _install_as_source(requirement):
+def _install_as_editable(requirement):
     ireq = requirement.as_ireq()
-    args = ["develop"] if requirement.editable else ["install"]
     with vistir.cd(ireq.setup_py_dir):
-        setuptools.dist.distutils.core.run_setup(ireq.setup_py, args)
+        setuptools.dist.distutils.core.run_setup(ireq.setup_py, ["develop"])
 
 
 def _install_as_wheel(requirement, sources, paths):
@@ -71,10 +52,10 @@ def _install_section(section, sources, paths):
         requirement = requirementslib.Requirement.from_pipfile(
             name, package._data,
         )
-        if requirement.is_named:
-            _install_as_wheel(requirement, sources, paths)
+        if requirement.editable:
+            _install_as_editable(requirement)
         else:
-            _install_as_source(requirement)
+            _install_as_wheel(requirement, sources, paths)
 
 
 class Synchronizer(object):
