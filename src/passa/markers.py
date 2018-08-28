@@ -117,14 +117,15 @@ def format_pyspec(specifier):
             new_version = specifier
             return Specifier("{0}{1}".format(new_op, new_version))
     version = specifier._coerce_version(specifier.version.replace(".*", ""))
+    version_tuple = version._version.release
     if specifier.operator in (">", "<="):
         # Prefer to always pick the operator for version n+1
-        if version._version[1] < PYTHON_BOUNDARIES.get(version._version[0], 0):
+        if version_tuple[1] < PYTHON_BOUNDARIES.get(version_tuple[0], 0):
             if specifier.operator == ">":
                 new_op = ">="
             else:
                 new_op = "<"
-            new_version = (version._version[0], version._version[1] + 1)
+            new_version = (version_tuple[0], version_tuple[1] + 1)
             specifier = Specifier("{0}{1}".format(new_op, version_to_str(new_version)))
     return specifier
 
@@ -205,7 +206,7 @@ def cleanup_specs(specs, operator="or"):
         elif op in ("!=", "==", "~="):
             version_list = sorted(["{0}".format(version_to_str(version)) for version in versions])
             version = ", ".join(version_list)
-            if len(version) == 1:
+            if len(version_list) == 1:
                 results.add((op, version))
             else:
                 if op == "!=":
@@ -216,7 +217,7 @@ def cleanup_specs(specs, operator="or"):
                     version = ", ".join(sorted(["{0}".format(op, v) for v in version_list]))
                     specifier = SpecifierSet(version)._specs
                     for s in specifier:
-                        results |= (specifier._spec[0], specifier._spec[1])
+                        results &= (specifier._spec[0], specifier._spec[1])
         else:
             if len(version) == 1:
                 results.add((op, version))
