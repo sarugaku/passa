@@ -119,12 +119,12 @@ def format_pyspec(specifier):
     version = specifier._coerce_version(specifier.version.replace(".*", ""))
     if specifier.operator in (">", "<="):
         # Prefer to always pick the operator for version n+1
-        if version.release[1] < PYTHON_BOUNDARIES.get(version.release[0], 0):
+        if version._version[1] < PYTHON_BOUNDARIES.get(version._version[0], 0):
             if specifier.operator == ">":
                 new_op = ">="
             else:
                 new_op = "<"
-            new_version = (version.release[0], version.release[1] + 1)
+            new_version = (version._version[0], version._version[1] + 1)
             specifier = Specifier("{0}{1}".format(new_op, version_to_str(new_version)))
     return specifier
 
@@ -161,6 +161,23 @@ def group_by_op(specs):
     return grouping
 
 
+def marker_to_spec(marker):
+    if marker._markers[0][0] != 'python_version':
+        return
+    operator = marker._markers[0][1].value
+    version = marker._markers[0][2].value
+    specset = set()
+    if operator in ("in", "not in"):
+        op = "==" if operator == "in" else "!="
+        specset |= set([Specifier("{0}{1}".format(op, v.strip())) for v in version.split(",")])
+    else:
+        spec = Specifier("".join([operator, version]))
+        specset.add(spec)
+    if specset:
+        return specset
+    return None
+
+
 def cleanup_specs(specs, operator="or"):
     specs = {format_pyspec(spec) for spec in specs}
     # for != operator we want to group by version
@@ -174,32 +191,37 @@ def cleanup_specs(specs, operator="or"):
         # if we do an AND operation we need to use MAX to be more selective
         if op in (">", ">="):
             if operator == "or":
-                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(min(versions))))
+                results.add((op, version_to_str(min(versions))))
             else:
-                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(max(versions))))
-            results |= specifier._specs
+                results.add((op, version_to_str(max(versions))))
         # we use inverse logic here so we will take the max value if we are using OR
         # but the min value if we are using AND
         elif op in ("<=", "<"):
             if operator == "or":
-                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(max(versions))))
+                results.add((op, version_to_str(max(versions))))
             else:
-                specifier = SpecifierSet("{0}{1}".format(op, version_to_str(min(versions))))
-            results |= specifier._specs
+                results.add((op, version_to_str(min(versions))))
         # leave these the same no matter what operator we use
         elif op in ("!=", "==", "~="):
-            version = ",".join(["{0}{1}".format(op, version_to_str(version)) for version in versions])
+            version_list = sorted(["{0}".format(version_to_str(version)) for version in versions])
+            version = ", ".join(version_list)
             if len(version) == 1:
-                specifier = Specifier("{0}".format(version))
-                results |= specifier
+                results.add((op, version))
             else:
-                print("{0}".format(version))
-                specifier = SpecifierSet("{0}".format(version))
-                results |= specifier._specs
+                if op == "!=":
+                    results.add(("not in", version))
+                elif op == "==":
+                    results.add(("in", version))
+                else:
+                    version = ", ".join(sorted(["{0}".format(op, v) for v in version_list]))
+                    specifier = SpecifierSet(version)._specs
+                    for s in specifier:
+                        results |= (specifier._spec[0], specifier._spec[1])
         else:
             if len(version) == 1:
-                specifier = Specifier("{0}".format(version))
-                results |= specifier
+                results.add((op, version))
             else:
-                results |= SpecifierSet("{0}".format(version))._specs
+                specifier = SpecifierSet("{0}".format(version))._specs
+                for s in specifier:
+                    results |= (specifier._spec[0], specifier._spec[1])
     return results
