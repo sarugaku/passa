@@ -8,16 +8,7 @@ import resolvelib
 
 from .candidates import find_candidates
 from .dependencies import get_dependencies
-from .utils import identify_requirment
-
-
-def _filter_sources(requirement, sources):
-    if not sources or not requirement.index:
-        return sources
-    for s in sources:
-        if s.get("name") == requirement.index:
-            return [s]
-    return sources
+from .utils import filter_sources, identify_requirment
 
 
 class BasicProvider(resolvelib.AbstractProvider):
@@ -51,7 +42,7 @@ class BasicProvider(resolvelib.AbstractProvider):
     def find_matches(self, requirement):
         # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
         allow_prereleases = self.allow_prereleases
-        sources = _filter_sources(requirement, self.sources)
+        sources = filter_sources(requirement, self.sources)
         candidates = find_candidates(requirement, sources, allow_prereleases)
         return candidates
 
@@ -81,7 +72,7 @@ class BasicProvider(resolvelib.AbstractProvider):
         return requirement.as_ireq().specifier.contains(version)
 
     def get_dependencies(self, candidate):
-        sources = _filter_sources(candidate, self.sources)
+        sources = filter_sources(candidate, self.sources)
         try:
             dependencies, requires_python = get_dependencies(
                 candidate, sources=sources,
