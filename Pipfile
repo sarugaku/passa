@@ -21,10 +21,10 @@ passa-lock = 'python -m passa.cli.lock'
 passa-freeze = 'python -m passa.cli.freeze'
 
 black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"'
-build = "setup.py sdist bdist_wheel"
+build = 'inv build'
 changelog = 'towncrier'
 docs = 'sphinx-build -b html docs docs/_build'
 draft = 'towncrier --draft'
 release = 'inv release'
 tests = "pytest -v tests"
-upload = 'twine upload dist/*'
+upload = 'inv upload'

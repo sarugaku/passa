@@ -4,4 +4,4 @@
 Features
 --------
 
-- Initial Release!  `#0 <https://github.com/sarugaku/passa/issues/0>`_
+- Initial Release!

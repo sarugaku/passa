@@ -47,6 +47,7 @@ def _write_version(v):
 REL_TYPES = ('major', 'minor', 'patch',)
 
 
+@invoke.task()
 def bump_release(ctx, type_):
     if type_ not in REL_TYPES:
         raise ValueError(f'{type_} not in {REL_TYPES}')
@@ -97,7 +98,6 @@ PREBUMP = 'patch'
 def release(ctx, type_, repo=None, prebump_to=PREBUMP):
     """Make a new release.
     """
-
     bump_release(ctx, type_=type_)
 
     version = _read_version()
