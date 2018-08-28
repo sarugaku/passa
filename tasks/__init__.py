@@ -1,6 +1,6 @@
+import ast
 import pathlib
 import shutil
-import subprocess
 
 import invoke
 import parver
@@ -25,14 +25,12 @@ def clean(ctx):
 
 
 def _read_version():
-    out = subprocess.check_output(['git', 'tag'], encoding='ascii')
-    try:
-        version = max(parver.Version.parse(v).normalize() for v in (
-            line.strip() for line in out.split('\n')
-        ) if v)
-    except ValueError:
-        version = parver.Version.parse('0.0.0')
-    return version
+    with INIT_PY.open() as f:
+        for line in f:
+            if not line.startswith('__version__ = '):
+                continue
+            value = ast.literal_eval(line.split('=', 1)[-1].strip())
+            return parver.Version.parse(value)
 
 
 def _write_version(v):
@@ -49,44 +47,23 @@ def _write_version(v):
 REL_TYPES = ('major', 'minor', 'patch',)
 
 
-def _bump_release(version, type_):
+def bump_release(ctx, type_):
     if type_ not in REL_TYPES:
         raise ValueError(f'{type_} not in {REL_TYPES}')
     index = REL_TYPES.index(type_)
-    next_version = version.base_version().bump_release(index)
-    print(f'[bump] {version} -> {next_version}')
-    return next_version
-
-
-def _prebump(version, prebump):
-    next_version = version.bump_release(prebump).bump_dev()
-    print(f'[bump] {version} -> {next_version}')
-    return next_version
-
-
-PREBUMP = 'patch'
+    prev_version = _read_version()
+    next_version = prev_version.base_version().bump_release(index)
+    print(f'[bump] {prev_version} -> {next_version}')
+    _write_version(next_version)
 
 
 @invoke.task(pre=[clean])
-def release(ctx, type_, repo, prebump=PREBUMP):
-    """Make a new release.
-    """
-    if prebump not in REL_TYPES:
-        raise ValueError(f'{type_} not in {REL_TYPES}')
-    prebump = REL_TYPES.index(prebump)
-
-    version = _read_version()
-    version = _bump_release(version, type_)
-    _write_version(version)
-
-    ctx.run('towncrier')
-
-    ctx.run(f'git commit -am "Release {version}"')
-
-    ctx.run(f'git tag -a {version} -m "Version {version}"')
-
+def build(ctx):
     ctx.run(f'python setup.py sdist bdist_wheel')
 
+
+@invoke.task(pre=[build])
+def upload(ctx, repo):
     dist_pattern = f'{PACKAGE_NAME.replace("-", "[-_]")}-*'
     artifacts = list(ROOT.joinpath('dist').glob(dist_pattern))
     filename_display = '\n'.join(f'  {a}' for a in artifacts)
@@ -100,7 +77,37 @@ def release(ctx, type_, repo, prebump=PREBUMP):
     arg_display = ' '.join(f'"{n}"' for n in artifacts)
     ctx.run(f'twine upload --repository="{repo}" {arg_display}')
 
-    version = _prebump(version, prebump)
-    _write_version(version)
 
-    ctx.run(f'git commit -am "Prebump to {version}"')
+@invoke.task()
+def prebump(ctx, type_):
+    if type_ not in REL_TYPES:
+        raise ValueError(f'{type_} not in {REL_TYPES}')
+    index = REL_TYPES.index(type_)
+    prev_version = _read_version()
+    next_version = prev_version.bump_release(index).bump_dev()
+    print(f'[bump] {prev_version} -> {next_version}')
+    _write_version(next_version)
+    ctx.run(f'git commit -am "Prebump to {next_version}"')
+
+
+PREBUMP = 'patch'
+
+
+@invoke.task()
+def release(ctx, type_, repo=None, prebump_to=PREBUMP):
+    """Make a new release.
+    """
+
+    bump_release(ctx, type_=type_)
+
+    version = _read_version()
+    ctx.run('towncrier')
+    ctx.run(f'git commit -am "Release {version}"')
+    ctx.run(f'git tag -fa {version} -m "Version {version}"')
+
+    if repo:
+        upload(ctx, repo=repo)
+    else:
+        print('[release] Missing --repo, skip uploading')
+
+    prebump(ctx, type_=prebump_to)
