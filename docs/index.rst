@@ -15,8 +15,35 @@ several components:
 .. _RequirementsLib: https://github.com/sarugaku/requirementslib
 
 
-Contents
-========
+Quickstart
+==========
 
-.. toctree::
-   :maxdepth: 2
+Install Passa with pip:
+
+.. code-block:: none
+
+    pip install passa
+
+Use Passa to generate Pipfile.lock from the Pipfile in the current directory:
+
+.. code-block:: none
+
+    python -m passa lock
+
+Add packages to the project:
+
+.. code-block:: none
+
+    python -m passa add pytz requests tqdm
+
+Remove packages from the project:
+
+.. code-block:: none
+
+    python -m passa remove pytz
+
+Generate requirements.txt for the current project:
+
+.. code-block:: none
+
+    python -m passa freeze --target requirements.txt
