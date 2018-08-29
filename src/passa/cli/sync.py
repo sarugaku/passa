@@ -10,7 +10,10 @@ def main(options):
     from passa.synchronizers import Synchronizer
 
     project = options.project
-    syncer = Synchronizer(project, default=True, develop=options.dev)
+    syncer = Synchronizer(
+        project, default=True, develop=options.dev,
+        clean_unneeded=options.clean,
+    )
 
     success = sync(syncer)
     if not success:
@@ -31,6 +34,11 @@ class Command(BaseCommand):
             "--dev",
             action="store_true",
             help="install develop packages",
+        )
+        self.parser.add_argument(
+            "--no-clean", dest="clean",
+            action="store_false", default=True,
+            help="remove packages not specified in Pipfile.lock",
         )
 
 

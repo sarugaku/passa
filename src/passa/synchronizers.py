@@ -2,38 +2,97 @@
 
 from __future__ import absolute_import, unicode_literals
 
+import collections
 import contextlib
-import distutils.log
 import os
 import sys
 import sysconfig
 
-import distlib.scripts
-import distlib.wheel
-import packaging.markers
-import packaging.utils
-import packaging.version
 import pkg_resources
+
+import packaging.markers
+import packaging.version
 import requirementslib
-import setuptools.dist
-import vistir
 
-from ._pip import build_wheel
-from .utils import filter_sources
+from ._pip import uninstall_requirement, EditableInstaller, WheelInstaller
 
 
-def _distutils_log_wrapped(log, level, msg, args):
-    if level < distutils.log.ERROR:
-        return
-    distutils.log.Log._log(log, level, msg, args)
+def _is_installation_local(name):
+    """Check whether the distribution is in the current Python installation.
+
+    This is used to distinguish packages seen by a virtual environment. A venv
+    may be able to see global packages, but we don't want to mess with them.
+    """
+    location = pkg_resources.working_set.by_key[name].location
+    return os.path.commonprefix([location, sys.prefix]) == sys.prefix
+
+
+def _is_up_to_date(distro, version):
+    # This is done in strings to avoid type mismatches caused by vendering.
+    return str(version) == str(packaging.version.parse(distro.version))
+
+
+GroupCollection = collections.namedtuple("GroupCollection", [
+    "uptodate", "outdated", "noremove", "unneeded",
+])
+
+
+def _group_installed_names(packages):
+    """Group locally installed packages based on given specifications.
+
+    `packages` is a name-package mapping that are used as baseline to
+    determine how the installed package should be grouped.
+
+    Returns a 3-tuple of disjoint sets, all containing names of installed
+    packages:
+
+    * `uptodate`: These match the specifications.
+    * `outdated`: These installations are specified, but don't match the
+        specifications in `packages`.
+    * `unneeded`: These are installed, but not specified in `packages`.
+    """
+    groupcoll = GroupCollection(set(), set(), set(), set())
+
+    for distro in pkg_resources.working_set:
+        name = distro.key
+        try:
+            package = packages[name]
+        except KeyError:
+            groupcoll.unneeded.add(name)
+            continue
+
+        r = requirementslib.Requirement.from_pipfile(name, package)
+        if not r.is_named:
+            # Always mark non-named. I think pip does something similar?
+            groupcoll.outdated.add(name)
+        elif not _is_up_to_date(distro, r.get_version()):
+            groupcoll.outdated.add(name)
+        else:
+            groupcoll.uptodate.add(name)
+
+    return groupcoll
 
 
 @contextlib.contextmanager
-def _suppress_distutils_logs():
-    f = distutils.log.Log._log
-    distutils.log.Log._log = _distutils_log_wrapped
-    yield
-    distutils.log.Log._log = f
+def _remove_package(name):
+    if name is None or not _is_installation_local(name):
+        yield
+        return
+    r = requirementslib.Requirement.from_line(name)
+    with uninstall_requirement(r.as_ireq(), auto_confirm=True, verbose=False):
+        yield
+
+
+def _get_packages(lockfile, default, develop):
+    # Don't need to worry about duplicates because only extras can differ.
+    # Extras don't matter because they only affect dependencies, and we
+    # don't install dependencies anyway!
+    packages = {}
+    if default:
+        packages.update(lockfile.default._data)
+    if develop:
+        packages.update(lockfile.develop._data)
+    return packages
 
 
 def _build_paths():
@@ -50,145 +109,64 @@ def _build_paths():
     }
 
 
-def _install_as_editable(requirement):
-    ireq = requirement.as_ireq()
-    with vistir.cd(ireq.setup_py_dir), _suppress_distutils_logs():
-        # Access from Setuptools to make sure we have currect patches.
-        setuptools.dist.distutils.core.run_setup(
-            ireq.setup_py, ["--quiet", "develop", "--no-deps"],
-        )
-
-
-def _install_as_wheel(requirement, sources, paths):
-    ireq = requirement.as_ireq()
-    sources = filter_sources(requirement, sources)
-    hashes = requirement.hashes or None
-    # TODO: Provide some sort of cache so we don't need to build each ephemeral
-    # wheels twice if lock and sync is done in the same process.
-    wheel_path = build_wheel(ireq, sources, hashes)
-    if not wheel_path or not os.path.exists(wheel_path):
-        raise RuntimeError("failed to build wheel from {}".format(ireq))
-    wheel = distlib.wheel.Wheel(wheel_path)
-    wheel.install(paths, distlib.scripts.ScriptMaker(None, None))
-
-
-PROTECTED_FROM_CLEAN = {"setuptools", "pip"}
-
-
-def _should_uninstall(name, distro, whitelist, for_sync):
-    if name in PROTECTED_FROM_CLEAN:
-        return False
-    try:
-        package = whitelist[name]
-    except KeyError:
-        return True
-    if not for_sync:
-        return False
-
-    r = requirementslib.Requirement.from_pipfile(name, package)
-
-    # Always remove and re-sync non-named requirements. pip does this?
-    if not r.is_named:
-        return True
-
-    # Remove packages with unmatched version. The comparison is done is
-    # strings to avoid type mismatching due to vendering.
-    if str(r.get_version()) != str(packaging.version.parse(distro.version)):
-        return True
-
-
-def _is_installation_local(distro):
-    """Check whether the distribution is in the current Python installation.
-
-    This is used to distinguish packages seen by a virtual environment. A venv
-    may be able to see global packages, but we don't want to mess with them.
-    """
-    return os.path.commonprefix([distro.location, sys.prefix]) == sys.prefix
-
-
-def _group_installed_names(whitelist, for_sync):
-    names_to_clean = set()
-    names_kept = set()
-    for distro in pkg_resources.working_set:
-        name = packaging.utils.canonicalize_name(distro.project_name)
-        if (_should_uninstall(name, distro, whitelist, for_sync) and
-                _is_installation_local(distro)):
-            names_to_clean.add(name)
-        else:
-            names_kept.add(name)
-    return names_to_clean, names_kept
-
-
-def _clean(whitelist, for_sync):
-    names_to_clean, names_kept = _group_installed_names(whitelist, for_sync)
-
-    # TODO: Show a prompt to confirm cleaning. We will need to implement a
-    # reporter pattern for this as well.
-    for name in names_to_clean:
-        r = requirementslib.Requirement.from_line(name)
-        r.as_ireq().uninstall(auto_confirm=True, verbose=False)
-    return names_to_clean, names_kept
-
-
-def _get_packages(lockfile, default, develop):
-    # Don't need to worry about duplicates because only extras can differ.
-    # Extras don't matter because they only affect dependencies, and we
-    # don't install dependencies anyway!
-    packages = {}
-    if default:
-        packages.update(lockfile.default._data)
-    if develop:
-        packages.update(lockfile.develop._data)
-    return packages
-
-
 class Synchronizer(object):
     """Helper class to install packages from a project's lock file.
     """
-    def __init__(self, project, default, develop):
+    def __init__(self, project, default, develop, clean_unneeded):
         self._root = project.root   # Only for repr.
         self.packages = _get_packages(project.lockfile, default, develop)
         self.sources = project.lockfile.meta.sources._data
         self.paths = _build_paths()
+        self.clean_unneeded = clean_unneeded
 
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
     def sync(self):
-        cleaned_names, installed_names = _clean(self.packages, for_sync=True)
-        # TODO: Specify installation order? (pypa/pipenv#2274)
+        groupcoll = _group_installed_names(self.packages)
 
         installed = set()
         updated = set()
-        skipped = set()
+        cleaned = set()
+
+        # TODO: Show a prompt to confirm cleaning. We will need to implement a
+        # reporter pattern for this as well.
+        if self.clean_unneeded:
+            cleaned.update(groupcoll.unneeded)
+            for name in cleaned:
+                with _remove_package(name):
+                    pass
+
+        # TODO: Specify installation order? (pypa/pipenv#2274)
         for name, package in self.packages.items():
-            if name in installed_names:
-                continue
             r = requirementslib.Requirement.from_pipfile(name, package)
+            name = r.normalized_name
+            if name in groupcoll.uptodate:
+                continue
             markers = r.markers
             if markers and not packaging.markers.Marker(markers).evaluate():
-                skipped.add(r.normalized_name)
                 continue
+            if name in groupcoll.outdated:
+                name_to_remove = name
+            else:
+                name_to_remove = None
+            if r.editable:
+                installer = EditableInstaller(r)
+            else:
+                installer = WheelInstaller(r, self.sources, self.paths)
             try:
-                if r.editable:
-                    _install_as_editable(r)
-                else:
-                    _install_as_wheel(r, self.sources, self.paths)
+                installer.prepare()
+                with _remove_package(name_to_remove):
+                    installer.install()
             except Exception as e:
                 if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                     raise
                 print("failed to install {0!r}: {1}".format(
                     r.as_line(include_hashes=False), e,
                 ))
-            name = r.normalized_name
-            if name in cleaned_names:
+            if name in groupcoll.outdated or name in groupcoll.noremove:
                 updated.add(name)
-                cleaned_names.remove(name)
             else:
                 installed.add(name)
 
-        return installed, updated, skipped, cleaned_names
-
-    def clean(self):
-        cleaned_names, kept_names = _clean(self.packages, for_sync=False)
-        return cleaned_names, kept_names
+        return installed, updated, cleaned
