@@ -29,11 +29,6 @@ setup(
     package_data={
         '': ['LICENSE*', 'README*'],
     },
-    entry_points={
-        "console_scripts": [
-            "passa=passa.cli:cli"
-        ]
-    },
 
     # I need this to be dynamic.
     version=VERSION,

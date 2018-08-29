@@ -1,0 +1,1 @@
+Fix entry point declaration in package so the ``passa`` command can work.
