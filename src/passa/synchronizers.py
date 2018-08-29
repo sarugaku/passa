@@ -109,6 +109,17 @@ def _build_paths():
     }
 
 
+PROTECTED_FROM_CLEAN = {"setuptools", "pip"}
+
+
+def _clean(names):
+    for name in names:
+        if name in PROTECTED_FROM_CLEAN:
+            continue
+        with _remove_package(name):
+            pass
+
+
 class Synchronizer(object):
     """Helper class to install packages from a project's lock file.
     """
@@ -133,9 +144,7 @@ class Synchronizer(object):
         # reporter pattern for this as well.
         if self.clean_unneeded:
             cleaned.update(groupcoll.unneeded)
-            for name in cleaned:
-                with _remove_package(name):
-                    pass
+            _clean(cleaned)
 
         # TODO: Specify installation order? (pypa/pipenv#2274)
         for name, package in self.packages.items():
@@ -170,3 +179,19 @@ class Synchronizer(object):
                 installed.add(name)
 
         return installed, updated, cleaned
+
+
+class Cleaner(object):
+    """Helper class to clean packages not in a project's lock file.
+    """
+    def __init__(self, project, default, develop):
+        self._root = project.root   # Only for repr.
+        self.packages = _get_packages(project.lockfile, default, develop)
+
+    def __repr__(self):
+        return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
+
+    def clean(self):
+        groupcoll = _group_installed_names(self.packages)
+        _clean(groupcoll.unneeded)
+        return groupcoll.unneeded

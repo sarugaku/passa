@@ -36,6 +36,22 @@ def main(options):
     project._l.write()
     print("Written to project at", project.root)
 
+    if not options.sync:
+        return
+
+    from passa.synchronizers import Synchronizer
+    from passa.operations.sync import sync
+
+    syncer = Synchronizer(
+        project, default=True, develop=options.dev,
+        clean_unneeded=options.clean,
+    )
+    success = sync(syncer)
+    if not success:
+        return 1
+
+    print("Synchronized project at", project.root)
+
 
 class Command(BaseCommand):
 
@@ -60,6 +76,16 @@ class Command(BaseCommand):
             "--dev",
             action="store_true",
             help="add packages to [dev-packages]",
+        )
+        self.parser.add_argument(
+            "--no-sync", dest="sync",
+            action="store_false", default=True,
+            help="do not synchronize the environment",
+        )
+        self.parser.add_argument(
+            "--no-clean", dest="clean",
+            action="store_false", default=True,
+            help="do not uninstall packages not specified in Pipfile.lock",
         )
 
     def main(self, options):

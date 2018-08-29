@@ -26,6 +26,19 @@ def main(options):
     project._l.write()
     print("Written to project at", project.root)
 
+    if not options.clean:
+        return
+
+    from passa.operations.sync import clean
+    from passa.synchronizers import Cleaner
+
+    cleaner = Cleaner(project, default=True, develop=True)
+    success = clean(cleaner)
+    if not success:
+        return 1
+
+    print("Cleaned project at", project.root)
+
 
 class Command(BaseCommand):
 
@@ -50,6 +63,11 @@ class Command(BaseCommand):
             "--default", dest="only",
             action="store_const", const="default",
             help="only try to remove from [packages]",
+        )
+        self.parser.add_argument(
+            "--no-clean", dest="clean",
+            action="store_false", default=True,
+            help="do not uninstall packages not specified in Pipfile.lock",
         )
 
 

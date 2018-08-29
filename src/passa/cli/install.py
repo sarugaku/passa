@@ -6,10 +6,22 @@ from ._base import BaseCommand
 
 
 def main(options):
+    from passa.lockers import BasicLocker
+    from passa.operations.lock import lock
+
+    project = options.project
+
+    if not options.check or not project.is_synced():
+        locker = BasicLocker(project)
+        success = lock(locker)
+        if not success:
+            return 1
+        project._l.write()
+        print("Written to project at", project.root)
+
     from passa.operations.sync import sync
     from passa.synchronizers import Synchronizer
 
-    project = options.project
     syncer = Synchronizer(
         project, default=True, develop=options.dev,
         clean_unneeded=options.clean,
@@ -24,12 +36,17 @@ def main(options):
 
 class Command(BaseCommand):
 
-    name = "sync"
-    description = "Install Pipfile.lock into the current environment."
+    name = "install"
+    description = "Generate Pipfile.lock to synchronize the environment."
     parsed_main = main
 
     def add_arguments(self):
         super(Command, self).add_arguments()
+        self.parser.add_argument(
+            "--no-check", dest="check",
+            action="store_false", default=True,
+            help="do not check if Pipfile.lock is update, always resolve",
+        )
         self.parser.add_argument(
             "--dev",
             action="store_true",

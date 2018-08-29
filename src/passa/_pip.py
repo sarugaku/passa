@@ -173,18 +173,18 @@ def build_wheel(ireq, sources, hashes=None):
             hashes=ireq.hashes(False), progress_bar=False,
         )
 
-    # If this is a wheel, use the downloaded thing.
     if ireq.is_wheel:
+        # If this is a wheel, use the downloaded thing.
         output_dir = kwargs["wheel_download_dir"]
-        return os.path.join(output_dir, ireq.link.filename)
-
-    # Othereise we need to build an ephemeral wheel.
-    wheel_path = _build_wheel(
-        ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
-        finder, _get_wheel_cache(), kwargs,
-    )
-    if wheel_path is None or not os.path.exists(wheel_path):
-        raise RuntimeError("failed to build wheel from {}".format(ireq))
+        wheel_path = os.path.join(output_dir, ireq.link.filename)
+    else:
+        # Othereise we need to build an ephemeral wheel.
+        wheel_path = _build_wheel(
+            ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
+            finder, _get_wheel_cache(), kwargs,
+        )
+        if wheel_path is None or not os.path.exists(wheel_path):
+            raise RuntimeError("failed to build wheel from {}".format(ireq))
     return distlib.wheel.Wheel(wheel_path)
 
 
