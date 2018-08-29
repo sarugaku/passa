@@ -165,7 +165,8 @@ class Synchronizer(object):
             if name in installed_names:
                 continue
             r = requirementslib.Requirement.from_pipfile(name, package)
-            if r.markers and not packaging.markers.Marker(r.markers).evaluate():
+            markers = r.markers
+            if markers and not packaging.markers.Marker(markers).evaluate():
                 skipped.add(r.normalized_name)
                 continue
             try:
