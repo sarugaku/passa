@@ -88,7 +88,6 @@ def prebump(ctx, type_):
     next_version = prev_version.bump_release(index).bump_dev()
     print(f'[bump] {prev_version} -> {next_version}')
     _write_version(next_version)
-    ctx.run(f'git commit -am "Prebump to {next_version}"')
 
 
 PREBUMP = 'patch'
@@ -100,10 +99,10 @@ def release(ctx, type_, repo=None, prebump_to=PREBUMP):
     """
     bump_release(ctx, type_=type_)
 
-    version = _read_version()
+    this_version = _read_version()
     ctx.run('towncrier')
-    ctx.run(f'git commit -am "Release {version}"')
-    ctx.run(f'git tag -fa {version} -m "Version {version}"')
+    ctx.run(f'git commit -am "Release {this_version}"')
+    ctx.run(f'git tag -fa {this_version} -m "Version {this_version}"')
 
     if repo:
         upload(ctx, repo=repo)
@@ -111,3 +110,6 @@ def release(ctx, type_, repo=None, prebump_to=PREBUMP):
         print('[release] Missing --repo, skip uploading')
 
     prebump(ctx, type_=prebump_to)
+
+    next_version = _read_version()
+    ctx.run(f'git commit -am "Prebump to {next_version}"')
