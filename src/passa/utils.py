@@ -80,3 +80,18 @@ def is_pinned(ireq):
     except (TypeError, ValueError):
         return False
     return True
+
+
+def filter_sources(requirement, sources):
+    """Return a filtered list of sources for this requirement.
+
+    This considers the index specified by the requirement, and returns only
+    matching source entries if there is at least one.
+    """
+    if not sources or not requirement.index:
+        return sources
+    filtered_sources = [
+        source for source in sources
+        if source.get("name") == requirement.index
+    ]
+    return filtered_sources or sources
