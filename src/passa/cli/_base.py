@@ -49,4 +49,6 @@ class BaseCommand(object):
         )
 
     def main(self, options):
-        return type(self).parsed_main(options)
+        # This __dict__ access is needed for Python 2 to prevent Python from
+        # wrapping parsed_main into an unbounded method.
+        return type(self).__dict__["parsed_main"](options)
