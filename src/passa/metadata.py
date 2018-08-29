@@ -10,7 +10,7 @@ import packaging.specifiers
 import vistir
 import vistir.misc
 
-from .markers import get_without_extra
+from .markers import get_without_extra, cleanup_specs, marker_to_spec
 
 
 def dedup_markers(s):
@@ -35,15 +35,26 @@ class MetaSet(object):
         )
 
     def __str__(self):
+        pyspecs = set()
+        markerset = set()
+        for m in self.markerset:
+            py_marker = marker_to_spec(packaging.markers.Marker(m))
+            if py_marker:
+                pyspecs.add(py_marker)
+            else:
+                markerset.add(m)
+        if pyspecs:
+            self.pyspecset._specs &= pyspecs
+            self.markerset = frozenset(markerset)
         return " and ".join(dedup_markers(itertools.chain(
             # Make sure to always use the same quotes so we can dedup properly.
             (
-                "({0})".format(ms) if " or " in ms else ms
+                "{0}".format(ms) if " or " in ms else ms
                 for ms in (str(m).replace('"', "'") for m in self.markerset)
             ),
             (
-                "python_version {0[0]} '{0[1]}'".format(spec._spec)
-                for spec in self.pyspecset._specs
+                "python_version {0[0]} '{0[1]}'".format(spec)
+                for spec in cleanup_specs(self.pyspecset)
             ),
         )))
 
@@ -56,8 +67,13 @@ class MetaSet(object):
     def __or__(self, pair):
         marker, specset = pair
         markerset = set(self.markerset)
+        pyspec_markers = set()
         if marker:
-            markerset.add(str(marker))
+            pyspec_markers = marker_to_spec(marker)
+            if not pyspec_markers:
+                markerset.add(str(marker))
+            else:
+                specset._specs &= pyspec_markers
         metaset = MetaSet()
         metaset.markerset = frozenset(markerset)
         # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.
@@ -120,8 +136,9 @@ def _format_metasets(metasets):
 
     # This extra str(Marker()) call helps simplify the expression.
     return str(packaging.markers.Marker(" or ".join(
-        "({0})".format(s) if " and " in s else s
-        for s in dedup_markers(str(metaset) for metaset in metasets)
+        "{0}".format(s) if " and " in s else s
+        for s in dedup_markers(str(metaset) for metaset in metasets
+        if metaset)
     )))
 
 
