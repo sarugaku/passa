@@ -36,12 +36,18 @@ def main(options):
     if not options.sync:
         return
 
-    from passa.synchronizers import Synchronizer
-    from passa.operations.sync import sync
+    from passa.operations.sync import clean, sync
+    from passa.synchronizers import Cleaner, Synchronizer
+
+    if options.clean:
+        cleaner = Cleaner(project, default=True, develop=True)
+        success = clean(cleaner)
+        if not success:
+            return 1
 
     syncer = Synchronizer(
         project, default=True, develop=options.dev,
-        clean_unneeded=options.clean,
+        clean_unneeded=False,
     )
     success = sync(syncer)
     if not success:
