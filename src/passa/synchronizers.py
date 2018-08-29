@@ -168,10 +168,17 @@ class Synchronizer(object):
             if r.markers and not packaging.markers.Marker(r.markers).evaluate():
                 skipped.add(r.normalized_name)
                 continue
-            if r.editable:
-                _install_as_editable(r)
-            else:
-                _install_as_wheel(r, self.sources, self.paths)
+            try:
+                if r.editable:
+                    _install_as_editable(r)
+                else:
+                    _install_as_wheel(r, self.sources, self.paths)
+            except Exception as e:
+                if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                    raise
+                print("failed to install {0!r}: {1}".format(
+                    r.as_line(include_hashes=False), e,
+                ))
             name = r.normalized_name
             if name in cleaned_names:
                 updated.add(name)

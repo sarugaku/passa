@@ -81,7 +81,7 @@ class BasicProvider(resolvelib.AbstractProvider):
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
                 raise
             print("failed to get dependencies for {0!r}: {1}".format(
-                candidate.as_line(), e,
+                candidate.as_line(include_hashes=False), e,
             ))
             dependencies = []
             requires_python = ""
