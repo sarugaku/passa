@@ -7,7 +7,7 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import PinReuseLocker
-    from .lock import lock
+    from passa.operations.lock import lock
 
     default = (options.only != "dev")
     develop = (options.only != "default")

@@ -10,7 +10,7 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import PinReuseLocker
-    from .lock import lock
+    from passa.operations.lock import lock
 
     lines = list(itertools.chain(
         options.requirement_lines,

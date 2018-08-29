@@ -1,18 +1,10 @@
+import ast
 import pathlib
 import shutil
-import subprocess
 
 import invoke
 import parver
 
-from towncrier._builder import (
-    find_fragments, render_fragments, split_fragments,
-)
-from towncrier._settings import load_config
-
-
-def _get_git_root(ctx):
-    return pathlib.Path(ctx.run('git rev-parse --show-toplevel', hide=True).stdout.strip())
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -33,14 +25,12 @@ def clean(ctx):
 
 
 def _read_version():
-    out = subprocess.check_output(['git', 'tag'], encoding='ascii')
-    try:
-        version = max(parver.Version.parse(v).normalize() for v in (
-            line.strip() for line in out.split('\n')
-        ) if v)
-    except ValueError:
-        version = parver.Version.parse('0.0.0')
-    return version
+    with INIT_PY.open() as f:
+        for line in f:
+            if not line.startswith('__version__ = '):
+                continue
+            value = ast.literal_eval(line.split('=', 1)[-1].strip())
+            return parver.Version.parse(value)
 
 
 def _write_version(v):
@@ -54,72 +44,27 @@ def _write_version(v):
         f.write(''.join(lines))
 
 
-def _render_log():
-    """Totally tap into Towncrier internals to get an in-memory result.
-    """
-    config = load_config(ROOT)
-    definitions = config['types']
-    fragments, fragment_filenames = find_fragments(
-        pathlib.Path(config['directory']).absolute(),
-        config['sections'],
-        None,
-        definitions,
-    )
-    rendered = render_fragments(
-        pathlib.Path(config['template']).read_text(encoding='utf-8'),
-        config['issue_format'],
-        split_fragments(fragments, definitions),
-        definitions,
-        config['underlines'][1:],
-    )
-    return rendered
-
-
 REL_TYPES = ('major', 'minor', 'patch',)
 
 
-def _bump_release(version, type_):
+@invoke.task()
+def bump_release(ctx, type_):
     if type_ not in REL_TYPES:
         raise ValueError(f'{type_} not in {REL_TYPES}')
     index = REL_TYPES.index(type_)
-    next_version = version.base_version().bump_release(index)
-    print(f'[bump] {version} -> {next_version}')
-    return next_version
-
-
-def _prebump(version, prebump):
-    next_version = version.bump_release(prebump).bump_dev()
-    print(f'[bump] {version} -> {next_version}')
-    return next_version
-
-
-PREBUMP = 'patch'
+    prev_version = _read_version()
+    next_version = prev_version.base_version().bump_release(index)
+    print(f'[bump] {prev_version} -> {next_version}')
+    _write_version(next_version)
 
 
 @invoke.task(pre=[clean])
-def release(ctx, type_, repo, prebump=PREBUMP):
-    """Make a new release.
-    """
-    if prebump not in REL_TYPES:
-        raise ValueError(f'{type_} not in {REL_TYPES}')
-    prebump = REL_TYPES.index(prebump)
-
-    version = _read_version()
-    version = _bump_release(version, type_)
-    _write_version(version)
-
-    # Needs to happen before Towncrier deletes fragment files.
-    tag_content = _render_log()
-
-    ctx.run('towncrier')
-
-    ctx.run(f'git commit -am "Release {version}"')
-
-    tag_content = tag_content.replace('"', '\\"')
-    ctx.run(f'git tag -a {version} -m "Version {version}\n\n{tag_content}"')
-
+def build(ctx):
     ctx.run(f'python setup.py sdist bdist_wheel')
 
+
+@invoke.task(pre=[build])
+def upload(ctx, repo):
     dist_pattern = f'{PACKAGE_NAME.replace("-", "[-_]")}-*'
     artifacts = list(ROOT.joinpath('dist').glob(dist_pattern))
     filename_display = '\n'.join(f'  {a}' for a in artifacts)
@@ -133,23 +78,36 @@ def release(ctx, type_, repo, prebump=PREBUMP):
     arg_display = ' '.join(f'"{n}"' for n in artifacts)
     ctx.run(f'twine upload --repository="{repo}" {arg_display}')
 
-    version = _prebump(version, prebump)
-    _write_version(version)
 
-    ctx.run(f'git commit -am "Prebump to {version}"')
+@invoke.task()
+def prebump(ctx, type_):
+    if type_ not in REL_TYPES:
+        raise ValueError(f'{type_} not in {REL_TYPES}')
+    index = REL_TYPES.index(type_)
+    prev_version = _read_version()
+    next_version = prev_version.bump_release(index).bump_dev()
+    print(f'[bump] {prev_version} -> {next_version}')
+    _write_version(next_version)
+    ctx.run(f'git commit -am "Prebump to {next_version}"')
 
 
-@invoke.task
-def build_docs(ctx):
-    _current_version = _read_version()
-    minor = [str(i) for i in _current_version[:2]]
-    docs_folder = (_get_git_root(ctx) / 'docs').as_posix()
-    if not docs_folder.endswith('/'):
-        docs_folder = '{0}/'.format(docs_folder)
-    args = ["--ext-autodoc", "--ext-viewcode", "-o", docs_folder]
-    args.extend(["-A", "'Dan Ryan <dan@danryan.co>'"])
-    args.extend(["-R", _current_version])
-    args.extend(["-V", ".".join(minor)])
-    args.extend(["-e", "-M", "-F", f"src/{PACKAGE_NAME}"])
-    print("Building docs...")
-    ctx.run("sphinx-apidoc {0}".format(" ".join(args)))
+PREBUMP = 'patch'
+
+
+@invoke.task()
+def release(ctx, type_, repo=None, prebump_to=PREBUMP):
+    """Make a new release.
+    """
+    bump_release(ctx, type_=type_)
+
+    version = _read_version()
+    ctx.run('towncrier')
+    ctx.run(f'git commit -am "Release {version}"')
+    ctx.run(f'git tag -fa {version} -m "Version {version}"')
+
+    if repo:
+        upload(ctx, repo=repo)
+    else:
+        print('[release] Missing --repo, skip uploading')
+
+    prebump(ctx, type_=prebump_to)

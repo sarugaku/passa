@@ -2,16 +2,15 @@
 passa = { editable = true, path = '.' }
 
 [dev-packages]
-passa = { editable = true, path = '.', extras = ['tests'] }
 black = '*'
 invoke = '*'
 parver = '*'
-pytest = '*'
-towncrier = '*'
-wheel = '*'
+passa = { editable = true, path = '.', extras = ['tests'] }
 sphinx = '*'
 sphinx-rtd-theme = '*'
-recursive-monkey-patch = "*"
+towncrier = '*'
+twine = '*'
+wheel = '*'
 
 [scripts]
 passa = 'python -m passa'
@@ -20,13 +19,12 @@ passa-remove = 'python -m passa.cli.remove'
 passa-upgrade = 'python -m passa.cli.upgrade'
 passa-lock = 'python -m passa.cli.lock'
 passa-freeze = 'python -m passa.cli.freeze'
-release = 'inv release'
+
 black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"'
-mknews = "towncrier"
+build = 'inv build'
+changelog = 'towncrier'
+docs = 'sphinx-build -b html docs docs/_build'
+draft = 'towncrier --draft'
+release = 'inv release'
 tests = "pytest -v tests"
-draft = "towncrier --draft"
-changelog = "towncrier"
-build = "setup.py sdist bdist_wheel"
-upload = "twine upload dist/*"
-docs = "inv build-docs"
-mdchangelog = "pandoc CHANGELOG.rst -f rst -t markdown -o CHANGELOG.md"
+upload = 'inv upload'

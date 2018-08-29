@@ -9,7 +9,7 @@ from ._base import BaseCommand
 
 def main(options):
     from passa.lockers import EagerUpgradeLocker, PinReuseLocker
-    from .lock import lock
+    from passa.operations.lock import lock
 
     project = options.project
     packages = options.packages
