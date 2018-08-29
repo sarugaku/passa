@@ -13,7 +13,6 @@ twine = '*'
 wheel = '*'
 
 [scripts]
-passa = 'python -m passa'
 passa-add = 'python -m passa.cli.add'
 passa-remove = 'python -m passa.cli.remove'
 passa-upgrade = 'python -m passa.cli.upgrade'
