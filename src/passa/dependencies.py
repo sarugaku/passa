@@ -6,7 +6,6 @@ import functools
 import os
 import sys
 
-import distlib.wheel
 import packaging.specifiers
 import packaging.utils
 import packaging.version
@@ -216,10 +215,7 @@ def _get_dependencies_from_pip(ireq, sources):
     The current strategy is to build a wheel out of the ireq, and read metadata
     out of it.
     """
-    wheel_path = build_wheel(ireq, sources)
-    if not wheel_path or not os.path.exists(wheel_path):
-        raise RuntimeError("failed to build wheel from {}".format(ireq))
-    wheel = distlib.wheel.Wheel(wheel_path)
+    wheel = build_wheel(ireq, sources)
     extras = ireq.extras or ()
     requirements = _read_requirements(wheel.metadata, extras)
     requires_python = _read_requires_python(wheel.metadata)

@@ -84,6 +84,7 @@ class StdOutReporter(resolvelib.BaseReporter):
                     continue
                 print('   ', end='')
                 for v in reversed(path[1:]):
-                    print(' <=', state.mapping[v].as_line(), end='')
+                    line = state.mapping[v].as_line(include_hashes=False)
+                    print(' <=', line, end='')
                 print()
         print()
