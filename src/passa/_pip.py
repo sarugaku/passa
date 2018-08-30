@@ -27,8 +27,7 @@ def _get_src_dir():
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         return os.path.join(virtual_env, "src")
-    temp_src = vistir.path.create_tracked_tempdir(prefix='passa-src')
-    return temp_src
+    return os.path.join(os.getcwd(), "src")     # Match pip's behavior.
 
 
 def _prepare_wheel_building_kwargs(ireq):
@@ -38,10 +37,13 @@ def _prepare_wheel_building_kwargs(ireq):
     wheel_download_dir = os.path.join(CACHE_DIR, "wheels")
     vistir.mkdir_p(wheel_download_dir)
 
-    if ireq.source_dir is None:
+    if ireq.source_dir is not None:
+        src_dir = ireq.source_dir
+    elif ireq.editable:
         src_dir = _get_src_dir()
     else:
-        src_dir = ireq.source_dir
+        src_dir = vistir.path.create_tracked_tempdir(prefix='passa-src')
+
 
     # This logic matches pip's behavior, although I don't fully understand the
     # intention. I guess the idea is to build editables in-place, otherwise out
