@@ -9,7 +9,7 @@ def add_tasks(module, prefix=None):
     child_namespace = invoke.Collection.from_module(module)
     for name in child_namespace.task_names:
         if name in namespace.task_names:
-            name = "{}.{}".format(prefix, name)
+            raise ValueError('duplicate task {}'.format(name))
         namespace.add_task(child_namespace[name], name=name)
 
 
