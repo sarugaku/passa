@@ -1,1 +1,0 @@
-Try to suppress installation errors unless ``PASSA_NO_SUPPRESS_EXCEPTIONS`` is set. This matches the behaviour of locking.

@@ -1,1 +1,0 @@
-``sync`` is redisigned to be intergrated into ``add``, ``remove``, and ``upgrade``. Various ``clean`` operations are added to purge unneeded packages from the environment. ``install`` is added as a combination of ``lock`` and ``sync``.
