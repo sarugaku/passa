@@ -1,0 +1,1 @@
+Source code for non-local source distribution and VCS is no longer kept after building wheels. A temporary directory is used instead, and removed after building.
