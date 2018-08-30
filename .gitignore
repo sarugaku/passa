@@ -5,8 +5,7 @@ __pycache__
 build
 dist
 docs/_build
-pack/lib
-pack/lib.zip
+pack
 
 *.egg-info
 

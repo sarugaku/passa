@@ -14,10 +14,6 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 PACKAGE_DIR = ROOT.joinpath('pack')
 
-PACKAGE_LIB = PACKAGE_DIR.joinpath('lib')
-
-PACKAGE_ZIP  = PACKAGE_DIR.joinpath('lib.zip')
-
 DONT_PACKAGE = {
     # Rely on the client for them.
     'pip', 'setuptools',
@@ -25,20 +21,15 @@ DONT_PACKAGE = {
     'importlib',    # We only support 2.7 so this is not needed.
     'modutil',      # This breaks <3.7.
     'toml',         # Why is requirementslib still not dropping it?
-    # 'typing',       # This breaks 2.7. We'll provide a special stub for it.
+    'typing',       # This breaks 2.7. We'll provide a special stub for it.
 }
 
 
 @invoke.task()
 def clean_pack(ctx):
-    for path in (PACKAGE_LIB, PACKAGE_ZIP):
-        if not path.exists():
-            continue
-        print(f'[clean_pack] Removing {path}')
-        if path.is_dir():
-            shutil.rmtree(str(path))
-        else:
-            path.unlink()
+    if PACKAGE_DIR.exists():
+        shutil.rmtree(str(PACKAGE_DIR))
+        print(f'[clean_pack] Removing {PACKAGE_DIR}')
 
 
 def _zip_item(path, zf, root):
@@ -58,10 +49,14 @@ def pack(ctx, remove_lib=True):
     with ROOT.joinpath('Pipfile.lock').open() as f:
         lockfile = plette.Lockfile.load(f)
 
-    paths = {'purelib': PACKAGE_LIB, 'platlib': PACKAGE_LIB}
+    libdir = PACKAGE_DIR.joinpath('lib')
+    packdir = pathlib.Path(__file__).resolve().parent.joinpath('pack')
+
+    paths = {'purelib': libdir, 'platlib': libdir}
     sources = lockfile.meta.sources._data
     maker = distlib.scripts.ScriptMaker(None, None)
 
+    # Install packages from Pipfile.lock.
     for name, package in lockfile.default._data.items():
         if name in DONT_PACKAGE:
             continue
@@ -72,11 +67,19 @@ def pack(ctx, remove_lib=True):
         print(f'[pack] Installing {name}')
         wheel.install(paths, maker, lib_only=True)
 
-    with zipfile.ZipFile(PACKAGE_ZIP, 'w') as zf:
-        _zip_item(PACKAGE_LIB, zf, PACKAGE_LIB)
+    # Install fake typing module.
+    shutil.copy2(str(packdir.joinpath('typing.py')), libdir)
 
-    print(f'Written archive {PACKAGE_ZIP}')
+    # Pack the lib into lib.zip.
+    zipname  = PACKAGE_DIR.joinpath('lib.zip')
+    with zipfile.ZipFile(zipname, 'w') as zf:
+        _zip_item(libdir, zf, libdir)
+    print(f'Written archive {zipname}')
 
-    if remove_lib and PACKAGE_LIB.exists():
-        print(f'Removing {PACKAGE_LIB}')
-        shutil.rmtree(str(PACKAGE_LIB))
+    # Write run.py.
+    shutil.copy2(str(packdir.joinpath('run.py')), PACKAGE_DIR)
+    print(f'Written entry script {PACKAGE_DIR.joinpath("run.py")}')
+
+    if remove_lib and libdir.exists():
+        print(f'Removing {libdir}')
+        shutil.rmtree(str(libdir))
