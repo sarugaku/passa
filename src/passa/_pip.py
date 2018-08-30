@@ -156,10 +156,10 @@ def build_wheel(ireq, sources, hashes=None):
     # is editable, build_dir is actually src_dir, making the build in-place.
     ireq.ensure_has_source_dir(kwargs["build_dir"])
 
-    # Ensure the remote artifact is downloaded locally. For wheels, it is
-    # enough to just download because we'll use them directly. For an sdist,
-    # we need to unpack so we can build it.
-    if not pip_shims.is_file_url(ireq.link):
+    # Ensure the source is fetched. For wheels, it is enough to just download
+    # because we'll use them directly. For an sdist, we need to unpack so we
+    # can build it.
+    if not ireq.editable or not pip_shims.is_file_url(ireq.link):
         if ireq.is_wheel:
             only_download = True
             download_dir = kwargs["wheel_download_dir"]
