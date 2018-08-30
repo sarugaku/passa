@@ -30,7 +30,7 @@ jobs:
     - stage: packing
       python: "3.6"
       install:
-        - "python -m pip install --upgrade invoke"
+        - "python -m pip install --upgrade invoke parver"
       script:
         - "invoke pack"
         - "python pack/passa.py --help"
