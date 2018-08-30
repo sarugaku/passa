@@ -1,0 +1,1 @@
+Improves consolidation logic to merge ``Requires-Python`` into ``python_version`` markers. This greatly reduced clutterness in Pipfile.lock.
