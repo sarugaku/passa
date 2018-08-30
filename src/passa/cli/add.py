@@ -27,6 +27,8 @@ def main(options):
             ), file=sys.stderr)
             return 2
 
+    prev_lockfile = project.lockfile
+
     locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
@@ -39,17 +41,15 @@ def main(options):
     if not options.sync:
         return
 
-    from passa.operations.sync import clean, sync
-    from passa.synchronizers import Cleaner, Synchronizer
+    from passa.operations.sync import sync
+    from passa.synchronizers import Synchronizer
 
-    if options.clean:
-        cleaner = Cleaner(project, default=True, develop=True)
-        success = clean(cleaner)
-        if not success:
-            return 1
+    lockfile_diff = project.difference_lockfile(prev_lockfile)
+    default = bool(any(lockfile_diff.default))
+    develop = bool(any(lockfile_diff.develop))
 
     syncer = Synchronizer(
-        project, default=True, develop=options.dev,
+        project, default=default, develop=develop,
         clean_unneeded=False,
     )
     success = sync(syncer)
@@ -87,11 +87,6 @@ class Command(BaseCommand):
             "--no-sync", dest="sync",
             action="store_false", default=True,
             help="do not synchronize the environment",
-        )
-        self.parser.add_argument(
-            "--no-clean", dest="clean",
-            action="store_false", default=True,
-            help="do not uninstall packages not specified in Pipfile.lock",
         )
 
     def main(self, options):

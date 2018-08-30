@@ -22,6 +22,8 @@ def main(options):
 
     project.remove_entries_from_lockfile(packages)
 
+    prev_lockfile = project.lockfile
+
     if options.strategy == "eager":
         locker = EagerUpgradeLocker(project, packages)
     else:
@@ -36,17 +38,15 @@ def main(options):
     if not options.sync:
         return
 
-    from passa.operations.sync import clean, sync
-    from passa.synchronizers import Cleaner, Synchronizer
+    from passa.operations.sync import sync
+    from passa.synchronizers import Synchronizer
 
-    if options.clean:
-        cleaner = Cleaner(project, default=True, develop=True)
-        success = clean(cleaner)
-        if not success:
-            return 1
+    lockfile_diff = project.difference_lockfile(prev_lockfile)
+    default = bool(any(lockfile_diff.default))
+    develop = bool(any(lockfile_diff.develop))
 
     syncer = Synchronizer(
-        project, default=True, develop=options.dev,
+        project, default=default, develop=develop,
         clean_unneeded=False,
     )
     success = sync(syncer)
