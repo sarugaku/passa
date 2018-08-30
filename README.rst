@@ -17,8 +17,8 @@ Passa: Toolset for Pipfile projects
 .. image:: https://img.shields.io/badge/Say%20Thanks-!-1EAEDB.svg
     :target: https://saythanks.io/to/techalchemy
 
-.. image:: https://readthedocs.org/projects/passa/badge/?version=master
-    :target: http://passa.readthedocs.io/en/master/?badge=master
+.. image:: https://readthedocs.org/projects/passa/badge/?version=latest
+    :target: https://passa.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
 
