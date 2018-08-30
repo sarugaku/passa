@@ -19,9 +19,13 @@ PACKAGE_LIB = PACKAGE_DIR.joinpath('lib')
 PACKAGE_ZIP  = PACKAGE_DIR.joinpath('lib.zip')
 
 DONT_PACKAGE = {
+    # Rely on the client for them.
     'pip', 'setuptools',
-    'modutil',  # This breaks Python < 3.7.
-    'toml',     # Why is requirementslib still not dropping it?
+
+    'importlib',    # We only support 2.7 so this is not needed.
+    'modutil',      # This breaks <3.7.
+    'toml',         # Why is requirementslib still not dropping it?
+    # 'typing',       # This breaks 2.7. We'll provide a special stub for it.
 }
 
 
