@@ -14,7 +14,6 @@ script:
 
 jobs:
   include:
-    - stage: test
     - python: "3.7"
       dist: xenial
       sudo: required
@@ -28,6 +27,13 @@ jobs:
         - "python -m pip install --upgrade check-manifest readme-renderer"
       script:
         - "python setup.py check -m -r -s"
+    - stage: packing
+      python: "3.6"
+      install:
+        - "python -m pip install --upgrade invoke"
+      script:
+        - "invoke pack"
+        - "python pack/passa.py --help"
     - stage: coverage
       python: "3.6"
       install:
