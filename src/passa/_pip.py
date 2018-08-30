@@ -27,8 +27,7 @@ def _get_src_dir():
     virtual_env = os.environ.get("VIRTUAL_ENV")
     if virtual_env:
         return os.path.join(virtual_env, "src")
-    temp_src = vistir.path.create_tracked_tempdir(prefix='passa-src')
-    return temp_src
+    return os.path.join(os.getcwd(), "src")     # Match pip's behavior.
 
 
 def _prepare_wheel_building_kwargs(ireq):
@@ -38,10 +37,13 @@ def _prepare_wheel_building_kwargs(ireq):
     wheel_download_dir = os.path.join(CACHE_DIR, "wheels")
     vistir.mkdir_p(wheel_download_dir)
 
-    if ireq.source_dir is None:
+    if ireq.source_dir is not None:
+        src_dir = ireq.source_dir
+    elif ireq.editable:
         src_dir = _get_src_dir()
     else:
-        src_dir = ireq.source_dir
+        src_dir = vistir.path.create_tracked_tempdir(prefix='passa-src')
+
 
     # This logic matches pip's behavior, although I don't fully understand the
     # intention. I guess the idea is to build editables in-place, otherwise out
@@ -156,10 +158,10 @@ def build_wheel(ireq, sources, hashes=None):
     # is editable, build_dir is actually src_dir, making the build in-place.
     ireq.ensure_has_source_dir(kwargs["build_dir"])
 
-    # Ensure the remote artifact is downloaded locally. For wheels, it is
-    # enough to just download because we'll use them directly. For an sdist,
-    # we need to unpack so we can build it.
-    if not pip_shims.is_file_url(ireq.link):
+    # Ensure the source is fetched. For wheels, it is enough to just download
+    # because we'll use them directly. For an sdist, we need to unpack so we
+    # can build it.
+    if not ireq.editable or not pip_shims.is_file_url(ireq.link):
         if ireq.is_wheel:
             only_download = True
             download_dir = kwargs["wheel_download_dir"]

@@ -1,0 +1,1 @@
+Fix crash during wheel building from a non-editable local directory due to incorrect source population logic.
