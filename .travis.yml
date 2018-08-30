@@ -31,6 +31,7 @@ jobs:
       python: "3.6"
       install:
         - "python -m pip install --upgrade invoke parver"
+        - "pip install --upgrade -e ."
       script:
         - "invoke pack"
         - "python pack/passa.py --help"
