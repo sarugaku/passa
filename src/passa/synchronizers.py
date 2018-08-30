@@ -156,6 +156,7 @@ class Synchronizer(object):
             markers = r.markers
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
+            r.markers = None
             if r.editable:
                 installer = EditableInstaller(r)
             else:
