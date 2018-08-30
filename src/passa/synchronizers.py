@@ -147,6 +147,7 @@ class Synchronizer(object):
             _clean(cleaned)
 
         # TODO: Specify installation order? (pypa/pipenv#2274)
+        installers = []
         for name, package in self.packages.items():
             r = requirementslib.Requirement.from_pipfile(name, package)
             name = r.normalized_name
@@ -155,16 +156,27 @@ class Synchronizer(object):
             markers = r.markers
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
-            if name in groupcoll.outdated:
-                name_to_remove = name
-            else:
-                name_to_remove = None
             if r.editable:
                 installer = EditableInstaller(r)
             else:
                 installer = WheelInstaller(r, self.sources, self.paths)
             try:
                 installer.prepare()
+            except Exception as e:
+                if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                    raise
+                print("failed to prepare {0!r}: {1}".format(
+                    r.as_line(include_hashes=False), e,
+                ))
+            else:
+                installers.append((name, installer))
+
+        for name, installer in installers:
+            if name in groupcoll.outdated:
+                name_to_remove = name
+            else:
+                name_to_remove = None
+            try:
                 with _remove_package(name_to_remove):
                     installer.install()
             except Exception as e:
@@ -173,6 +185,7 @@ class Synchronizer(object):
                 print("failed to install {0!r}: {1}".format(
                     r.as_line(include_hashes=False), e,
                 ))
+                continue
             if name in groupcoll.outdated or name in groupcoll.noremove:
                 updated.add(name)
             else:
