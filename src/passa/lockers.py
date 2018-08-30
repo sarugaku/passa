@@ -154,6 +154,8 @@ class PinReuseLocker(AbstractLocker):
         super(PinReuseLocker, self).__init__(project)
         pins = _get_requirements(project.lockfile, "develop")
         pins.update(_get_requirements(project.lockfile, "default"))
+        for pin in pins.values():
+            pin.markers = None
         self.preferred_pins = pins
 
     def get_provider(self):

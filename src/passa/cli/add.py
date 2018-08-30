@@ -27,6 +27,8 @@ def main(options):
             ), file=sys.stderr)
             return 2
 
+    prev_lockfile = project.lockfile
+
     locker = PinReuseLocker(project)
     success = lock(locker)
     if not success:
@@ -35,6 +37,26 @@ def main(options):
     project._p.write()
     project._l.write()
     print("Written to project at", project.root)
+
+    if not options.sync:
+        return
+
+    from passa.operations.sync import sync
+    from passa.synchronizers import Synchronizer
+
+    lockfile_diff = project.difference_lockfile(prev_lockfile)
+    default = bool(any(lockfile_diff.default))
+    develop = bool(any(lockfile_diff.develop))
+
+    syncer = Synchronizer(
+        project, default=default, develop=develop,
+        clean_unneeded=False,
+    )
+    success = sync(syncer)
+    if not success:
+        return 1
+
+    print("Synchronized project at", project.root)
 
 
 class Command(BaseCommand):
@@ -60,6 +82,11 @@ class Command(BaseCommand):
             "--dev",
             action="store_true",
             help="add packages to [dev-packages]",
+        )
+        self.parser.add_argument(
+            "--no-sync", dest="sync",
+            action="store_false", default=True,
+            help="do not synchronize the environment",
         )
 
     def main(self, options):

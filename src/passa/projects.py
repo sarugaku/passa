@@ -1,12 +1,42 @@
+# -*- coding=utf-8 -*-
+
+from __future__ import absolute_import, unicode_literals
+
+import collections
 import io
 import os
 
 import attr
+import packaging.markers
 import packaging.utils
 import plette
 import plette.models
 import six
 import tomlkit
+
+
+SectionDifference = collections.namedtuple("SectionDifference", [
+    "inthis", "inthat",
+])
+FileDifference = collections.namedtuple("FileDifference", [
+    "default", "develop",
+])
+
+
+def _are_pipfile_entries_equal(a, b):
+    a = {k: v for k, v in a.items() if k not in ("markers", "hashes", "hash")}
+    b = {k: v for k, v in b.items() if k not in ("markers", "hashes", "hash")}
+    if a != b:
+        return False
+    try:
+        marker_eval_a = packaging.markers.Marker(a["markers"]).evaluate()
+    except (AttributeError, KeyError, TypeError, ValueError):
+        marker_eval_a = True
+    try:
+        marker_eval_b = packaging.markers.Marker(b["markers"]).evaluate()
+    except (AttributeError, KeyError, TypeError, ValueError):
+        marker_eval_b = True
+    return marker_eval_a == marker_eval_b
 
 
 DEFAULT_NEWLINES = "\n"
@@ -169,3 +199,37 @@ class Project(object):
             # HACK: The lock file no longer represents the Pipfile at this
             # point. Set the hash to an arbitrary invalid value.
             self.lockfile.meta.hash = plette.models.Hash({"__invalid__": ""})
+
+    def difference_lockfile(self, lockfile):
+        """Generate a difference between the current and given lockfiles.
+
+        Returns a 2-tuple containing differences in default in develop
+        sections.
+
+        Each element is a 2-tuple of dicts. The first, `inthis`, contains
+        entries only present in the current lockfile; the second, `inthat`,
+        contains entries only present in the given one.
+
+        If a key exists in both this and that, but the values differ, the key
+        is present in both dicts, pointing to values from each file.
+        """
+        diff_data = {
+            "default": SectionDifference({}, {}),
+            "develop": SectionDifference({}, {}),
+        }
+        for section_name, section_diff in diff_data.items():
+            this = self.lockfile[section_name]._data
+            that = lockfile[section_name]._data
+            for key, this_value in this.items():
+                try:
+                    that_value = that[key]
+                except KeyError:
+                    section_diff.inthis[key] = this_value
+                    continue
+                if not _are_pipfile_entries_equal(this_value, that_value):
+                    section_diff.inthis[key] = this_value
+                    section_diff.inthat[key] = that_value
+            for key, that_value in that.items():
+                if key not in this:
+                    section_diff.inthat[key] = that_value
+        return FileDifference(**diff_data)
