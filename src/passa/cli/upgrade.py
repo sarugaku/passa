@@ -39,7 +39,7 @@ def main(options):
         return
 
     from passa.operations.sync import sync
-    from passa.synchronizers import Synchronizer
+    from passa.internals.synchronizers import Synchronizer
 
     lockfile_diff = project.difference_lockfile(prev_lockfile)
     default = bool(any(lockfile_diff.default))
