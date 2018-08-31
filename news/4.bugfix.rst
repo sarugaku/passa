@@ -1,0 +1,1 @@
+Enforce candidates with different extras to always have the same version in the resolution result. This prevents edge cases where duplicate entries in different sections could produce undeterministive results.

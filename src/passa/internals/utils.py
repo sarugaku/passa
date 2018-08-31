@@ -83,7 +83,7 @@ def is_pinned(ireq):
 
 
 def filter_sources(requirement, sources):
-    """Return a filtered list of sources for this requirement.
+    """Returns a filtered list of sources for this requirement.
 
     This considers the index specified by the requirement, and returns only
     matching source entries if there is at least one.
@@ -95,3 +95,12 @@ def filter_sources(requirement, sources):
         if source.get("name") == requirement.index
     ]
     return filtered_sources or sources
+
+
+def strip_extras(requirement):
+    """Returns a new requirement object with extras removed.
+    """
+    line = requirement.as_line()
+    new = type(requirement).from_line(line)
+    new.extras = None
+    return new

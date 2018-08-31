@@ -8,7 +8,7 @@ import resolvelib
 
 from .candidates import find_candidates
 from .dependencies import get_dependencies
-from .utils import filter_sources, identify_requirment
+from .utils import filter_sources, identify_requirment, strip_extras
 
 
 class BasicProvider(resolvelib.AbstractProvider):
@@ -85,6 +85,12 @@ class BasicProvider(resolvelib.AbstractProvider):
             ))
             dependencies = []
             requires_python = ""
+        if candidate.extras:
+            # HACK: If this candidate has extras, add the original candidate
+            # (same pinned version, no extras) as its dependency. This ensures
+            # the same package with different extras (treated as distinct by
+            # the resolver) have the same version. (sarugaku/passa#4)
+            dependencies.append(strip_extras(candidate))
         candidate_key = self.identify(candidate)
         self.fetched_dependencies[candidate_key] = {
             self.identify(r): r for r in dependencies
