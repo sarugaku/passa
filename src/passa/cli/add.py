@@ -29,7 +29,7 @@ def main(options):
 
     prev_lockfile = project.lockfile
 
-    locker = PinReuseLocker(options.reporter, project)
+    locker = PinReuseLocker(project, reporter=options.reporter)
     success = lock(locker)
     if not success:
         return 1

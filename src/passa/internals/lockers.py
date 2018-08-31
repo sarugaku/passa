@@ -9,6 +9,8 @@ import requirementslib
 import resolvelib
 import vistir
 
+from passa.reporters import BaseReporter
+
 from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
@@ -72,9 +74,9 @@ class AbstractLocker(object):
     * Convert resolver output into lock file format
     * Update the project to have the new lock file
     """
-    def __init__(self, reporter, project):
+    def __init__(self, project, reporter=None):
         self.project = project
-        self.reporter = reporter
+        self.reporter = reporter or BaseReporter()
         self.default_requirements = _get_requirements(
             project.pipfile, "packages",
         )
@@ -165,8 +167,8 @@ class PinReuseLocker(AbstractLocker):
 
     See :class:`.providers.PinReuseProvider` for more information.
     """
-    def __init__(self, reporter, project):
-        super(PinReuseLocker, self).__init__(reporter, project)
+    def __init__(self, project, *args, **kwargs):
+        super(PinReuseLocker, self).__init__(project, *args, **kwargs)
         pins = _get_requirements(project.lockfile, "develop")
         pins.update(_get_requirements(project.lockfile, "default"))
         for pin in pins.values():

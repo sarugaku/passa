@@ -12,22 +12,23 @@ def main(options):
     from passa.operations.lock import lock
 
     project = options.project
-    packages = options.packages
-    for package in packages:
-        if not project.contains_key_in_pipfile(package):
-            print("{package!r} not found in Pipfile".format(
-                package=package,
-            ), file=sys.stderr)
+    keys = options.packages
+    for key in keys:
+        if not project.contains_key_in_pipfile(key):
+            print("{key!r} not found in Pipfile".format(key=key),
+                  file=sys.stderr)
             return 2
 
-    project.remove_keys_from_lockfile(packages)
+    project.remove_keys_from_lockfile(keys)
 
     prev_lockfile = project.lockfile
 
     if options.strategy == "eager":
-        locker = EagerUpgradeLocker(options.reporter, project, packages)
+        locker = EagerUpgradeLocker(
+            keys, project, reporter=options.reporter,
+        )
     else:
-        locker = PinReuseLocker(options.reporter, project)
+        locker = PinReuseLocker(project, reporter=options.reporter)
     success = lock(locker)
     if not success:
         return 1
