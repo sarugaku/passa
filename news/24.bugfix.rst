@@ -1,0 +1,1 @@
+Fix extras being dropped from the lock file if different parents requirement the same package with different extras.

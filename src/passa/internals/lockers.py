@@ -29,25 +29,37 @@ def _get_requirements(model, section_name):
     )}
 
 
-def _iter_derived_entries(state, traces, names):
-    """Produce a mapping containing all candidates derived from `names`.
+def _collect_derived_entries(state, traces, identifiers):
+    """Produce a mapping containing all candidates derived from `identifiers`.
 
-    `name` should provide a collection of requirement identifications from
-    a section (i.e. `packages` or `dev-packages`). This function uses `trace`
-    to filter out candidates in the state that are present because of an entry
-    in that collection.
+    `identifiers` should provide a collection of requirement identifications
+    from a section (i.e. `packages` or `dev-packages`). This function uses
+    `trace` to filter out candidates in the state that are present because of
+    an entry in that collection.
     """
-    if not names:
-        return
-    names = set(names)
-    for name, requirement in state.mapping.items():
-        routes = {trace[1] for trace in traces[name] if len(trace) > 1}
-        if name not in names and not (names & routes):
+    identifiers = set(identifiers)
+    if not identifiers:
+        return {}
+
+    entries = {}
+    extras = {}
+    for identifier, requirement in state.mapping.items():
+        routes = {trace[1] for trace in traces[identifier] if len(trace) > 1}
+        if identifier not in identifiers and not (identifiers & routes):
             continue
-        yield (
-            requirement.normalized_name,
-            next(iter(requirement.as_pipfile().values()))
-        )
+        name = requirement.normalized_name
+        if requirement.extras:
+            # Aggregate extras from multiple routes so we can produce their
+            # union in the lock file. (sarugaku/passa#24)
+            try:
+                extras[name].extend(requirement.extras)
+            except KeyError:
+                extras[name] = list(requirement.extras)
+        entries[name] = next(iter(requirement.as_pipfile().values()))
+    for name, ext in extras.items():
+        entries[name]["extras"] = ext
+
+    return entries
 
 
 class AbstractLocker(object):
@@ -124,12 +136,12 @@ class AbstractLocker(object):
         )
 
         lockfile = plette.Lockfile.with_meta_from(self.project.pipfile)
-        lockfile["default"] = dict(_iter_derived_entries(
+        lockfile["default"] = _collect_derived_entries(
             state, traces, self.default_requirements,
-        ))
-        lockfile["develop"] = dict(_iter_derived_entries(
+        )
+        lockfile["develop"] = _collect_derived_entries(
             state, traces, self.develop_requirements,
-        ))
+        )
         self.project.lockfile = lockfile
 
 
