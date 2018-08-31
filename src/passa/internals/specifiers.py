@@ -113,7 +113,7 @@ def cleanup_pyspecs(specs, joiner="or"):
     return results
 
 
-def marker_to_spec(marker):
+def pyspec_from_markers(marker):
     if marker._markers[0][0] != 'python_version':
         return
     op = marker._markers[0][1].value
