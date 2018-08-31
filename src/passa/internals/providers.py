@@ -11,6 +11,9 @@ from .dependencies import get_dependencies
 from .utils import filter_sources, identify_requirment, strip_extras
 
 
+PROTECTED_PACKAGE_NAMES = {"pip", "setuptools"}
+
+
 class BasicProvider(resolvelib.AbstractProvider):
     """Provider implementation to interface with `requirementslib.Requirement`.
     """
@@ -85,6 +88,14 @@ class BasicProvider(resolvelib.AbstractProvider):
             ))
             dependencies = []
             requires_python = ""
+        # Exclude protected packages from the list. This prevents those
+        # packages from being locked, unless the user is actually working on
+        # them, and explicitly lists them as top-level requirements -- those
+        # packages are not added via this code path. (sarugaku/passa#15)
+        dependencies = [
+            dependency for dependency in dependencies
+            if dependency.normalized_name not in PROTECTED_PACKAGE_NAMES
+        ]
         if candidate.extras:
             # HACK: If this candidate has extras, add the original candidate
             # (same pinned version, no extras) as its dependency. This ensures
@@ -124,7 +135,7 @@ class EagerUpgradeProvider(PinReuseProvider):
     """A specialized provider to handle an "eager" upgrade strategy.
 
     An eager upgrade tries to upgrade not only packages specified, but also
-    their dependeices (recursively). This contrasts to the "only-if-needed"
+    their dependencies (recursively). This contrasts to the "only-if-needed"
     default, which only promises to upgrade the specified package, and
     prevents touching anything else if at all possible.
 

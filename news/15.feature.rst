@@ -1,0 +1,1 @@
+pip and setuptools are now excluded from the lock file, unless they are explicitly added to Pipfile. This prevents packages with ill-adviced dependencies to stop them from being freely upgradable.
