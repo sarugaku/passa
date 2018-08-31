@@ -3,6 +3,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import itertools
+import os
 
 import plette
 import requirementslib
@@ -13,7 +14,7 @@ from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
 from .providers import BasicProvider, EagerUpgradeProvider, PinReuseProvider
-from .reporters import StdOutReporter
+from .reporters import ResolutionSpinnerReporter, ResolutionStdOutReporter
 from .traces import trace_graph
 from .utils import identify_requirment
 
@@ -73,8 +74,9 @@ class AbstractLocker(object):
     * Convert resolver output into lock file format
     * Update the project to have the new lock file
     """
-    def __init__(self, project):
+    def __init__(self, reporter, project):
         self.project = project
+        self.reporter = reporter
         self.default_requirements = _get_requirements(
             project.pipfile, "packages",
         )
@@ -100,10 +102,6 @@ class AbstractLocker(object):
     def get_provider(self):
         raise NotImplementedError
 
-    def get_reporter(self):
-        # TODO: Build SpinnerReporter, and use this only in verbose mode.
-        return StdOutReporter(self.requirements)
-
     def lock(self):
         """Lock specified (abstract) requirements into (concrete) candidates.
 
@@ -117,24 +115,28 @@ class AbstractLocker(object):
           candidate, and the dependency graph.
         """
         provider = self.get_provider()
-        reporter = self.get_reporter()
-        resolver = resolvelib.Resolver(provider, reporter)
+        resolver = resolvelib.Resolver(provider, self.reporter.for_resolver)
 
+        self.reporter.starting_resolve(self.requirements)
         with vistir.cd(self.project.root):
             state = resolver.resolve(self.requirements)
 
+        self.reporter.starting_trace()
         traces = trace_graph(state.graph)
 
+        self.reporter.starting_hash()
         hash_cache = HashCache()
         for r in state.mapping.values():
             if not r.hashes:
                 r.hashes = get_hashes(hash_cache, r)
 
+        self.reporter.starting_metadata()
         set_metadata(
             state.mapping, traces,
             provider.fetched_dependencies, provider.requires_pythons,
         )
 
+        self.reporter.starting_lock()
         lockfile = plette.Lockfile.with_meta_from(self.project.pipfile)
         lockfile["default"] = _collect_derived_entries(
             state, traces, self.default_requirements,
@@ -142,7 +144,9 @@ class AbstractLocker(object):
         lockfile["develop"] = _collect_derived_entries(
             state, traces, self.develop_requirements,
         )
+
         self.project.lockfile = lockfile
+        self.reporter.ending()
 
 
 class BasicLocker(AbstractLocker):
@@ -162,8 +166,8 @@ class PinReuseLocker(AbstractLocker):
 
     See :class:`.providers.PinReuseProvider` for more information.
     """
-    def __init__(self, project):
-        super(PinReuseLocker, self).__init__(project)
+    def __init__(self, reporter, project):
+        super(PinReuseLocker, self).__init__(reporter, project)
         pins = _get_requirements(project.lockfile, "develop")
         pins.update(_get_requirements(project.lockfile, "default"))
         for pin in pins.values():

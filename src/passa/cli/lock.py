@@ -10,7 +10,7 @@ def main(options):
     from passa.operations.lock import lock
 
     project = options.project
-    locker = BasicLocker(project)
+    locker = BasicLocker(options.reporter, project)
     success = lock(locker)
     if not success:
         return

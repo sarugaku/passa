@@ -25,9 +25,9 @@ def main(options):
     prev_lockfile = project.lockfile
 
     if options.strategy == "eager":
-        locker = EagerUpgradeLocker(project, packages)
+        locker = EagerUpgradeLocker(options.reporter, project, packages)
     else:
-        locker = PinReuseLocker(project)
+        locker = PinReuseLocker(options.reporter, project)
     success = lock(locker)
     if not success:
         return 1

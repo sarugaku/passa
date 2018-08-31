@@ -7,11 +7,27 @@ import os
 import sys
 
 
+DEFAULT = "__default__"
+
+
+# Classes here are intentionally imported lazily to reduce import overhead.
+# Not evey command needs those instances.
+
+
 def build_project(root):
-    # This is imported lazily to reduce import overhead. Not evey command
-    # needs the project instance.
     from passa.internals.projects import Project
     return Project(os.path.abspath(root))
+
+
+def build_spinner_reporter(value):
+    from passa.internals.reporters import SpinnerReporter
+    return SpinnerReporter()
+
+
+class SetStdOutReporterAction(argparse.Action):
+    def __call__(self, parser, options, values, flag=None):
+        from passa.internals.reporters import StdOutReporter
+        options.reporter = StdOutReporter()
 
 
 class BaseCommand(object):
@@ -41,10 +57,15 @@ class BaseCommand(object):
 
     def add_arguments(self):
         self.parser.add_argument(
-            "--project",
-            metavar="project",
+            "--project", metavar="project",
             default=os.getcwd(),
             type=build_project,
+            help="path to project root (directory containing Pipfile)",
+        )
+        self.parser.add_argument(
+            "--verbose", dest="reporter",
+            nargs=0, action=SetStdOutReporterAction, default=DEFAULT,
+            type=build_spinner_reporter,
             help="path to project root (directory containing Pipfile)",
         )
 

@@ -17,7 +17,7 @@ def main(options):
         options.packages, default=default, develop=develop,
     )
 
-    locker = PinReuseLocker(project)
+    locker = PinReuseLocker(options.reporter, project)
     success = lock(locker)
     if not success:
         return 1

@@ -12,7 +12,7 @@ def main(options):
     project = options.project
 
     if not options.check or not project.is_synced():
-        locker = BasicLocker(project)
+        locker = BasicLocker(options.reporter, project)
         success = lock(locker)
         if not success:
             return 1

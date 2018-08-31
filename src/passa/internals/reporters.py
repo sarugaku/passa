@@ -3,6 +3,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import resolvelib
+import yaspin
 
 from .traces import trace_graph
 
@@ -33,19 +34,9 @@ def print_dependency(state, key):
         print('{pad}{line}'.format(pad=padding, line=line))
 
 
-class StdOutReporter(resolvelib.BaseReporter):
-    """Simple reporter that prints things to stdout.
+class ResolutionStdOutReporter(resolvelib.BaseReporter):
+    """Simple reporter that prints resolution information to stdout.
     """
-    def __init__(self, requirements):
-        super(StdOutReporter, self).__init__()
-        self.requirements = requirements
-
-    def starting(self):
-        self._prev = None
-        print_title(' User requirements ')
-        for r in self.requirements:
-            print_requirement(r)
-
     def ending_round(self, index, state):
         print_title(' Round {} '.format(index))
         mapping = state.mapping
@@ -88,3 +79,72 @@ class StdOutReporter(resolvelib.BaseReporter):
                     print(' <=', line, end='')
                 print()
         print()
+
+
+class ResolutionSpinnerReporter(resolvelib.BaseReporter):
+    """Reporter that shows a spinner during resolution.
+    """
+    def __init__(self, spinner):
+        super(ResolutionSpinnerReporter, self).__init__()
+        self.spinner = spinner
+
+    def adding_candidate(self, candidate):
+        self.spinner.text = "Resolving {}".format(candidate.normalized_name)
+
+    def replacing_candidate(self, current, replacement):
+        self.spinner.text = replacement.normalized_name
+
+
+class StdOutReporter(object):
+    """Stdout reporter for the whole process.
+    """
+    def __init__(self):
+        self.for_resolver = ResolutionStdOutReporter()
+
+    def starting_resolve(self, requirements):
+        self._prev = None
+        print_title(' User requirements ')
+        for r in requirements:
+            print_requirement(r)
+
+    def starting_trace(self):
+        print("Tracing")
+
+    def starting_hash(self):
+        print("Fetching hash")
+
+    def starting_metadata(self):
+        print("Populating metadata")
+
+    def starting_lock(self):
+        print("Locking")
+
+    def ending(self):
+        pass
+
+
+class SpinnerReporter(object):
+    """Spinner reporter for the whole process.
+    """
+    def __init__(self):
+        self.spinner = yaspin.yaspin()
+        self.for_resolver = ResolutionSpinnerReporter(self.spinner)
+
+    def starting_resolve(self, requirements):
+        self.spinner.start()
+        self.spinner.text = "Resolving"
+
+    def starting_trace(self):
+        self.spinner.text = "Tracing"
+
+    def starting_hash(self):
+        self.spinner.text = "Fetching hash"
+
+    def starting_metadata(self):
+        self.spinner.text = "Populating metadata"
+
+    def starting_lock(self):
+        self.spinner.text = "Locking"
+
+    def ending(self):
+        self.spinner.stop()
