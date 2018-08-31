@@ -2,10 +2,10 @@
 .venv
 __pycache__
 
-build
-dist
-docs/_build
-pack
+/build
+/dist
+/docs/_build
+/pack
 
 *.egg-info
 
