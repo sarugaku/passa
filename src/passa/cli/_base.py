@@ -10,7 +10,7 @@ import sys
 def build_project(root):
     # This is imported lazily to reduce import overhead. Not evey command
     # needs the project instance.
-    from passa.projects import Project
+    from passa.internals.projects import Project
     return Project(os.path.abspath(root))
 
 

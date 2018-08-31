@@ -6,8 +6,8 @@ from ._base import BaseCommand
 
 
 def main(options):
+    from passa.internals.synchronizers import Synchronizer
     from passa.operations.sync import sync
-    from passa.synchronizers import Synchronizer
 
     project = options.project
     syncer = Synchronizer(

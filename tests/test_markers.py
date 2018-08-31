@@ -1,6 +1,6 @@
 from packaging.markers import Marker
 
-from passa.markers import get_without_extra
+from passa.internals.markers import get_without_extra
 
 
 def test_strip_marker_extra_noop():

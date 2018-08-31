@@ -1,8 +1,8 @@
 import pytest
 
-from packaging.specifiers import Specifier, SpecifierSet
+from packaging.specifiers import SpecifierSet
 
-from passa.markers import cleanup_specs
+from passa.internals.markers import cleanup_specs
 
 
 @pytest.mark.parametrize("spec, cleaned", [

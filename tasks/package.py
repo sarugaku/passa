@@ -5,7 +5,7 @@ import zipfile
 import distlib.scripts
 import distlib.wheel
 import invoke
-import passa._pip
+import passa.internals._pip
 import plette
 import requirementslib
 
@@ -63,7 +63,9 @@ def pack(ctx, remove_lib=True):
         package.pop('editable', None)   # Don't install things as editable.
         package.pop('markers', None)    # Always install everything.
         r = requirementslib.Requirement.from_pipfile(name, package)
-        wheel = passa._pip.build_wheel(r.as_ireq(), sources, r.hashes or None)
+        wheel = passa.internals._pip.build_wheel(
+            r.as_ireq(), sources, r.hashes or None,
+        )
         print(f'[pack] Installing {name}')
         wheel.install(paths, maker, lib_only=True)
 
@@ -71,7 +73,7 @@ def pack(ctx, remove_lib=True):
     shutil.copy2(str(packdir.joinpath('typing.py')), libdir)
 
     # Pack the lib into lib.zip.
-    zipname  = PACKAGE_DIR.joinpath('lib.zip')
+    zipname = PACKAGE_DIR.joinpath('lib.zip')
     with zipfile.ZipFile(zipname, 'w') as zf:
         _zip_item(libdir, zf, libdir)
     print(f'Written archive {zipname}')

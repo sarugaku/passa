@@ -148,7 +148,7 @@ class BasicLocker(AbstractLocker):
 class PinReuseLocker(AbstractLocker):
     """A specialized locker to handle re-locking based on existing pins.
 
-    See :class:`passa.providers.PinReuseProvider` for more information.
+    See :class:`.providers.PinReuseProvider` for more information.
     """
     def __init__(self, project):
         super(PinReuseLocker, self).__init__(project)
@@ -168,7 +168,7 @@ class PinReuseLocker(AbstractLocker):
 class EagerUpgradeLocker(PinReuseLocker):
     """A specialized locker to handle the "eager" upgrade strategy.
 
-    See :class:`passa.providers.EagerUpgradeProvider` for more
+    See :class:`.providers.EagerUpgradeProvider` for more
     information.
     """
     def __init__(self, tracked_names, *args, **kwargs):
