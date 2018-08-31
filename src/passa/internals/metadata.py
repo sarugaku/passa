@@ -10,7 +10,8 @@ import packaging.specifiers
 import vistir
 import vistir.misc
 
-from .markers import get_without_extra, cleanup_specs, marker_to_spec
+from .markers import get_without_extra
+from .specifiers import cleanup_pyspecs, pyspec_from_markers
 
 
 def dedup_markers(s):
@@ -38,9 +39,9 @@ class MetaSet(object):
         pyspecs = set()
         markerset = set()
         for m in self.markerset:
-            py_marker = marker_to_spec(packaging.markers.Marker(m))
-            if py_marker:
-                pyspecs.add(py_marker)
+            marker_specs = pyspec_from_markers(packaging.markers.Marker(m))
+            if marker_specs:
+                pyspecs.add(marker_specs)
             else:
                 markerset.add(m)
         if pyspecs:
@@ -54,7 +55,7 @@ class MetaSet(object):
             ),
             (
                 "python_version {0[0]} '{0[1]}'".format(spec)
-                for spec in cleanup_specs(self.pyspecset)
+                for spec in cleanup_pyspecs(self.pyspecset)
             ),
         )))
 
@@ -67,13 +68,12 @@ class MetaSet(object):
     def __or__(self, pair):
         marker, specset = pair
         markerset = set(self.markerset)
-        pyspec_markers = set()
         if marker:
-            pyspec_markers = marker_to_spec(marker)
-            if not pyspec_markers:
+            marker_specs = pyspec_from_markers(marker)
+            if not marker_specs:
                 markerset.add(str(marker))
             else:
-                specset._specs &= pyspec_markers
+                specset._specs &= marker_specs
         metaset = MetaSet()
         metaset.markerset = frozenset(markerset)
         # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.

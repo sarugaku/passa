@@ -2,7 +2,7 @@ import pytest
 
 from packaging.specifiers import SpecifierSet
 
-from passa.internals.markers import cleanup_specs
+from passa.internals.specifiers import cleanup_pyspecs
 
 
 @pytest.mark.parametrize("spec, cleaned", [
@@ -25,6 +25,6 @@ from passa.internals.markers import cleanup_specs
         [(">=", "2.7"), ("<", "3.4"), ("not in", "3.0, 3.1, 3.2")],
     ),
 ])
-def test_cleanup_specs(spec, cleaned):
+def test_cleanup_pyspecs(spec, cleaned):
     cleaned_specifierset = frozenset(s for s in cleaned)
-    assert cleanup_specs(SpecifierSet(spec)) == cleaned_specifierset
+    assert cleanup_pyspecs(SpecifierSet(spec)) == cleaned_specifierset
