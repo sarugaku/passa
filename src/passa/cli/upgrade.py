@@ -63,6 +63,7 @@ class Command(BaseCommand):
     parsed_main = main
 
     def add_arguments(self):
+        super(Command, self).add_arguments()
         self.parser.add_argument(
             "packages", metavar="package",
             nargs="+",
