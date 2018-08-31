@@ -4,7 +4,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from resolvelib import NoVersionsAvailable, ResolutionImpossible
 
-from passa.internals.reporters import print_requirement
+from passa.reporters.stdout import print_requirement
 
 
 def lock(locker):

@@ -20,13 +20,13 @@ def build_project(root):
 
 
 def build_spinner_reporter(value):
-    from passa.internals.reporters import SpinnerReporter
+    from passa.reporters import SpinnerReporter
     return SpinnerReporter()
 
 
 class SetStdOutReporterAction(argparse.Action):
     def __call__(self, parser, options, values, flag=None):
-        from passa.internals.reporters import StdOutReporter
+        from passa.reporters import StdOutReporter
         options.reporter = StdOutReporter()
 
 

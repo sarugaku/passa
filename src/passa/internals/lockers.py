@@ -3,7 +3,6 @@
 from __future__ import absolute_import, unicode_literals
 
 import itertools
-import os
 
 import plette
 import requirementslib
@@ -14,7 +13,6 @@ from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
 from .providers import BasicProvider, EagerUpgradeProvider, PinReuseProvider
-from .reporters import ResolutionSpinnerReporter, ResolutionStdOutReporter
 from .traces import trace_graph
 from .utils import identify_requirment
 
@@ -121,8 +119,9 @@ class AbstractLocker(object):
         with vistir.cd(self.project.root):
             state = resolver.resolve(self.requirements)
 
-        self.reporter.starting_trace()
+        self.reporter.starting_trace(state)
         traces = trace_graph(state.graph)
+        self.reporter.ending_trace(traces)
 
         self.reporter.starting_hash()
         hash_cache = HashCache()
