@@ -113,11 +113,14 @@ PROTECTED_FROM_CLEAN = {"setuptools", "pip"}
 
 
 def _clean(names):
+    cleaned = set()
     for name in names:
         if name in PROTECTED_FROM_CLEAN:
             continue
         with _remove_package(name):
             pass
+        cleaned.add(name)
+    return cleaned
 
 
 class Synchronizer(object):
@@ -143,8 +146,8 @@ class Synchronizer(object):
         # TODO: Show a prompt to confirm cleaning. We will need to implement a
         # reporter pattern for this as well.
         if self.clean_unneeded:
-            cleaned.update(groupcoll.unneeded)
-            _clean(cleaned)
+            names = _clean(groupcoll.unneeded)
+            cleaned.update(names)
 
         # TODO: Specify installation order? (pypa/pipenv#2274)
         installers = []
