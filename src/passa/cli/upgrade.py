@@ -20,7 +20,7 @@ def main(options):
             ), file=sys.stderr)
             return 2
 
-    project.remove_entries_from_lockfile(packages)
+    project.remove_keys_from_lockfile(packages)
 
     prev_lockfile = project.lockfile
 
