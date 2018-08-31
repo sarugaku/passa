@@ -133,7 +133,7 @@
                 "sha256:8eb170f8d0d61825e09a95b38be068299ddeda82f35e96c3301a8a5e7604cb83",
                 "sha256:d1aa2a11ba7b8f7b21ab852b1fb5afb277e1bb99d5dfc663380b5015c0d80c5a"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==2.3.2"
         },
         "pip-shims": {
@@ -201,7 +201,7 @@
                 "sha256:c9009c527929f6e25604aec39b0a43c3f831d2947d89d6caaab22f057b7055c8",
                 "sha256:f5c71e29b4e2af7ccdc03a020c626ede51da471173b4a6ad1e904f2b2e04b4bd"
             ],
-            "markers": "python_version < '3.5' and python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.9.0"
         },
         "six": {
@@ -209,7 +209,7 @@
                 "sha256:70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9",
                 "sha256:832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.11.0"
         },
         "toml": {
@@ -258,6 +258,14 @@
             ],
             "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==0.31.1"
+        },
+        "yaspin": {
+            "hashes": [
+                "sha256:5d9d8f3d1580ad874e300384acf2bdad8e53fd93c0b9b6535d7c014a1f539a16",
+                "sha256:c160bc7bdf451e4b3636405856136f83a8ba7b0dd4caf7bc47f893782617d520"
+            ],
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==0.13.0"
         }
     },
     "develop": {
@@ -569,7 +577,7 @@
                 "sha256:8eb170f8d0d61825e09a95b38be068299ddeda82f35e96c3301a8a5e7604cb83",
                 "sha256:d1aa2a11ba7b8f7b21ab852b1fb5afb277e1bb99d5dfc663380b5015c0d80c5a"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==2.3.2"
         },
         "pip-shims": {
@@ -723,7 +731,7 @@
                 "sha256:c9009c527929f6e25604aec39b0a43c3f831d2947d89d6caaab22f057b7055c8",
                 "sha256:f5c71e29b4e2af7ccdc03a020c626ede51da471173b4a6ad1e904f2b2e04b4bd"
             ],
-            "markers": "python_version < '3.5' and python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.9.0"
         },
         "six": {
@@ -731,7 +739,7 @@
                 "sha256:70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9",
                 "sha256:832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.11.0"
         },
         "snowballstemmer": {
@@ -833,6 +841,14 @@
             ],
             "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==0.31.1"
+        },
+        "yaspin": {
+            "hashes": [
+                "sha256:5d9d8f3d1580ad874e300384acf2bdad8e53fd93c0b9b6535d7c014a1f539a16",
+                "sha256:c160bc7bdf451e4b3636405856136f83a8ba7b0dd4caf7bc47f893782617d520"
+            ],
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==0.13.0"
         }
     }
 }
