@@ -11,6 +11,9 @@ Passa: Toolset for Pipfile projects
 .. image:: https://api.travis-ci.com/sarugaku/passa.svg?branch=master
     :target: https://travis-ci.com/sarugaku/passa
 
+.. image:: https://ci.appveyor.com/api/projects/status/y9kpdaqy4di5nhyk/branch/master?svg=true
+    :target: https://ci.appveyor.com/project/sarugaku/passa
+
 .. image:: https://img.shields.io/pypi/pyversions/passa.svg
     :target: https://pypi.org/project/passa
 
