@@ -6,7 +6,7 @@ install:
   - "SET PATH="C:\\Python36-x64;%PATH%"
   - "python --version"
   - "python -m pip install --upgrade pip"
-  - "python -m pip install --upgrade -e .[ci,pack,tests]"
+  - "python -m pip install --upgrade -e .[pack,tests]"
 
 build_script:
   - "python -m invoke pack"
@@ -19,4 +19,4 @@ test_script:
   - "python -m pytest -v -n 8 tests"
 
 artifacts:
-- path: ".\\pack\\passa.zip"
+  - path: ".\\pack\\passa.zip"
