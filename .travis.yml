@@ -40,6 +40,6 @@ jobs:
       install:
         - "python -m pip install --upgrade pip"
         - "python -m pip install --upgrade -e .[tests]"
-        - "python -m pip install --upgrade pytest-cov pytest-timeout pytest-xdist"
+        - "python -m pip install --upgrade pytest-timeout pytest-xdist pytest-cov"
       script:
         - "pytest -n auto --timeout 300 --cov=passa --cov-report=term-missing --cov-report=xml --cov-report=html tests"
