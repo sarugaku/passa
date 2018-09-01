@@ -36,6 +36,7 @@ def insert_before_site_packages(*paths):
 
 
 def main():
+    insert_before_site_packages(LIBPATH)
     from passa.cli import main
     main()
 
