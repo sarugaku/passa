@@ -3,7 +3,7 @@ branches:
     - master
 
 install:
-  - "SET PATH="C:\\Python36-x64;%PATH%"
+  - "SET PATH=C:\\Python36-x64;%PATH%"
   - "python --version"
   - "python -m pip install --upgrade pip"
   - "python -m pip install --upgrade -e .[pack,tests]"
