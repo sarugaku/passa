@@ -28,8 +28,9 @@ def build_project(root):
 
 
 # Better error reporting. Recent argparse would emit something like
-# "invalid project root value: 'xxxxxx'".
-build_project.__name__ = "project root"
+# "invalid project root value: 'xxxxxx'". The str() wrapper is needed to
+# keep Python 2 happy :(
+build_project.__name__ = str("project root")
 
 
 class BaseCommand(object):
