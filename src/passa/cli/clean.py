@@ -22,7 +22,7 @@ def main(options):
 class Command(BaseCommand):
 
     name = "clean"
-    description = "Uninstall unlisted packages from the current environment."
+    description = "Uninstall unlisted packages from the environment."
     parsed_main = main
 
     def add_arguments(self):

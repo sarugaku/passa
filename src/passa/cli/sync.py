@@ -25,7 +25,7 @@ def main(options):
 class Command(BaseCommand):
 
     name = "sync"
-    description = "Install Pipfile.lock into the current environment."
+    description = "Install Pipfile.lock into the environment."
     parsed_main = main
 
     def add_arguments(self):
