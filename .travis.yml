@@ -34,7 +34,7 @@ jobs:
         - "pip install --upgrade -e ."
       script:
         - "invoke pack"
-        - "python2.7 pack/run.py --help"
+        - "python2.7 pack/passa.zip --help"
     - stage: coverage
       python: "3.6"
       install:
