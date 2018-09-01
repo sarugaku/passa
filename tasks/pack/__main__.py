@@ -1,14 +1,11 @@
 # -*- coding=utf-8 -*-
 
-import atexit
 import os
-import shutil
 import sys
 import sysconfig
 
 
-CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-ZIP_NAME = os.path.join(CURR_DIR, 'lib.zip')
+LIBPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
 
 
 def get_site_packages():
@@ -38,14 +35,9 @@ def insert_before_site_packages(*paths):
         sys.path = sys.path[:index] + list(paths) + sys.path[index:]
 
 
-def run_passa():
+def main():
     from passa.cli import main
     main()
-
-
-def main():
-    insert_before_site_packages(ZIP_NAME)
-    run_passa()
 
 
 if __name__ == '__main__':

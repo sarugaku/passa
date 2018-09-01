@@ -12,7 +12,9 @@ import requirementslib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-PACKAGE_DIR = ROOT.joinpath('pack')
+OUTPUT_DIR = ROOT.joinpath('pack')
+
+STUBFILES_DIR = pathlib.Path(__file__).resolve().with_name('pack')
 
 DONT_PACKAGE = {
     # Rely on the client for them.
@@ -24,33 +26,42 @@ DONT_PACKAGE = {
     'typing',       # This breaks 2.7. We'll provide a special stub for it.
 }
 
+IGNORE_LIB_PATTERNS = {
+    '*.pyd',    # Binary on Windows.
+    '*.so',     # Binary on POSIX.
+}
+
 
 @invoke.task()
 def clean_pack(ctx):
-    if PACKAGE_DIR.exists():
-        shutil.rmtree(str(PACKAGE_DIR))
-        print(f'[clean_pack] Removing {PACKAGE_DIR}')
+    if OUTPUT_DIR.exists():
+        shutil.rmtree(str(OUTPUT_DIR))
+        print(f'[clean-pack] Removing {OUTPUT_DIR}')
 
 
-def _zip_item(path, zf, root):
+def _recursive_write_to_zip(zf, path, root=None):
+    if path == pathlib.Path(zf.filename):
+        return
+    if root is None:
+        if not path.is_dir():
+            raise ValueError('root is required for non-directory path')
+        root = path
     if not path.is_dir():
-        if path.suffix != '.so':
-            zf.write(str(path), str(path.relative_to(root)))
+        zf.write(str(path), str(path.relative_to(root)))
         return
     for c in path.iterdir():
-        _zip_item(c, zf, root)
+        _recursive_write_to_zip(zf, c, root)
 
 
 @invoke.task(pre=[clean_pack])
 def pack(ctx, remove_lib=True):
     """Build a isolated runnable package.
     """
-    PACKAGE_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with ROOT.joinpath('Pipfile.lock').open() as f:
         lockfile = plette.Lockfile.load(f)
 
-    libdir = PACKAGE_DIR.joinpath('lib')
-    packdir = pathlib.Path(__file__).resolve().parent.joinpath('pack')
+    libdir = OUTPUT_DIR.joinpath('lib')
 
     paths = {'purelib': libdir, 'platlib': libdir}
     sources = lockfile.meta.sources._data
@@ -60,28 +71,27 @@ def pack(ctx, remove_lib=True):
     for name, package in lockfile.default._data.items():
         if name in DONT_PACKAGE:
             continue
+        print(f'[pack] Installing {name}')
         package.pop('editable', None)   # Don't install things as editable.
         package.pop('markers', None)    # Always install everything.
         r = requirementslib.Requirement.from_pipfile(name, package)
         wheel = passa.internals._pip.build_wheel(
             r.as_ireq(), sources, r.hashes or None,
         )
-        print(f'[pack] Installing {name}')
         wheel.install(paths, maker, lib_only=True)
 
-    # Install fake typing module.
-    shutil.copy2(str(packdir.joinpath('typing.py')), libdir)
+    for pattern in IGNORE_LIB_PATTERNS:
+        for path in libdir.rglob(pattern):
+            print(f'[pack] Removing {path}')
+            path.unlink()
 
-    # Pack the lib into lib.zip.
-    zipname = PACKAGE_DIR.joinpath('lib.zip')
+    # Pack everything into ZIP.
+    zipname = OUTPUT_DIR.joinpath('passa.zip')
     with zipfile.ZipFile(zipname, 'w') as zf:
-        _zip_item(libdir, zf, libdir)
-    print(f'Written archive {zipname}')
-
-    # Write run.py.
-    shutil.copy2(str(packdir.joinpath('run.py')), PACKAGE_DIR)
-    print(f'Written entry script {PACKAGE_DIR.joinpath("run.py")}')
+        _recursive_write_to_zip(zf, OUTPUT_DIR)
+        _recursive_write_to_zip(zf, STUBFILES_DIR)
+    print(f'[pack] Written archive {zipname}')
 
     if remove_lib and libdir.exists():
-        print(f'Removing {libdir}')
+        print(f'[pack] Removing {libdir}')
         shutil.rmtree(str(libdir))
