@@ -2,17 +2,11 @@ branches:
   only:
     - master
 
-platform:
-  - x64
-
-matrix:
-  - "PYTHON=C:\\Python36-x64"
-
 install:
-  - "SET PATH=%PYTHON%;%PATH%"
+  - "SET PATH="C:\\Python36-x64;%PATH%"
   - "python --version"
   - "python -m pip install --upgrade pip"
-  - "python -m pip install -e .[ci,pack,tests]"
+  - "python -m pip install --upgrade -e .[ci,pack,tests]"
 
 build_script:
   - "python -m invoke pack"
