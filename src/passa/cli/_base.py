@@ -10,8 +10,14 @@ import sys
 def build_project(root):
     # This is imported lazily to reduce import overhead. Not evey command
     # needs the project instance.
-    from passa.internals.projects import Project
+    from passa.projects import Project
     return Project(os.path.abspath(root))
+
+
+def configure_reporter():
+    # This is imported lazily to reduce import overhead.
+    from passa.reporters import configure_reporter
+    configure_reporter("stdout")
 
 
 class BaseCommand(object):
@@ -51,4 +57,5 @@ class BaseCommand(object):
     def main(self, options):
         # This __dict__ access is needed for Python 2 to prevent Python from
         # wrapping parsed_main into an unbounded method.
+        configure_reporter()
         return type(self).__dict__["parsed_main"](options)
