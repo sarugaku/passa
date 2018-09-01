@@ -15,14 +15,26 @@ def main(options):
     if not success:
         return
 
-    project._l.write()
-    print("Written to project at", project.root)
+    if options.dry_run:
+        print(project._l.dumps())
+    else:
+        project._l.write()
+        print("Written to project at", project.root)
 
 
 class Command(BaseCommand):
+
     name = "lock"
     description = "Generate Pipfile.lock."
     parsed_main = main
+
+    def add_arguments(self):
+        super(Command, self).add_arguments()
+        self.parser.add_argument(
+            "--dry-run",
+            action="store_true", default=False,
+            help="run locking on Pipfile, but do not write to Pipfile.lock",
+        )
 
 
 if __name__ == "__main__":

@@ -9,11 +9,12 @@ import requirementslib
 import resolvelib
 import vistir
 
+from passa import reporters
+
 from .caches import HashCache
 from .hashes import get_hashes
 from .metadata import set_metadata
 from .providers import BasicProvider, EagerUpgradeProvider, PinReuseProvider
-from .reporters import StdOutReporter
 from .traces import trace_graph
 from .utils import identify_requirment
 
@@ -100,10 +101,6 @@ class AbstractLocker(object):
     def get_provider(self):
         raise NotImplementedError
 
-    def get_reporter(self):
-        # TODO: Build SpinnerReporter, and use this only in verbose mode.
-        return StdOutReporter(self.requirements)
-
     def lock(self):
         """Lock specified (abstract) requirements into (concrete) candidates.
 
@@ -116,14 +113,20 @@ class AbstractLocker(object):
         * Populate markers based on dependency specifications of each
           candidate, and the dependency graph.
         """
+        reporters.report("lock-starting", {"requirements": self.requirements})
+
         provider = self.get_provider()
-        reporter = self.get_reporter()
-        resolver = resolvelib.Resolver(provider, reporter)
+        resolver = resolvelib.Resolver(
+            provider, reporters.get_reporter().build_for_resolvelib(),
+        )
 
         with vistir.cd(self.project.root):
             state = resolver.resolve(self.requirements)
 
         traces = trace_graph(state.graph)
+        reporters.report("lock-trace-ended", {
+            "state": state, "traces": traces,
+        })
 
         hash_cache = HashCache()
         for r in state.mapping.values():
