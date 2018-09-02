@@ -1,0 +1,1 @@
+Correctly fall back to detect prereleases if a specifier yields no available non-prerelease versions.
