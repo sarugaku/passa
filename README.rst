@@ -25,26 +25,10 @@ Passa: Toolset for Pipfile projects
     :alt: Documentation Status
 
 
-Installation
-============
-
-Install from PyPI_::
-
-    $ pipenv install passa
-
-Install from GitHub_::
-
-    $ pipenv install -e git+https://github.com/sarugaku/passa.git#egg=passa
-
-
-.. _PyPI: https://pypi.org/project/passa
-.. _GitHub: https://github.com/sarugaku/passa
-
-
 Summary
 =======
 
-Passa is a toolset for performing tasks in a Pipfile project, designed to be
+Passa_ is a toolset for performing tasks in a Pipfile project, designed to be
 used as a backing component of Pipenv_. It contains several components:
 
 * A resolver designed for performing dependency resolution using a stateful
@@ -53,6 +37,7 @@ used as a backing component of Pipenv_. It contains several components:
   Pipfile and Pipfile.lock (backed by RequirementsLib_).
 * A command line interface to invoke the above operations.
 
+.. _Passa: https://github.com/sarugaku/passa
 .. _Pipenv: https://github.com/pypa/pipenv
 .. _ResolveLib: https://github.com/sarugaku/resolvelib
 .. _RequirementsLib: https://github.com/sarugaku/requirementslib
