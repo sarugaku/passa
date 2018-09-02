@@ -18,32 +18,51 @@ several components:
 Quickstart
 ==========
 
-Install Passa with pip:
+Passa distributions can be downloaded from Appveyor’s `artifacts page`, as a
+ZIP file.
+
+.. _`artifacts page`: https://ci.appveyor.com/project/sarugaku/passa/build/artifacts
+
+Once downloaded, you can run ``passa.zip`` with the interpreter of the
+environment you want to manage:
 
 .. code-block:: none
 
-    pip install passa
+    python passa.zip --help
 
 Use Passa to generate Pipfile.lock from the Pipfile in the current directory:
 
 .. code-block:: none
 
-    python -m passa lock
+    python passa.zip lock
 
 Add packages to the project:
 
 .. code-block:: none
 
-    python -m passa add pytz requests tqdm
+    python passa.zip add pytz requests tqdm
 
 Remove packages from the project:
 
 .. code-block:: none
 
-    python -m passa remove pytz
+    python passa.zip remove pytz
 
 Generate requirements.txt for the current project:
 
 .. code-block:: none
 
-    python -m passa freeze --target requirements.txt
+    python passa.zip freeze --target requirements.txt
+
+
+
+Distribution Notes
+==================
+
+Passa is available on PyPI and installable with pip, but it is not recommended
+for you to do so. Passa is designed to be run *inside* the Python environment,
+and, if installed with pip, would contaminate the very environment it wants to
+manage.
+
+The ZIP distribution is self-sufficient, and use only the interpreter (and the
+standard library) to run itself, avoiding the contamination.
