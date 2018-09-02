@@ -44,7 +44,6 @@ def _prepare_wheel_building_kwargs(ireq):
     else:
         src_dir = vistir.path.create_tracked_tempdir(prefix='passa-src')
 
-
     # This logic matches pip's behavior, although I don't fully understand the
     # intention. I guess the idea is to build editables in-place, otherwise out
     # of the source tree?
