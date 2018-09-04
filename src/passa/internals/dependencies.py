@@ -16,7 +16,7 @@ import six
 from ._pip import build_wheel
 from .caches import DependencyCache, RequiresPythonCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
-from .utils import is_pinned
+from .utils import get_pinned_version, is_pinned
 
 
 DEPENDENCY_CACHE = DependencyCache()
@@ -116,12 +116,15 @@ def _get_dependencies_from_json(ireq, sources):
     """
     if os.environ.get("PASSA_IGNORE_JSON_API"):
         return
-    if ireq.editable:
-        return
 
     # It is technically possible to parse extras out of the JSON API's
     # requirement format, but it is such a chore let's just use the simple API.
     if ireq.extras:
+        return
+
+    try:
+        version = get_pinned_version(ireq)
+    except ValueError:
         return
 
     url_prefixes = [
@@ -134,7 +137,6 @@ def _get_dependencies_from_json(ireq, sources):
     ]
 
     session = requests.session()
-    version = str(ireq.specifier).lstrip("=")
 
     for prefix in url_prefixes:
         url = "{prefix}/pypi/{name}/{version}/json".format(

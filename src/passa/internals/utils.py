@@ -108,6 +108,7 @@ def are_requirements_equal(this, that):
         that.as_line(include_hashes=False)
     )
 
+
 def strip_extras(requirement):
     """Returns a new requirement object with extras removed.
     """
