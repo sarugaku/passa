@@ -1,0 +1,1 @@
+Always resolve to URL-based candidate if there are both named and non-named requirements pointing to the same package. The URL-based requirement must be specified by the user, so we respect that.

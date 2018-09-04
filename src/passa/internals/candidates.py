@@ -35,7 +35,11 @@ def _filter_matching_python_requirement(candidates, python_version):
 
 
 def _copy_requirement(requirement):
-    return requirement.copy()
+    # Markers are intentionally dropped here. They will be added to candidates
+    # after resolution, so we can perform marker aggregation.
+    new = requirement.copy()
+    new.markers = None
+    return new
 
 
 def _requirement_from_metadata(name, version, extras, index):
