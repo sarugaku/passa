@@ -88,13 +88,17 @@ def main(options):
     ))
 
     with open_for_output(options.target) as f:
+        if options.prefix_comment:
+            lines = ["# " + l for l in options.prefix_comment.splitlines(True)]
+            f.write(''.join(lines))
+            f.write("\n")
         for line in source_lines:
             f.write(line)
             f.write("\n")
         f.write("\n")
         for line in requirement_lines:
             f.write(line)
-            f.write("\n\n")
+            f.write("\n")
 
 
 class Command(BaseCommand):
@@ -105,6 +109,12 @@ class Command(BaseCommand):
 
     def add_arguments(self):
         super(Command, self).add_arguments()
+        self.parser.add_argument(
+            "--prefix-comment",
+            dest="prefix_comment",
+            default=None,
+            help="comment to prefix the output with",
+        )
         self.parser.add_argument(
             "--target",
             default=None,
