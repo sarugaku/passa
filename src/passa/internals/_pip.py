@@ -8,14 +8,20 @@ import os
 
 import setuptools.dist
 
+import distlib.locators
 import distlib.scripts
 import distlib.wheel
+import packaging
+import pep517
 import pip_shims
 import six
 import vistir
 
+from functools import partial
+
 from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
 from .caches import CACHE_DIR
+from .pyproject import load_pyproject_toml
 from .utils import filter_sources
 
 
@@ -127,6 +133,141 @@ def _convert_hashes(values):
     return hashes
 
 
+def get_dist(self):
+    import pkg_resources
+    if self.metadata_directory:
+        base_dir, distinfo = os.path.split(self.metadata_directory)
+        metadata = pkg_resources.PathMetadata(
+            base_dir, self.metadata_directory
+        )
+        dist_name = os.path.splitext(distinfo)[0]
+        type_ = pkg_resources.DistInfoDistribution
+    else:
+        egg_info = self.egg_info_path('').rstrip(os.path.sep)
+        base_dir = os.path.dirname(egg_info)
+        metadata = pkg_resources.PathMetadata(base_dir, egg_info)
+        dist_name = os.path.splitext(os.path.basename(egg_info))[0]
+        type_ = pkg_resources.Distribution
+
+    return type_(
+            base_dir,
+            project_name=dist_name,
+            metadata=metadata,
+        )
+
+
+def _correct_build_location(self):
+    # Correct the metadata directory, if it exists
+    old_location = self._temp_build_dir.path
+    new_location = self.build_location(self._ideal_build_dir)
+    self._orig_build_location_corrector()
+    if self.metadata_directory:
+        old_meta = self.metadata_directory
+        rel = os.path.relpath(old_meta, start=old_location)
+        new_meta = os.path.join(new_location, rel)
+        new_meta = os.path.normpath(os.path.abspath(new_meta))
+        self.metadata_directory = new_meta
+
+
+def prepare_pep517_metadata(self):
+    assert self.pep517_backend is not None
+    metadata_dir = os.path.join(
+        self.setup_py_dir,
+        'pip-wheel-metadata'
+    )
+    os.makedirs(metadata_dir)
+    with self.build_env:
+        # Note that Pep517HookCaller implements a fallback for
+        # prepare_metadata_for_build_wheel, so we don't have to
+        # consider the possibility that this hook doesn't exist.
+        backend = self.pep517_backend
+        distinfo_dir = backend.prepare_metadata_for_build_wheel(
+            metadata_dir
+        )
+    self.metadata_directory = os.path.join(metadata_dir, distinfo_dir)
+
+
+def prepare_metadata(self):
+    import pkg_resources
+    assert self.source_dir
+    if self.use_pep517:
+        self.prepare_pep517_metadata()
+    else:
+        self._run_egg_info()
+    if not self.req:
+        if isinstance(packaging.version.parse(self.metadata["Version"]), packaging.version.Version):
+            op = "=="
+        else:
+            op = "==="
+        self.req = pkg_resources.Requirement(
+            "".join([
+                self.metadata["Name"],
+                op,
+                self.metadata["Version"],
+            ])
+        )
+        self._correct_build_location()
+    else:
+        metadata_name = packaging.utils.canonicalize_name(self.metadata["Name"])
+        self.req = pkg_resources.Requirement(metadata_name)
+
+
+def _patch_ireq(ireq):
+    ireq.metadata_directory = None
+    ireq._orig_build_location_corrector = ireq._correct_build_location
+    ireq._run_egg_info = ireq.run_egg_info
+    ireq.run_egg_info = partial(prepare_metadata, ireq)
+    ireq._correct_build_location = partial(_correct_build_location, ireq)
+    ireq.load_pyproject_toml = partial(_load_pyproject_toml, ireq)
+    ireq.get_dist = partial(get_dist, ireq)
+    ireq.prepare_metadata = partial(prepare_metadata, ireq)
+    return ireq
+
+
+def _load_pyproject_toml(ireq):
+    pep517_data = load_pyproject_toml(
+        ireq.use_pep517,
+        ireq.pyproject_toml,
+        ireq.setup_py,
+        str(ireq)
+    )
+
+    if pep517_data is None:
+        ireq.use_pep517 = False
+    else:
+        ireq.use_pep517 = True
+        requires, backend, check = pep517_data
+        ireq.requirements_to_check = check
+        ireq.pyproject_requires = requires
+        ireq.pep517_backend = pep517.wrappers.Pep517HookCaller(ireq.setup_py_dir, backend)
+
+
+def _load_pyproject(ireq):
+    ireq.use_pep517 = None
+    ireq = _patch_ireq(ireq)
+    return ireq
+
+
+def get_sdist(ireq, sources, hashes=None):
+    kwargs = _prepare_wheel_building_kwargs(ireq)
+    finder = _get_finder(sources)
+    ireq.populate_link(finder, False, False)
+    ireq = _patch_ireq(ireq)
+    ireq.ensure_has_source_dir(kwargs["src_dir"])
+    ireq.use_pep517 = None
+    ireq.load_pyproject_toml()
+    if not ireq.use_pep517 and not ireq.is_wheel:
+        download_dir = kwargs["download_dir"]
+        ireq.options["hashes"] = _convert_hashes(hashes)
+        unpack_url(
+            ireq.link, ireq.source_dir, download_dir,
+            only_download=False, session=finder.session,
+            hashes=ireq.hashes(False), progress_bar=False,
+        )
+        return ireq
+    raise RuntimeError("Failed unpacking sdist %s" % ireq.name)
+
+
 def build_wheel(ireq, sources, hashes=None):
     """Build a wheel file for the InstallRequirement object.
 
@@ -147,6 +288,7 @@ def build_wheel(ireq, sources, hashes=None):
     # when we provide them, because pip skips local wheel cache if we set it
     # to True. Hashes are checked later if we need to download the file.
     ireq.populate_link(finder, False, False)
+    ireq = _patch_ireq(ireq)
 
     # Ensure ireq.source_dir is set.
     # This is intentionally set to build_dir, not src_dir. Comments from pip:
@@ -156,6 +298,9 @@ def build_wheel(ireq, sources, hashes=None):
     # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
     # is editable, build_dir is actually src_dir, making the build in-place.
     ireq.ensure_has_source_dir(kwargs["build_dir"])
+    ireq.use_pep517 = None
+    ireq.load_pyproject_toml()
+    ireq.prepare_metadata()
 
     # Ensure the source is fetched. For wheels, it is enough to just download
     # because we'll use them directly. For an sdist, we need to unpack so we

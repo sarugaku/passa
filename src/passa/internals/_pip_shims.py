@@ -35,6 +35,16 @@ def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
             kwargs["req_tracker"] = req_tracker
         preparer = pip_shims.RequirementPreparer(**kwargs)
         builder = pip_shims.WheelBuilder(finder, preparer, wheel_cache)
+        backend = getattr(ireq, "pep517_backend", None)
+        metadata_directory = getattr(ireq, "metadata_directory", None)
+        if metadata_directory and backend is not None:
+            try:
+                ireq.pep517_backend.build_wheel(
+                    output_dir,
+                    metadata_directory=ireq.metadata_directory
+                )
+            except Exception:
+                return False
         return builder._build_one(ireq, output_dir)
 
 
