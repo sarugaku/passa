@@ -6,7 +6,6 @@ import functools
 import os
 import sys
 
-import distlib.metadata
 import packaging.specifiers
 import packaging.utils
 import packaging.version
@@ -230,18 +229,15 @@ def _get_dependencies_from_wheel(ireq, sources):
 
 
 def _get_dependencies_from_pip(ireq, sources):
-    ireq = get_sdist(ireq, sources)
-    egg_info_name = "%s.egg-info" % packaging.utils.canonicalize_name(ireq.name).replace("-", "_")
-    requires_txt_path = os.path.join(ireq.setup_py_dir, egg_info_name, "requires.txt")
-    metadata_path = os.path.join(ireq.setup_py_dir, egg_info_name, "PKG-INFO")
-    requires_python = _read_requires_python(distlib.metadata.Metadata(metadata_path))
-    requirements = []
-    if os.path.exists(requires_txt_path):
-        with open(requires_txt_path, "r") as fh:
-            requirements = [line.strip() for line in fh.readlines() if not line.strip().startswith("[")]
+    dist = get_sdist(ireq, sources)
+    requirements = dist.requires()
     if requirements:
-        requirements = [line for line in requirements if line.strip()]
-        return requirements, requires_python
+        requirements = [
+            requirementslib.Requirement.from_metadata(
+                req.project_name, req.specifier, req.extras, req.marker
+            ).as_line() for req in requirements
+        ]
+        return requirements, ""
     return
 
 

@@ -22,7 +22,7 @@ def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
 
 
 def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
-    """Build a wheel.
+    """Build a wheel. Uses the specified pep517 backend if available.
 
     * ireq: The InstallRequirement object to build
     * output_dir: The directory to build the wheel in.
@@ -35,17 +35,23 @@ def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
             kwargs["req_tracker"] = req_tracker
         preparer = pip_shims.RequirementPreparer(**kwargs)
         builder = pip_shims.WheelBuilder(finder, preparer, wheel_cache)
-        backend = getattr(ireq, "pep517_backend", None)
-        metadata_directory = getattr(ireq, "metadata_directory", None)
+        try:
+            ireq.prepare_metadata()
+            backend = getattr(ireq, "pep517_backend", None)
+            metadata_directory = getattr(ireq, "metadata_directory", None)
+        except Exception as e:
+            backend = None
+            metadata_directory = None
         if metadata_directory and backend is not None:
             try:
-                ireq.pep517_backend.build_wheel(
+                return ireq.pep517_backend.build_wheel(
                     output_dir,
                     metadata_directory=ireq.metadata_directory
                 )
             except Exception:
-                return False
-        return builder._build_one(ireq, output_dir)
+                return builder._build_one(ireq, output_dir)
+        else:
+            return builder._build_one(ireq, output_dir)
 
 
 def _unpack_url_pre10(*args, **kwargs):
@@ -55,6 +61,18 @@ def _unpack_url_pre10(*args, **kwargs):
     """
     kwargs.pop("progress_bar", None)
     return pip_shims.unpack_url(*args, **kwargs)
+
+
+def make_abstract_sdist(req):
+    with pip_shims.RequirementTracker().track(req):
+        req.load_pyproject_toml()
+        try:
+            req.prepare_metadata()
+        except LookupError:
+            pass
+        finally:
+            return req.get_dist()  # This means the dist is already built
+    return req.get_dist()
 
 
 PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
