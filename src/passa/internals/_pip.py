@@ -12,12 +12,12 @@ import distlib.locators
 import distlib.scripts
 import distlib.wheel
 import packaging
-import pep517
 import pip_shims
 import six
 import vistir
 
 from functools import partial
+from pep517.wrappers import Pep517HookCaller
 
 from ._pip_shims import (
     VCS_SUPPORT, build_wheel as _build_wheel, unpack_url, make_abstract_sdist
@@ -245,7 +245,7 @@ def _load_pyproject_toml(ireq):
         requires, backend, check = pep517_data
         ireq.requirements_to_check = check
         ireq.pyproject_requires = requires
-        ireq.pep517_backend = pep517.wrappers.Pep517HookCaller(ireq.setup_py_dir, backend)
+        ireq.pep517_backend = Pep517HookCaller(ireq.setup_py_dir, backend)
 
 
 def get_sdist(ireq, sources, hashes=None):

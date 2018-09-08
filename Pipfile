@@ -1,3 +1,8 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
 [packages]
 passa = {editable = true, extras = ["tests"], path = "."}
 
@@ -11,6 +16,7 @@ sphinx-rtd-theme = '*'
 towncrier = '*'
 twine = '*'
 wheel = '*'
+pep517 = "*"
 
 [scripts]
 passa-add = 'python -m passa.cli.add'
