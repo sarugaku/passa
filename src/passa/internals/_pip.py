@@ -19,7 +19,9 @@ import vistir
 
 from functools import partial
 
-from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+from ._pip_shims import (
+    VCS_SUPPORT, build_wheel as _build_wheel, unpack_url, make_abstract_sdist
+)
 from .caches import CACHE_DIR
 from .pyproject import load_pyproject_toml
 from .utils import filter_sources
@@ -217,15 +219,19 @@ def _patch_ireq(ireq):
     ireq.metadata_directory = None
     ireq._orig_build_location_corrector = ireq._correct_build_location
     ireq._run_egg_info = ireq.run_egg_info
+    ireq.load_pyproject_toml = partial(_load_pyproject_toml, ireq)
+    ireq.load_pyproject_toml()
     ireq.run_egg_info = partial(prepare_metadata, ireq)
     ireq._correct_build_location = partial(_correct_build_location, ireq)
-    ireq.load_pyproject_toml = partial(_load_pyproject_toml, ireq)
     ireq.get_dist = partial(get_dist, ireq)
     ireq.prepare_metadata = partial(prepare_metadata, ireq)
     return ireq
 
 
 def _load_pyproject_toml(ireq):
+    """Patches the InstallRequirement to add pep517 metadata.
+    """
+
     pep517_data = load_pyproject_toml(
         ireq.use_pep517,
         ireq.pyproject_toml,
@@ -243,20 +249,20 @@ def _load_pyproject_toml(ireq):
         ireq.pep517_backend = pep517.wrappers.Pep517HookCaller(ireq.setup_py_dir, backend)
 
 
-def _load_pyproject(ireq):
-    ireq.use_pep517 = None
-    ireq = _patch_ireq(ireq)
-    return ireq
-
-
 def get_sdist(ireq, sources, hashes=None):
+    """Downloads an sdist and prepares it before handing off the built distribution with
+    pep517 metadata included (via a patched InstallRequirement object)
+    """
+
     kwargs = _prepare_wheel_building_kwargs(ireq)
     finder = _get_finder(sources)
     ireq.populate_link(finder, False, False)
     ireq = _patch_ireq(ireq)
     ireq.ensure_has_source_dir(kwargs["src_dir"])
     ireq.use_pep517 = None
-    ireq.load_pyproject_toml()
+    egg_info_name = "%s.egg-info" % packaging.utils.canonicalize_name(ireq.name).replace("-", "_")
+    ireq._egg_info_dir = os.path.join(ireq.source_dir, egg_info_name)
+    ireq._egg_info_path = os.path.join(ireq.source_dir, egg_info_name)
     if not ireq.use_pep517 and not ireq.is_wheel:
         download_dir = kwargs["download_dir"]
         ireq.options["hashes"] = _convert_hashes(hashes)
@@ -265,12 +271,16 @@ def get_sdist(ireq, sources, hashes=None):
             only_download=False, session=finder.session,
             hashes=ireq.hashes(False), progress_bar=False,
         )
-        return ireq
+        dist = make_abstract_sdist(ireq)
+        return dist
     raise RuntimeError("Failed unpacking sdist %s" % ireq.name)
 
 
 def build_wheel(ireq, sources, hashes=None):
     """Build a wheel file for the InstallRequirement object.
+
+    InstallRequirement objects are patched to use pep517 backend builders
+    when available.
 
     An artifact is downloaded (or read from cache). If the artifact is not a
     wheel, build one out of it. The dynamically built wheel is ephemeral; do
@@ -289,7 +299,6 @@ def build_wheel(ireq, sources, hashes=None):
     # when we provide them, because pip skips local wheel cache if we set it
     # to True. Hashes are checked later if we need to download the file.
     ireq.populate_link(finder, False, False)
-    ireq = _patch_ireq(ireq)
 
     # Ensure ireq.source_dir is set.
     # This is intentionally set to build_dir, not src_dir. Comments from pip:
@@ -299,9 +308,6 @@ def build_wheel(ireq, sources, hashes=None):
     # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
     # is editable, build_dir is actually src_dir, making the build in-place.
     ireq.ensure_has_source_dir(kwargs["build_dir"])
-    ireq.use_pep517 = None
-    ireq.load_pyproject_toml()
-    ireq.prepare_metadata()
 
     # Ensure the source is fetched. For wheels, it is enough to just download
     # because we'll use them directly. For an sdist, we need to unpack so we
@@ -326,6 +332,9 @@ def build_wheel(ireq, sources, hashes=None):
         wheel_path = os.path.join(output_dir, ireq.link.filename)
     else:
         # Othereise we need to build an ephemeral wheel.
+        ireq.use_pep517 = None
+        ireq = _patch_ireq(ireq)
+        # ireq.prepare_metadata()
         wheel_path = _build_wheel(
             ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
             finder, _get_wheel_cache(), kwargs,
