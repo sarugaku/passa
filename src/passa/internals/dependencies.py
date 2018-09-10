@@ -153,8 +153,7 @@ def _get_dependencies_from_json(ireq, sources):
             if dependencies is not None:
                 return dependencies
         except Exception as e:
-            pass
-        print("unable to read dependencies via {0}".format(url))
+            print("unable to read dependencies via {0} ({1})".format(url, e))
     return
 
 
