@@ -47,6 +47,3 @@ def main(argv=None):
         result = f(options)
     if result is not None:
         sys.exit(result)
-
-
-main(argv=["lock", "--project", "/tmp/test"])
