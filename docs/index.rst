@@ -55,7 +55,6 @@ Generate requirements.txt for the current project:
     python passa.zip freeze --target requirements.txt
 
 
-
 Distribution Notes
 ==================
 
@@ -66,3 +65,13 @@ manage.
 
 The ZIP distribution is self-sufficient, and use only the interpreter (and the
 standard library) to run itself, avoiding the contamination.
+
+
+Table of Contents
+=================
+
+.. toctree::
+    :maxdepth: 1
+
+    philo
+    cli

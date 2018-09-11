@@ -13,7 +13,7 @@ from passa import __version__
 CURRENT_MODULE_PATH = sys.modules[__name__].__path__
 
 
-def main(argv=None):
+def get_parser():
     root_parser = argparse.ArgumentParser(
         prog="passa",
         description="Pipfile project management tool.",
@@ -36,12 +36,17 @@ def main(argv=None):
         command = klass(parser)
         parser.set_defaults(func=command.main)
 
-    options = root_parser.parse_args(argv)
+    return root_parser
+
+
+def main(argv=None):
+    parser = get_parser()
+    options = parser.parse_args(argv)
 
     try:
         f = options.func
     except AttributeError:
-        root_parser.print_help()
+        parser.print_help()
         result = -1
     else:
         result = f(options)
