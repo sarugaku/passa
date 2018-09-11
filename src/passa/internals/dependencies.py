@@ -91,16 +91,20 @@ def _get_dependencies_from_json_url(url, session):
     except KeyError:
         requirement_lines = info["requires"]
 
-    # The JSON API return null for empty requirements, for some reason, so we
-    # can't just pass it into the comprehension.
-    if not requirement_lines:
-        return [], requires_python
-
-    dependencies = [
-        dep_req.as_line(include_hashes=False) for dep_req in (
+    # The JSON API returns null both when there are not requirements, or the
+    # requirement list cannot be retrieved. We can't safely assume, so it's
+    # better to drop it and fall back to downloading the package.
+    try:
+        dependency_requirements_iterator = (
             requirementslib.Requirement.from_line(line)
             for line in requirement_lines
         )
+    except TypeError:
+        return
+
+    dependencies = [
+        dep_req.as_line(include_hashes=False)
+        for dep_req in dependency_requirements_iterator
         if not contains_extra(dep_req.markers)
     ]
     return dependencies, requires_python
@@ -149,8 +153,7 @@ def _get_dependencies_from_json(ireq, sources):
             if dependencies is not None:
                 return dependencies
         except Exception as e:
-            pass
-        print("unable to read dependencies via {0}".format(url))
+            print("unable to read dependencies via {0} ({1})".format(url, e))
     return
 
 
