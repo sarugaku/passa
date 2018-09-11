@@ -10,11 +10,15 @@ import setuptools.dist
 
 import distlib.scripts
 import distlib.wheel
+import pep517.envbuild
 import pip_shims
 import six
 import vistir
 
-from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+from ._pip_shims import (
+    PEP_517_SUPPORTED, VCS_SUPPORT, unpack_url,
+    build_wheel as _build_wheel_with_pip,
+)
 from .caches import CACHE_DIR
 from .utils import filter_sources
 
@@ -127,19 +131,17 @@ def _convert_hashes(values):
     return hashes
 
 
-def build_wheel(ireq, sources, hashes=None):
-    """Build a wheel file for the InstallRequirement object.
+def _is_pep_517_supported(source_dir):
+    # TODO: Replace this function with `pep517.check.check()` after it is
+    # fixed. (pypa/pep517#14)
+    if not PEP_517_SUPPORTED:
+        return False
+    if os.path.isfile(os.path.join(source_dir, "pyproject.toml")):
+        return True
+    return False
 
-    An artifact is downloaded (or read from cache). If the artifact is not a
-    wheel, build one out of it. The dynamically built wheel is ephemeral; do
-    not depend on its existence after the returned wheel goes out of scope.
 
-    If `hashes` is truthy, it is assumed to be a list of hashes (as formatted
-    in Pipfile.lock) to be checked against the download.
-
-    Returns a `distlib.wheel.Wheel` instance. Raises a `RuntimeError` if the
-    wheel cannot be built.
-    """
+def _build_wheel_to_path(ireq, sources, hashes):
     kwargs = _prepare_wheel_building_kwargs(ireq)
     finder = _get_finder(sources)
 
@@ -174,19 +176,49 @@ def build_wheel(ireq, sources, hashes=None):
             hashes=ireq.hashes(False), progress_bar=False,
         )
 
+    # If this is a wheel, use the downloaded thing.
     if ireq.is_wheel:
-        # If this is a wheel, use the downloaded thing.
-        output_dir = kwargs["wheel_download_dir"]
-        wheel_path = os.path.join(output_dir, ireq.link.filename)
-    else:
-        # Othereise we need to build an ephemeral wheel.
-        wheel_path = _build_wheel(
-            ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
-            finder, _get_wheel_cache(), kwargs,
-        )
-        if wheel_path is None or not os.path.exists(wheel_path):
-            raise RuntimeError("failed to build wheel from {}".format(ireq))
-    return distlib.wheel.Wheel(wheel_path)
+        return os.path.join(kwargs["wheel_download_dir"], ireq.link.filename)
+
+    # Now we need to build an ephemeral wheel.
+
+    output_dir = vistir.path.create_tracked_tempdir(prefix="ephem")
+
+    # If PEP 517 is enabled with this source, we can use the build API.
+    source_dir = ireq.setup_py_dir
+    if PEP_517_SUPPORTED and _is_pep_517_supported(source_dir):
+        with vistir.temp_environ():
+            os.environ["PIP_QUIET"] = "1"   # Silence pep517's pip calls.
+            # This is unfortunately still quite verbose if building fails.
+            # Hopefully we can configure this in the future. (pypa/pep517#13)
+            filename = pep517.envbuild.build_wheel(source_dir, output_dir)
+        return os.path.join(output_dir, filename)
+
+    # PEP 517 is not available, i.e. this is a "traditional" Python package.
+    # Use pip internals to build it.
+    wheel_path = _build_wheel_with_pip(
+        ireq, output_dir, finder, _get_wheel_cache(), kwargs,
+    )
+    if wheel_path is None or not os.path.exists(wheel_path):
+        raise RuntimeError("failed to build wheel from {}".format(ireq))
+    return wheel_path
+
+
+def build_wheel(ireq, sources, hashes=None):
+    """Build a wheel file for the InstallRequirement object.
+
+    An artifact is downloaded (or read from cache). If the artifact is not a
+    wheel, build one out of it. The dynamically built wheel is ephemeral; do
+    not depend on its existence after the returned wheel goes out of scope.
+
+    If `hashes` is truthy, it is assumed to be a list of hashes (as formatted
+    in Pipfile.lock) to be checked against the download.
+
+    Returns a `distlib.wheel.Wheel` instance. Raises a `RuntimeError` if the
+    wheel cannot be built.
+    """
+    path = _build_wheel_to_path(ireq, sources, hashes)
+    return distlib.wheel.Wheel(path)
 
 
 def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
