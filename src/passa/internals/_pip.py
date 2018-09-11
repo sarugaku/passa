@@ -214,7 +214,7 @@ def find_installation_candidates(ireq, sources):
     return finder.find_all_candidates(ireq.name)
 
 
-class RequirementUninstallation(object):
+class RequirementUninstaller(object):
     """A context manager to remove a package for the inner block.
 
     This uses `UninstallPathSet` to control the workflow. If the inner block
@@ -242,8 +242,9 @@ class RequirementUninstallation(object):
             self.pathset.rollback()
 
 
-def uninstall_requirement(ireq, **kwargs):
-    return RequirementUninstallation(ireq, **kwargs)
+def uninstall(name, **kwargs):
+    ireq = pip_shims.InstallRequirement.from_line(name)
+    return RequirementUninstaller(ireq, **kwargs)
 
 
 @contextlib.contextmanager
