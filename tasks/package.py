@@ -3,7 +3,6 @@ import shutil
 import zipfile
 
 import distlib.scripts
-import distlib.wheel
 import invoke
 import passa.internals._pip
 import plette

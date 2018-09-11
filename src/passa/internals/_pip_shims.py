@@ -12,6 +12,7 @@ There are currently two members:
 from __future__ import absolute_import, unicode_literals
 
 import pip_shims
+import setuptools
 
 
 def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
@@ -50,6 +51,13 @@ def _unpack_url_pre10(*args, **kwargs):
 PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
 VERSION_10 = pip_shims.utils._parse("10")
 
+try:
+    PEP_517_SUPPORTED = (
+        pip_shims.utils._parse(setuptools.__version__) >=
+        pip_shims.utils._parse("36.6")
+    )
+except Exception as e:
+    PEP_517_SUPPORTED = False
 
 VCS_SUPPORT = pip_shims.VcsSupport()
 
