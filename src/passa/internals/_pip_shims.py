@@ -35,23 +35,7 @@ def _build_wheel_modern(ireq, output_dir, finder, wheel_cache, kwargs):
             kwargs["req_tracker"] = req_tracker
         preparer = pip_shims.RequirementPreparer(**kwargs)
         builder = pip_shims.WheelBuilder(finder, preparer, wheel_cache)
-        try:
-            ireq.prepare_metadata()
-            backend = getattr(ireq, "pep517_backend", None)
-            metadata_directory = getattr(ireq, "metadata_directory", None)
-        except Exception as e:
-            backend = None
-            metadata_directory = None
-        if metadata_directory and backend is not None:
-            try:
-                return ireq.pep517_backend.build_wheel(
-                    output_dir,
-                    metadata_directory=ireq.metadata_directory
-                )
-            except Exception:
-                return builder._build_one(ireq, output_dir)
-        else:
-            return builder._build_one(ireq, output_dir)
+        return builder._build_one(ireq, output_dir)
 
 
 def _unpack_url_pre10(*args, **kwargs):
@@ -64,10 +48,11 @@ def _unpack_url_pre10(*args, **kwargs):
 
 
 def make_abstract_sdist(req):
-    with pip_shims.RequirementTracker().track(req):
-        req.load_pyproject_toml()
+    with pip_shims.RequirementTracker() as tracker:
+        if tracker:
+            tracker.track(req)
         try:
-            req.prepare_metadata()
+            req.run_egg_info()
         except LookupError:
             pass
         finally:

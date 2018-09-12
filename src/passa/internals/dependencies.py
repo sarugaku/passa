@@ -12,7 +12,6 @@ import packaging.version
 import requests
 import requirementslib
 import six
-import vistir
 
 from ._pip import build_wheel, get_sdist
 from .caches import DependencyCache, RequiresPythonCache
@@ -22,11 +21,6 @@ from .utils import get_pinned_version, is_pinned
 
 DEPENDENCY_CACHE = DependencyCache()
 REQUIRES_PYTHON_CACHE = RequiresPythonCache()
-
-
-import structlog
-
-log = structlog.get_logger()
 
 
 def _cached(f, **kwargs):
@@ -234,17 +228,11 @@ def _get_dependencies_from_wheel(ireq, sources):
 
 
 def _get_dependencies_from_pip(ireq, sources):
-    log.info("getting deps from pip")
-    log.info("Install Requirement", ireq=ireq)
     dist = get_sdist(ireq, sources)
-    log.info("Source dist", dist=dist)
     requirements = dist.requires()
-    log.info("Requirements", requirements=requirements)
     if requirements:
         requirements = [
-            requirementslib.Requirement.from_metadata(
-                req.project_name, req.specifier, req.extras, req.marker
-            ).as_line() for req in requirements
+            str(req) for req in requirements
         ]
         return requirements, ""
     return
@@ -260,13 +248,9 @@ def get_dependencies(requirement, sources):
     getters = [
         _get_dependencies_from_cache,
         _cached(_get_dependencies_from_json, sources=sources),
-        # _cached(_get_dependencies_from_wheel, sources=sources),
+        _cached(_get_dependencies_from_wheel, sources=sources),
         _cached(_get_dependencies_from_pip, sources=sources),
     ]
-    setup_py = vistir.compat.Path(requirement.req.path).joinpath('setup.py')
-    log.info("Setup path", path=setup_py.as_posix())
-    # if requirement.editable and not setup_py.exists():
-    #     setup_py.write_text('')
     ireq = requirement.as_ireq()
     last_exc = None
     for getter in getters:
@@ -274,9 +258,6 @@ def get_dependencies(requirement, sources):
             result = getter(ireq)
         except Exception as e:
             last_exc = sys.exc_info()
-            log.info("Exception with ireq", ireq=ireq)
-            log.info("Exception", exception=sys.exc_info())
-            log.info("Getter", getter=getter)
             continue
         if result is not None:
             deps, pyreq = result
