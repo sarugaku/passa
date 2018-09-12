@@ -44,7 +44,6 @@ def _prepare_wheel_building_kwargs(ireq):
     else:
         src_dir = vistir.path.create_tracked_tempdir(prefix='passa-src')
 
-
     # This logic matches pip's behavior, although I don't fully understand the
     # intention. I guess the idea is to build editables in-place, otherwise out
     # of the source tree?
@@ -202,7 +201,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
 
 
 def get_vcs_ref(requirement):
-    backend = VCS_SUPPORT._registry.get(requirement.vcs)
+    backend = VCS_SUPPORT.get_backend(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
     src = _get_src_dir()
     name = requirement.normalized_name
@@ -215,7 +214,7 @@ def find_installation_candidates(ireq, sources):
     return finder.find_all_candidates(ireq.name)
 
 
-class RequirementUninstallation(object):
+class RequirementUninstaller(object):
     """A context manager to remove a package for the inner block.
 
     This uses `UninstallPathSet` to control the workflow. If the inner block
@@ -243,8 +242,9 @@ class RequirementUninstallation(object):
             self.pathset.rollback()
 
 
-def uninstall_requirement(ireq, **kwargs):
-    return RequirementUninstallation(ireq, **kwargs)
+def uninstall(name, **kwargs):
+    ireq = pip_shims.InstallRequirement.from_line(name)
+    return RequirementUninstaller(ireq, **kwargs)
 
 
 @contextlib.contextmanager

@@ -29,6 +29,21 @@ def _get_requirements(model, section_name):
     )}
 
 
+def _get_requires_python(pipfile):
+    try:
+        requires = pipfile.requires
+    except AttributeError:
+        return ""
+    try:
+        return requires.python_full_version
+    except AttributeError:
+        pass
+    try:
+        return requires.python_version
+    except AttributeError:
+        return ""
+
+
 def _collect_derived_entries(state, traces, identifiers):
     """Produce a mapping containing all candidates derived from `identifiers`.
 
@@ -93,6 +108,7 @@ class AbstractLocker(object):
         self.allow_prereleases = bool(
             project.pipfile.get("pipenv", {}).get("allow_prereleases", False),
         )
+        self.requires_python = _get_requires_python(project.pipfile)
 
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self.project.root)
@@ -132,7 +148,8 @@ class AbstractLocker(object):
 
         set_metadata(
             state.mapping, traces,
-            provider.fetched_dependencies, provider.requires_pythons,
+            provider.fetched_dependencies,
+            provider.collected_requires_pythons,
         )
 
         lockfile = plette.Lockfile.with_meta_from(self.project.pipfile)
@@ -153,7 +170,8 @@ class BasicLocker(AbstractLocker):
     """
     def get_provider(self):
         return BasicProvider(
-            self.requirements, self.sources, self.allow_prereleases,
+            self.requirements, self.sources,
+            self.requires_python, self.allow_prereleases,
         )
 
 
@@ -172,8 +190,8 @@ class PinReuseLocker(AbstractLocker):
 
     def get_provider(self):
         return PinReuseProvider(
-            self.preferred_pins,
-            self.requirements, self.sources, self.allow_prereleases,
+            self.preferred_pins, self.requirements, self.sources,
+            self.requires_python, self.allow_prereleases,
         )
 
 
@@ -190,5 +208,6 @@ class EagerUpgradeLocker(PinReuseLocker):
     def get_provider(self):
         return EagerUpgradeProvider(
             self.tracked_names, self.preferred_pins,
-            self.requirements, self.sources, self.allow_prereleases,
+            self.requirements, self.sources,
+            self.requires_python, self.allow_prereleases,
         )
