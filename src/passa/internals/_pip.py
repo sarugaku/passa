@@ -201,7 +201,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
 
 
 def get_vcs_ref(requirement):
-    backend = VCS_SUPPORT._registry.get(requirement.vcs)
+    backend = VCS_SUPPORT.get_backend(requirement.vcs)
     vcs = backend(url=requirement.req.vcs_uri)
     src = _get_src_dir()
     name = requirement.normalized_name
