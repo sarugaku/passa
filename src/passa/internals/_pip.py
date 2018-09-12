@@ -256,9 +256,9 @@ def get_sdist(ireq, sources, hashes=None):
     kwargs = _prepare_wheel_building_kwargs(ireq)
     finder = _get_finder(sources)
     ireq.populate_link(finder, False, False)
+    ireq.use_pep517 = None
     ireq = _patch_ireq(ireq)
     ireq.ensure_has_source_dir(kwargs["src_dir"])
-    ireq.use_pep517 = None
     egg_info_name = "%s.egg-info" % packaging.utils.canonicalize_name(ireq.name).replace("-", "_")
     ireq._egg_info_dir = os.path.join(ireq.source_dir, egg_info_name)
     ireq._egg_info_path = os.path.join(ireq.source_dir, egg_info_name)
@@ -272,6 +272,15 @@ def get_sdist(ireq, sources, hashes=None):
         )
         dist = make_abstract_sdist(ireq)
         return dist
+    elif ireq.use_pep517 and not ireq.is_wheel:
+        backend = getattr(ireq, "pep517_backend", None)
+        metadata_directory = getattr(ireq, "metadata_directory", None)
+        if backend and metadata_directory:
+            return ireq.pep517_backend.build_sdist(
+                kwargs["source_dir"],
+                kwargs["download_dir"],
+                metadata_directory=ireq.metadata_directory
+            )
     raise RuntimeError("Failed unpacking sdist %s" % ireq.name)
 
 
@@ -320,7 +329,7 @@ def build_wheel(ireq, sources, hashes=None):
             download_dir = kwargs["download_dir"]
         ireq.options["hashes"] = _convert_hashes(hashes)
         unpack_url(
-            ireq.link, ireq.source_dir, download_dir,
+            ireq.link, ireq.build_dir, download_dir,
             only_download=only_download, session=finder.session,
             hashes=ireq.hashes(False), progress_bar=False,
         )

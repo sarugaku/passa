@@ -12,6 +12,32 @@ from .utils import (
     filter_sources, get_allow_prereleases,
     are_requirements_equal, identify_requirment, strip_extras,
 )
+import logging
+import structlog
+import sys
+logging.basicConfig(format="%(message)s", stream=sys.stdout, level=logging.INFO)
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.KeyValueRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.stdlib.render_to_log_kwargs,
+        structlog.processors.ExceptionPrettyPrinter(),
+        structlog.dev.ConsoleRenderer()
+    ],
+    context_class=structlog.threadlocal.wrap_dict(dict),
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+
+log = structlog.get_logger()
 
 
 PROTECTED_PACKAGE_NAMES = {"pip", "setuptools"}
@@ -97,10 +123,10 @@ class BasicProvider(resolvelib.AbstractProvider):
             )
         except Exception as e:
             if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                log.error("failed to get dependencies",
+                            candidate=candidate.as_line(include_hashes=False),
+                            error=e)
                 raise
-            print("failed to get dependencies for {0!r}: {1}".format(
-                candidate.as_line(include_hashes=False), e,
-            ))
             dependencies = []
             requires_python = ""
         # Exclude protected packages from the list. This prevents those
