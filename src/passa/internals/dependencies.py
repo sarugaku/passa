@@ -12,8 +12,9 @@ import packaging.version
 import requests
 import requirementslib
 import six
+import vistir
 
-from ._pip import build_wheel
+from ._pip import build_wheel, get_sdist
 from .caches import DependencyCache, RequiresPythonCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
@@ -214,7 +215,7 @@ def _read_requires_python(metadata):
     return ""
 
 
-def _get_dependencies_from_pip(ireq, sources):
+def _get_dependencies_from_wheel(ireq, sources):
     """Retrieves dependencies for the requirement from pip internals.
 
     The current strategy is to build a wheel out of the ireq, and read metadata
@@ -227,6 +228,19 @@ def _get_dependencies_from_pip(ireq, sources):
     return requirements, requires_python
 
 
+def _get_dependencies_from_pip(ireq, sources):
+    dist = get_sdist(ireq, sources)
+    requirements = dist.requires()
+    if requirements:
+        requirements = [
+            requirementslib.Requirement.from_metadata(
+                req.project_name, req.specifier, req.extras, req.marker
+            ).as_line() for req in requirements
+        ]
+        return requirements, ""
+    return
+
+
 def get_dependencies(requirement, sources):
     """Get all dependencies for a given install requirement.
 
@@ -237,6 +251,7 @@ def get_dependencies(requirement, sources):
     getters = [
         _get_dependencies_from_cache,
         _cached(_get_dependencies_from_json, sources=sources),
+        _cached(_get_dependencies_from_wheel, sources=sources),
         _cached(_get_dependencies_from_pip, sources=sources),
     ]
     ireq = requirement.as_ireq()
