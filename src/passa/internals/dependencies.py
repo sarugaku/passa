@@ -13,7 +13,7 @@ import requests
 import requirementslib
 import six
 
-from ._pip import build_wheel
+from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
 from .caches import DependencyCache, RequiresPythonCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
@@ -217,13 +217,27 @@ def _read_requires_python(metadata):
 def _get_dependencies_from_pip(ireq, sources):
     """Retrieves dependencies for the requirement from pip internals.
 
-    The current strategy is to build a wheel out of the ireq, and read metadata
-    out of it.
+    The current strategy is to try the followings in order, returning the
+    first successful result.
+
+    1. Try to build a wheel out of the ireq, and read metadata out of it.
+    2. Read metadata out of the egg-info directory if it is present.
     """
-    wheel = build_wheel(ireq, sources)
     extras = ireq.extras or ()
-    requirements = _read_requirements(wheel.metadata, extras)
-    requires_python = _read_requires_python(wheel.metadata)
+    try:
+        wheel = build_wheel(ireq, sources)
+    except WheelBuildError:
+        # XXX: This depends on a side effect of `build_wheel`. This block is
+        # reached when it fails to build an sdist, where the sdist would have
+        # been downloaded, extracted into `ireq.source_dir`, and partially
+        # built (hopefully containing .egg-info).
+        metadata = read_sdist_metadata(ireq)
+        if not metadata:
+            raise
+    else:
+        metadata = wheel.metadata
+    requirements = _read_requirements(metadata, extras)
+    requires_python = _read_requires_python(metadata)
     return requirements, requires_python
 
 
