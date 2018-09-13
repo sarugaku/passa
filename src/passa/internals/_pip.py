@@ -178,7 +178,7 @@ def build_wheel(ireq, sources, hashes=None):
         unpack_url(
             ireq.link, ireq.source_dir, download_dir,
             only_download=only_download, session=finder.session,
-            hashes=ireq.hashes(False), progress_bar=False,
+            hashes=ireq.hashes(False), progress_bar="off",
         )
 
     if ireq.is_wheel:
