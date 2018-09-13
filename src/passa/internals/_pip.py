@@ -329,7 +329,7 @@ def _iter_egg_info_directories(root, name):
     for parent, dirnames, filenames in os.walk(root):
         matched_indexes = []
         for i, dirname in enumerate(dirnames):
-            if not dirname.lower().endswith(".egg-info"):
+            if not dirname.lower().endswith("egg-info"):
                 continue
             egg_info_name = packaging.utils.canonicalize_name(dirname[:-9])
             if egg_info_name != name:
