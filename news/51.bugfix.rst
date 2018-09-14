@@ -1,0 +1,1 @@
+Fix crash when running ``add`` and ``upgrade`` without a lock file.
