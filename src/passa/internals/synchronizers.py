@@ -109,7 +109,7 @@ def _build_paths():
     }
 
 
-PROTECTED_FROM_CLEAN = {"setuptools", "pip"}
+PROTECTED_FROM_CLEAN = {"setuptools", "pip", "wheel"}
 
 
 def _clean(names):
