@@ -8,6 +8,8 @@ import sys
 
 import tomlkit.exceptions
 
+from .options import project
+
 
 def build_project(root):
     # This is imported lazily to reduce import overhead. Not evey command
@@ -39,18 +41,30 @@ class BaseCommand(object):
     name = None
     description = None
     parsed_main = None
+    arguments = []
 
-    def __init__(self, parser):
+    def __init__(self, parser=None):
+        if not parser:
+            parser = argparse.ArgumentParser(
+                prog=os.path.basename(sys.argv[0]),
+                description="Base argument parser for passa"
+            )
         self.parser = parser
+        self.default_aguments = [project]
         self.add_arguments()
 
     @classmethod
-    def run_current_module(cls):
+    def build_parser(cls):
         parser = argparse.ArgumentParser(
             prog="passa {}".format(cls.name),
             description=cls.description,
         )
-        cls(parser)()
+        return cls(parser)
+
+    @classmethod
+    def run_parser(cls):
+        parser = cls.build_parser()
+        parser()
 
     def __call__(self, argv=None):
         options = self.parser.parse_args(argv)
@@ -58,16 +72,17 @@ class BaseCommand(object):
         if result is not None:
             sys.exit(result)
 
+    def add_default_arguments(self):
+        for arg in self.default_aguments:
+            arg.add_to_parser(self.parser)
+
     def add_arguments(self):
-        self.parser.add_argument(
-            "--project",
-            metavar="project",
-            default=os.getcwd(),
-            type=build_project,
-            help="path to project root (directory containing Pipfile)",
-        )
+        self.add_default_arguments()
+        for arg in self.arguments:
+            arg.add_to_parser(self.parser)
 
     def main(self, options):
-        # This __dict__ access is needed for Python 2 to prevent Python from
-        # wrapping parsed_main into an unbounded method.
-        return type(self).__dict__["parsed_main"](options)
+        return self.run(options)
+
+    def run(self, options):
+        raise NotImplementedError

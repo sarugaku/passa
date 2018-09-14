@@ -13,8 +13,8 @@ import requests
 import requirementslib
 import six
 
+from ..models.caches import DependencyCache, RequiresPythonCache
 from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
-from .caches import DependencyCache, RequiresPythonCache
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 

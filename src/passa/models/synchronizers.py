@@ -14,7 +14,7 @@ import packaging.markers
 import packaging.version
 import requirementslib
 
-from ._pip import uninstall, EditableInstaller, WheelInstaller
+from ..internals._pip import uninstall, EditableInstaller, WheelInstaller
 
 
 def _is_installation_local(name):
