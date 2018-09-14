@@ -10,7 +10,7 @@ import passa.models.projects
 import vistir
 
 
-class Project(passa.internals.projects.Project):
+class Project(passa.models.projects.Project):
     def __init__(self, root, *args, **kwargs):
         root = vistir.compat.Path(root).absolute()
         pipfile = root.joinpath("Pipfile")
