@@ -6,7 +6,7 @@ import os
 
 import tomlkit.exceptions
 
-import passa.internals.projects
+import passa.models.projects
 import vistir
 
 
