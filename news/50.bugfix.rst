@@ -1,0 +1,1 @@
+Correctly suppress the progress bar for pip’s ``unpack_url`` call.

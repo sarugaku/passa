@@ -1,0 +1,1 @@
+Fallback to evaluating egg-info in sdist if a wheel cannot be built out of it.
