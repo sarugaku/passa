@@ -6,8 +6,6 @@ import argparse
 import os
 import sys
 
-import tomlkit.exceptions
-
 from .options import project
 
 
