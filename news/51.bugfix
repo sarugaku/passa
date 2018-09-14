@@ -1,0 +1,1 @@
+Fixed a bug which prevented ``add`` and ``lock`` operations from completing on projects without an existing lockfile.

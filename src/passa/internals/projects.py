@@ -57,7 +57,7 @@ class ProjectFile(object):
     model = attr.ib()
 
     @classmethod
-    def read(cls, location, model_cls, invalid_ok=False):
+    def read(cls, location, model_cls, invalid_ok=False, default=None):
         try:
             with io.open(location, encoding="utf-8") as f:
                 model = model_cls.load(f)
@@ -65,7 +65,10 @@ class ProjectFile(object):
         except Exception:
             if not invalid_ok:
                 raise
-            model = None
+            if default:
+                model = model_cls(default)
+            else:
+                model = None
             line_ending = DEFAULT_NEWLINES
         return cls(location=location, line_ending=line_ending, model=model)
 
@@ -92,11 +95,26 @@ class Project(object):
         self._p = ProjectFile.read(
             os.path.join(root, "Pipfile"),
             plette.Pipfile,
+            default={}
         )
         self._l = ProjectFile.read(
             os.path.join(root, "Pipfile.lock"),
             plette.Lockfile,
             invalid_ok=True,
+            default={
+                "_meta": {
+                    'sources': [{
+                        "name": "pypi",
+                        "url": "https://pypi.org/simple",
+                        "verify_ssl": True
+                    }],
+                    'hash': {'sha256': ''},
+                    'requires': {'python_version': ''},
+                    'pipfile-spec': 6
+                },
+                "default": {},
+                "develop": {}
+            }
         )
 
     @property
