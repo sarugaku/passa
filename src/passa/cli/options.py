@@ -3,11 +3,15 @@ from __future__ import absolute_import
 
 import argparse
 import os
+import sys
 
 import tomlkit.exceptions
 
 import passa.models.projects
 import vistir
+
+
+PYTHON_VERSION = ".".join(str(v) for v in sys.version_info[:2])
 
 
 class Project(passa.models.projects.Project):
@@ -65,6 +69,17 @@ class ArgumentGroup(object):
 project = Option(
     "--project", metavar="project", default=os.getcwd(), type=Project,
     help="path to project root (directory containing Pipfile)",
+)
+
+new_project = Option(
+    "--project", metavar="project", default=os.getcwd(), type=str,
+    help="path to project root (directory containing Pipfile)",
+)
+
+python_version = Option(
+    "--py-version", "--python-version", "--requires-python", metavar="python-version",
+    dest="python_version", default=PYTHON_VERSION, type=str,
+    help="required minor python version for the project"
 )
 
 packages = Option(
@@ -135,3 +150,4 @@ strategy = Option(
 include_hashes_group = ArgumentGroup("include_hashes", is_mutually_exclusive=True, options=[include_hashes, no_include_hashes])
 dev_group = ArgumentGroup("dev", is_mutually_exclusive="True", options=[dev_only, default_only])
 package_group = ArgumentGroup("packages", options=[packages, editable, dev, no_sync])
+new_project_group = ArgumentGroup("new-project", options=[new_project, python_version])

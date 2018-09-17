@@ -14,7 +14,7 @@ class BaseCommand(object):
     """
     name = None
     description = None
-    parsed_main = None
+    default_arguments = [project]
     arguments = []
 
     def __init__(self, parser=None):
@@ -24,7 +24,6 @@ class BaseCommand(object):
                 description="Base argument parser for passa"
             )
         self.parser = parser
-        self.default_aguments = [project]
         self.add_arguments()
 
     @classmethod
@@ -47,7 +46,7 @@ class BaseCommand(object):
             sys.exit(result)
 
     def add_default_arguments(self):
-        for arg in self.default_aguments:
+        for arg in self.default_arguments:
             arg.add_to_parser(self.parser)
 
     def add_arguments(self):

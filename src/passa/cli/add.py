@@ -14,7 +14,7 @@ class Command(BaseCommand):
     arguments = [package_group]
 
     def run(self, options):
-        if not options.editable_lines and not options.requirement_lines:
+        if not options.editables and not options.packages:
             self.parser.error("Must supply either a requirement or --editable")
         return add_packages(
             packages=options.packages,

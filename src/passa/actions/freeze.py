@@ -90,4 +90,4 @@ def freeze(project=None, default=True, dev=True, include_hashes=None, target=Non
         f.write("\n")
         for line in requirement_lines:
             f.write(line)
-            f.write("\n\n")
+            f.write("\n")
