@@ -3,7 +3,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 
-def remove(project=None, only="default", packages=[], clean=True):
+def remove(project=None, only="default", packages=[], clean=True, sync=False):
     from passa.models.lockers import PinReuseLocker
     from passa.operations.lock import lock
 
