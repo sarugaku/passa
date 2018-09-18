@@ -8,6 +8,7 @@ import importlib
 import json
 import os
 import re
+import six
 import sys
 import sysconfig
 
@@ -97,6 +98,19 @@ class VirtualEnv(object):
         return path
 
     @cached_property
+    def system_paths(self):
+        paths = {}
+        importlib.reload(sysconfig)
+        paths = sysconfig.get_paths()
+        return paths
+
+    @cached_property
+    def sys_prefix(self):
+        c = self.run_py(["-c", "'import sys; print(sys.prefix)'"])
+        sys_prefix = vistir.misc.to_text(c.out).strip()
+        return sys_prefix
+
+    @cached_property
     def paths(self):
         paths = {}
         with vistir.contextmanagers.temp_environ(), vistir.contextmanagers.temp_path():
@@ -141,19 +155,45 @@ class VirtualEnv(object):
         ]
         return filtered_sources or sources
 
+    @cached_property
+    def python_version(self):
+        with self.activated():
+            importlib.reload(sysconfig)
+            py_version = sysconfig.get_python_version()
+            return py_version
+
+    def get_setup_install_args(self, pkgname, setup_py, develop=False):
+        headers = vistir.compat.Path(self.sys_prefix) / "include" / "site"
+        headers = headers / "python{0}".format(self.python_version) / pkgname
+        install_arg = "install" if not develop else "develop"
+        return [
+            self.python, "-u", "-c", SETUPTOOLS_SHIM % setup_py, install_arg,
+            "--single-version-externally-managed", "root={0}".format(),
+            "--install-headers={0}".format(headers.as_posix()),
+            "--install-purelib={0}".format(self.paths["purelib"]),
+            "--install-platlib={0}".format(self.paths["platlib"]),
+            "--install-scripts={0}".format(self.scripts_dir),
+            "--install-data={0}".format(self.paths["data"]),
+        ]
+
     def install(self, req, editable=False, sources=[]):
         with self.activated():
-            import passa.internals._pip_shims
-            importlib.reload(passa.internals._pip_shms)
+            import passa.internals._pip
+            install_options = ["--prefix={0}".format(self.venv_dir),]
+            importlib.reload(passa.internals._pip)
             ireq = req.as_ireq()
             if editable:
-                with vistir.contextmanagers.cd(ireq.setup_py_dir):
-                    c = self.run([self.python, "setup.py", "develop", "--no-deps"], cwd=ireq.setup_py_dir)
+                with vistir.contextmanagers.cd(ireq.setup_py_dir, ireq.setup_py):
+                    c = self.run(
+                        install_options + self.get_setup_install_args(
+                            req.name, develop=editable
+                        ), cwd=ireq.setup_py_dir
+                    )
                     return c.returncode
             importlib.reload(distlib.scripts)
             sources = self.filter_sources(req, sources)
             hashes = req.hashes
-            wheel = passa.internals._pip_shims.build_wheel(ireq, sources, hashes)
+            wheel = passa.internals._pip.build_wheel(ireq, sources, hashes)
             wheel.install(self.paths, distlib.scripts.ScriptMaker(None, None))
 
     @contextlib.contextmanager
@@ -195,6 +235,16 @@ class VirtualEnv(object):
             c = vistir.misc.run(script._parts, return_object=True, nospin=True, cwd=cwd)
         return c
 
+    def run_py(self, cmd, cwd=os.curdir):
+        c = None
+        if isinstance(cmd, six.string_types):
+            script = vistir.cmdparse.Script.parse("{0} {1}".format(self.python, cmd))
+        else:
+            script = vistir.cmdparse.Script.parse([self.python,] + list(cmd))
+        with self.activated():
+            c = vistir.misc.run(script._parts, return_object=True, nospin=True, cwd=cwd)
+        return c
+
     def is_installed(self, pkgname):
         return any(d for d in self.get_distributions() if d.project_name == pkgname)
 
@@ -210,3 +260,12 @@ class VirtualEnv(object):
             importlib.reload(sys.modules[module_name])
             ireq = pip_req_install.InstallRequirement.from_line(pkgname)
             return RequirementUninstaller(ireq, *args, **kwargs)
+
+
+SETUPTOOLS_SHIM = (
+    "import setuptools, tokenize;__file__=%r;"
+    "f=getattr(tokenize, 'open', open)(__file__);"
+    "code=f.read().replace('\\r\\n', '\\n');"
+    "f.close();"
+    "exec(compile(code, __file__, 'exec'))"
+)
