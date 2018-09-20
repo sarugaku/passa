@@ -13,4 +13,5 @@ def clean(project, default=True, dev=False, sync=True):
     if not success:
         return 1
 
-    print("Cleaned project at", project.root)
+    if sync:
+        print("Cleaned project at", project.root)

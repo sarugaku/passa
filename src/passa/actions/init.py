@@ -42,7 +42,7 @@ def init_project(root=None, python_version=None):
     index_urls = [parsed.index_url] + parsed.extra_index_urls
     sources = get_sources(index_urls, parsed.trusted_hosts)
     data = {
-        "sources": sources,
+        "source": sources,
         "packages": {},
         "dev-packages": {},
     }
