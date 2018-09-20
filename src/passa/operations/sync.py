@@ -16,8 +16,8 @@ def sync(syncer):
 
 
 def clean(cleaner):
-    print("Cleaning")
+    print("Cleaning...")
     cleaned = cleaner.clean()
     if cleaned:
-        print("Uninstalled: {}".format(", ".join(sorted(cleaned))))
+        cleaner.print(cleaned)
     return True

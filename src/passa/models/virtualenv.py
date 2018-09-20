@@ -6,6 +6,7 @@ import distlib.scripts
 import hashlib
 import importlib
 import json
+import posixpath
 import os
 import re
 import six
@@ -20,6 +21,7 @@ import vistir
 
 class VirtualEnv(object):
     def __init__(self, venv_dir):
+        self.recursive_monkey_patch = self.safe_import("recursive_monkey_patch")
         self.venv_dir = vistir.compat.Path(venv_dir)
 
     @classmethod
@@ -79,6 +81,26 @@ class VirtualEnv(object):
                 )
         return vistir.compat.Path(os.path.expandvars(workon_home)).expanduser()
 
+    @classmethod
+    def filter_sources(cls, requirement, sources):
+        if not sources or not requirement.index:
+            return sources
+        filtered_sources = [
+            source for source in sources
+            if source.get("name") == requirement.index
+        ]
+        return filtered_sources or sources
+
+    @classmethod
+    def safe_import(cls, name):
+        module = None
+        if name not in sys.modules:
+            module = importlib.import_module(name)
+        else:
+            module = sys.modules[name]
+        six.moves.reload_module(module)
+        return module
+
     @cached_property
     def script_basedir(self):
         script_dir = os.path.basename(sysconfig.get_paths()["scripts"])
@@ -93,13 +115,16 @@ class VirtualEnv(object):
         c = vistir.misc.run([self.python, "-c", "import json,sys; print(json.dumps(sys.path))"],
                             return_object=True, nospin=True)
         assert c.returncode == 0, "failed loading virtualenv path"
-        path = json.loads(c.out.strip())
+        path = [
+            path for path in json.loads(c.out.strip())
+            if posixpath.normpath(path).startswith(posixpath.normpath(str(self.venv_dir)))
+        ]
         return path
 
     @cached_property
     def system_paths(self):
         paths = {}
-        six.moves.reload_module(sysconfig)
+        sysconfig = self.safe_import("sysconfig")
         paths = sysconfig.get_paths()
         return paths
 
@@ -116,7 +141,7 @@ class VirtualEnv(object):
             os.environ["PYTHONUSERBASE"] = vistir.compat.fs_str(self.venv_dir.as_posix())
             os.environ["PYTHONIOENCODING"] = vistir.compat.fs_str("utf-8")
             os.environ["PYTHONDONTWRITEBYTECODE"] = vistir.compat.fs_str("1")
-            six.moves.reload_module(sysconfig)
+            sysconfig = self.safe_import("sysconfig")
             scheme, _, _ = sysconfig._get_default_scheme().partition('_')
             scheme = "{0}_user".format(scheme)
             paths = sysconfig.get_paths(scheme=scheme)
@@ -128,54 +153,26 @@ class VirtualEnv(object):
 
     @cached_property
     def passa_entry(self):
-        import pkg_resources
+        pkg_resources = self.safe_import("pkg_resources")
         return pkg_resources.working_set.by_key['passa'].location
 
     def get_distributions(self):
-        import pkg_resources
-        six.moves.reload_module(pkg_resources)
+        pkg_resources = self.safe_import("pkg_resources")
         return pkg_resources.find_distributions(self.paths["purelib"], only=True)
 
     def get_working_set(self):
         working_set = None
         import pkg_resources
         passa_entry = self.passa_entry
-        monkeypatch = self.monkeypatch_dist
-        working_set = pkg_resources.WorkingSet(self.sys_path + [passa_entry, monkeypatch])
+        working_set = pkg_resources.WorkingSet(self.sys_path + [passa_entry])
         return working_set
-
-    @classmethod
-    def filter_sources(cls, requirement, sources):
-        if not sources or not requirement.index:
-            return sources
-        filtered_sources = [
-            source for source in sources
-            if source.get("name") == requirement.index
-        ]
-        return filtered_sources or sources
 
     @cached_property
     def python_version(self):
         with self.activated():
-            six.moves.reload_module(sysconfig)
+            sysconfig = self.safe_import("sysconfig")
             py_version = sysconfig.get_python_version()
             return py_version
-
-    @classmethod
-    def safe_import(cls, name):
-        module = None
-        if name not in sys.modules:
-            module = importlib.import_module(name)
-        else:
-            module = sys.modules[name]
-        six.moves.reload_module(module)
-        return module
-
-    @cached_property
-    def monkeypatch_dist(self):
-        pkg_resources = self.safe_import("pkg_resources")
-        monkey_patch = pkg_resources.get_distribution('recursive-monkey-patch').location
-        return monkey_patch
 
     def get_setup_install_args(self, pkgname, setup_py, develop=False):
         headers = vistir.compat.Path(self.sys_prefix) / "include" / "site"
@@ -194,7 +191,7 @@ class VirtualEnv(object):
     def install(self, req, editable=False, sources=[]):
         with self.activated():
             install_options = ["--prefix={0}".format(self.venv_dir),]
-            six.moves.reload_module(passa.internals._pip)
+            passa_pip = self.safe_import("passa.internals._pip")
             ireq = req.as_ireq()
             if editable:
                 with vistir.contextmanagers.cd(ireq.setup_py_dir, ireq.setup_py):
@@ -204,11 +201,11 @@ class VirtualEnv(object):
                         ), cwd=ireq.setup_py_dir
                     )
                     return c.returncode
-            six.moves.reload_module(distlib.scripts)
+            distlib_scripts = self.safe_import("distlib.scripts")
             sources = self.filter_sources(req, sources)
             hashes = req.hashes
-            wheel = passa.internals._pip.build_wheel(ireq, sources, hashes)
-            wheel.install(self.paths, distlib.scripts.ScriptMaker(None, None))
+            wheel = passa_pip.build_wheel(ireq, sources, hashes)
+            wheel.install(self.paths, distlib_scripts.ScriptMaker(None, None))
 
     @contextlib.contextmanager
     def activated(self):
@@ -217,22 +214,20 @@ class VirtualEnv(object):
         original_user_base = os.environ.get("PYTHONUSERBASE", None)
         original_venv = os.environ.get("VIRTUAL_ENV", None)
         passa_path = vistir.compat.Path(__file__).absolute().parent.parent.as_posix()
-        monkeypatch_dist = self.monkeypatch_dist
         with vistir.contextmanagers.temp_environ(), vistir.contextmanagers.temp_path():
-            os.environ["PYTHONUSERBASE"] = vistir.compat.fs_str(self.venv_dir.as_posix())
             os.environ["PYTHONIOENCODING"] = vistir.compat.fs_str("utf-8")
             os.environ["PYTHONDONTWRITEBYTECODE"] = vistir.compat.fs_str("1")
-            os.environ["VIRTUAL_ENV"] = vistir.compat.fs_str(self.venv_dir.as_posix())
-            sys.path = self.sys_path
-            sys.prefix = self.venv_dir
-            import site
-            # sys.path.append(passa_path)
             activate_this = os.path.join(self.scripts_dir, "activate_this.py")
             with open(activate_this, "r") as f:
                 code = compile(f.read(), activate_this, "exec")
                 exec(code, dict(__file__=activate_this))
+            os.environ["PYTHONUSERBASE"] = vistir.compat.fs_str(self.venv_dir.as_posix())
+            os.environ["VIRTUAL_ENV"] = vistir.compat.fs_str(self.venv_dir.as_posix())
+            sys.path = self.sys_path
+            sys.prefix = self.venv_dir
+            site = self.safe_import("site")
             site.addsitedir(passa_path)
-            site.addsitedir(monkeypatch_dist)
+            sys.modules["recursive_monkey_patch"] = self.recursive_monkey_patch
             pkg_resources = self.safe_import("pkg_resources")
             try:
                 yield
@@ -269,15 +264,12 @@ class VirtualEnv(object):
         return any(d for d in self.get_distributions() if d.project_name == pkgname)
 
     def get_monkeypatched_pathset(self):
-        import recursive_monkey_patch
         from pip_shims.shims import req_install
         req_uninstall_name = "{0}.req_uninstall".format(req_install.__package__)
-        if req_uninstall_name not in sys.modules:
-            req_uninstall = importlib.import_module(req_uninstall_name)
-        else:
-            req_uninstall = sys.modules[req_uninstall_name]
-            six.moves.reload_module(req_uninstall)
-        recursive_monkey_patch.monkey_patch(PatchedUninstaller, req_uninstall.UninstallPathSet)
+        req_uninstall = self.safe_import(req_uninstall_name)
+        self.recursive_monkey_patch.monkey_patch(
+            PatchedUninstaller, req_uninstall.UninstallPathSet
+        )
         return req_uninstall.UninstallPathSet
 
     @contextlib.contextmanager
@@ -291,9 +283,8 @@ class VirtualEnv(object):
                 None
             )
             pathset = pathset_base.from_dist(dist)
-            print(pathset.paths)
             if pathset is not None:
-                pathset.remove(auto_confirm=auto_confirm, verbose=True)
+                pathset.remove(auto_confirm=auto_confirm, verbose=verbose)
             try:
                 yield pathset
             except Exception as e:

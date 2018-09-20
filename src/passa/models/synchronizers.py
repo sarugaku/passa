@@ -234,7 +234,7 @@ class Synchronizer(object):
 class Cleaner(object):
     """Helper class to clean packages not in a project's lock file.
     """
-    def __init__(self, project, default, develop, sync=True):
+    def __init__(self, project, default, develop, sync=True, verbose=False):
         self._root = project.root   # Only for repr.
         self.packages = _get_packages(project.lockfile, default, develop)
         self.sync = sync
@@ -243,9 +243,18 @@ class Cleaner(object):
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
+    def print(self, packages):
+        if not self.sync:
+            message = "Would clean: {0}"
+        else:
+            message = "Cleaned: {0}"
+        print(message.format(", ".join(sorted(set(packages)))))
+
     def clean(self):
         groupcoll = _group_installed_names(self.packages, venv=self.project.venv)
         cleaned = set()
         if self.sync:
             cleaned = _clean(groupcoll.unneeded, venv=self.project.venv)
+        else:
+            return groupcoll.unneeded
         return cleaned
