@@ -84,6 +84,7 @@ class ProjectFile(object):
 class Project(object):
 
     root = attr.ib()
+    env_prefix = attr.ib(default=None)
     _p = attr.ib(init=False)
     _l = attr.ib(init=False)
 

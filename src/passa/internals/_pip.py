@@ -17,8 +17,8 @@ import setuptools.dist
 import six
 import vistir
 
+from ..models.caches import CACHE_DIR
 from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
-from .caches import CACHE_DIR
 from .utils import filter_sources
 
 
