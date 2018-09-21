@@ -4,8 +4,8 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 
 def sync(project=None, dev=False, clean=True):
-    from passa.models.synchronizers import Synchronizer
-    from passa.operations.sync import sync
+    from installer.synchronizers import Synchronizer
+    from installer.operations import sync
 
     project = project
     syncer = Synchronizer(

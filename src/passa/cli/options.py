@@ -10,7 +10,6 @@ import six
 import tomlkit.exceptions
 
 import passa.models.projects
-import passa.models.virtualenv
 import vistir
 
 
@@ -25,19 +24,12 @@ class Project(passa.models.projects.Project):
             raise argparse.ArgumentError(
                 project, "{0!r} is not a Pipfile project".format(root.as_posix()),
             )
-        self.venv = self.get_venv(root)
         try:
-            super(Project, self).__init__(root.as_posix(), env_prefix=self.venv.venv_dir,
-                                            *args, **kwargs)
+            super(Project, self).__init__(root.as_posix(), *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
                 project, "failed to parse Pipfile: {0!r}".format(str(e)),
             )
-
-    def get_venv(self, root):
-        if 'VIRTUAL_ENV' in os.environ:
-            return passa.models.virtualenv.VirtualEnv(os.environ['VIRTUAL_ENV'])
-        return passa.models.virtualenv.VirtualEnv.from_project_path(root)
 
     def __name__(self):
         return "Project Root"

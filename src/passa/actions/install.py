@@ -17,8 +17,8 @@ def install(project=None, check=True, dev=False, clean=True):
         project._l.write()
         print("Written to project at", project.root)
 
-    from passa.models.synchronizers import Synchronizer
-    from passa.operations.sync import sync
+    from installer.synchronizer import Synchronizer
+    from installer.operations import sync
 
     syncer = Synchronizer(
         project, default=True, develop=dev,
