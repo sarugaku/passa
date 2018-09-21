@@ -5,7 +5,8 @@ import zipfile
 import distlib.scripts
 import distlib.wheel
 import invoke
-import passa.internals._pip
+import packagebuilder
+import passa.models.caches
 import plette
 import requirementslib
 
@@ -74,8 +75,8 @@ def pack(ctx, remove_lib=True):
         package.pop('editable', None)   # Don't install things as editable.
         package.pop('markers', None)    # Always install everything.
         r = requirementslib.Requirement.from_pipfile(name, package)
-        wheel = passa.internals._pip.build_wheel(
-            r.as_ireq(), sources, r.hashes or None,
+        wheel = packagebuilder._pip.build_wheel(
+            r.as_ireq(), sources, r.hashes or None, cache_dir=passa.models.caches.CACHE_DIR
         )
         wheel.install(paths, maker, lib_only=True)
 
