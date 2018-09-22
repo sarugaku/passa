@@ -4,6 +4,17 @@ from __future__ import absolute_import, unicode_literals
 
 from packaging.markers import Marker
 
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+
+def _ensure_marker(marker):
+    if not isinstance(marker, Marker):
+        return Marker(str(marker))
+    return marker
+
 
 def _strip_extra(elements):
     """Remove the "extra == ..." operands from the list.
@@ -49,7 +60,7 @@ def get_without_extra(marker):
     # meet the demands of a pep... -d
     if not marker:
         return None
-    marker = Marker(str(marker))
+    marker = _ensure_marker(marker)
     elements = marker._markers
     _strip_extra(elements)
     if elements:
@@ -68,6 +79,7 @@ def _markers_collect_extras(markers, collection):
             _markers_collect_extras(el, collection)
 
 
+@lru_cache(maxsize=128)
 def get_contained_extras(marker):
     """Collect "extra == ..." operands from a marker.
 
@@ -75,8 +87,8 @@ def get_contained_extras(marker):
     """
     if not marker:
         return set()
-    marker = Marker(str(marker))
     extras = set()
+    marker = _ensure_marker(marker)
     _markers_collect_extras(marker._markers, extras)
     return extras
 
@@ -92,10 +104,11 @@ def _markers_contains_extra(markers):
     return False
 
 
+@lru_cache(maxsize=128)
 def contains_extra(marker):
     """Check whehter a marker contains an "extra == ..." operand.
     """
     if not marker:
         return False
-    marker = Marker(str(marker))
+    marker = _ensure_marker(marker)
     return _markers_contains_extra(marker._markers)

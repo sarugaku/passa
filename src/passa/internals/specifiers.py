@@ -9,10 +9,18 @@ from packaging.specifiers import SpecifierSet, Specifier
 from vistir.misc import dedup
 
 
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+
+@lru_cache(maxsize=128)
 def _tuplize_version(version):
     return tuple(int(x) for x in version.split("."))
 
 
+@lru_cache(maxsize=128)
 def _format_version(version):
     return ".".join(str(i) for i in version)
 
@@ -21,6 +29,7 @@ def _format_version(version):
 REPLACE_RANGES = {">": ">=", "<=": "<"}
 
 
+@lru_cache(maxsize=128)
 def _format_pyspec(specifier):
     if isinstance(specifier, str):
         if not any(op in specifier for op in Specifier._operators.keys()):
@@ -42,6 +51,7 @@ def _format_pyspec(specifier):
     return specifier
 
 
+@lru_cache(maxsize=128)
 def _get_specs(specset):
     if isinstance(specset, Specifier):
         specset = str(specset)
@@ -53,6 +63,7 @@ def _get_specs(specset):
     ]
 
 
+@lru_cache(maxsize=128)
 def _group_by_op(specs):
     specs = [_get_specs(x) for x in list(specs)]
     flattened = [(op, version) for spec in specs for op, version in spec]
@@ -61,6 +72,7 @@ def _group_by_op(specs):
     return grouping
 
 
+@lru_cache(maxsize=128)
 def cleanup_pyspecs(specs, joiner="or"):
     specs = {_format_pyspec(spec) for spec in specs}
     # for != operator we want to group by version
@@ -113,6 +125,7 @@ def cleanup_pyspecs(specs, joiner="or"):
     return results
 
 
+@lru_cache(maxsize=128)
 def pyspec_from_markers(marker):
     if marker._markers[0][0] != 'python_version':
         return
