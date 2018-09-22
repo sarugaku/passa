@@ -11,7 +11,7 @@ import vistir
 import vistir.misc
 
 from ..internals.markers import get_without_extra
-from ..internals.specifiers import cleanup_pyspecs, pyspec_from_markers
+from ..internals.specifiers import PySpecs
 
 
 def dedup_markers(s):
@@ -28,24 +28,39 @@ class MetaSet(object):
     """
     def __init__(self):
         self.markerset = frozenset()
-        self.pyspecset = packaging.specifiers.SpecifierSet()
+        self.pyspecset = PySpecs()
 
     def __repr__(self):
         return "MetaSet(markerset={0!r}, pyspecset={1!r})".format(
             ",".join(sorted(self.markerset)), str(self.pyspecset),
         )
 
+    def __key(self):
+        return (tuple(self.markerset), hash(self.pyspecset))
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other):
+        return self.__key() == other.__key()
+
+    def __len__(self):
+        return len(self.markerset) + len(self.pyspecset)
+
+    def __iter__(self):
+        return itertools.chain(self.markerset, self.pyspecset)
+
     def __str__(self):
-        pyspecs = set()
+        pyspecs = PySpecs()
         markerset = set()
         for m in self.markerset:
-            marker_specs = pyspec_from_markers(packaging.markers.Marker(m))
+            marker_specs = PySpecs.from_marker(packaging.markers.Marker(m))
             if marker_specs:
                 pyspecs.add(marker_specs)
             else:
                 markerset.add(m)
         if pyspecs:
-            self.pyspecset._specs &= pyspecs
+            self.pyspecset.add(pyspecs)
             self.markerset = frozenset(markerset)
         return " and ".join(dedup_markers(itertools.chain(
             # Make sure to always use the same quotes so we can dedup properly.
@@ -54,8 +69,7 @@ class MetaSet(object):
                 for ms in (str(m).replace('"', "'") for m in self.markerset)
             ),
             (
-                "python_version {0[0]} '{0[1]}'".format(spec)
-                for spec in cleanup_pyspecs(self.pyspecset)
+                "{0}".format(str(spec)) for spec in self.pyspecset
             ),
         )))
 
@@ -68,16 +82,17 @@ class MetaSet(object):
     def __or__(self, pair):
         marker, specset = pair
         markerset = set(self.markerset)
+        specset = PySpecs(specset)
         if marker:
-            marker_specs = pyspec_from_markers(marker)
+            marker_specs = PySpecs.from_marker(marker)
             if not marker_specs:
                 markerset.add(str(marker))
             else:
-                specset._specs &= marker_specs
+                specset.add(marker_specs)
         metaset = MetaSet()
         metaset.markerset = frozenset(markerset)
         # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.
-        metaset.pyspecset &= self.pyspecset & specset
+        metaset.pyspecset = self.pyspecset | specset
         return metaset
 
 
@@ -100,11 +115,10 @@ def _build_metasets(dependencies, pythons, key, trace, all_metasets):
             markers,
             packaging.specifiers.SpecifierSet(python),
         )
-        metaset_iters.append(
-            parent_metaset | metaset
-            for parent_metaset in parent_metasets
-        )
-    return list(itertools.chain.from_iterable(metaset_iters))
+        for parent_metaset in parent_metasets:
+            child_metaset = parent_metaset | metaset
+            metasets.add(child_metaset)
+    return list(metasets)
 
 
 def _calculate_metasets_mapping(dependencies, pythons, traces):
@@ -118,7 +132,7 @@ def _calculate_metasets_mapping(dependencies, pythons, traces):
             metasets = _build_metasets(
                 dependencies, pythons, key, trace, all_metasets,
             )
-            if metasets is None:
+            if metasets is None or len(metasets) == 0:
                 continue
             new_metasets[key] = metasets
         if not new_metasets:
@@ -136,11 +150,11 @@ def _format_metasets(metasets):
         return None
 
     # This extra str(Marker()) call helps simplify the expression.
-    return str(packaging.markers.Marker(" or ".join(
-        "{0}".format(s) if " and " in s else s
-        for s in dedup_markers(str(metaset) for metaset in metasets
-        if metaset)
-    )))
+    _metasets = (dedup_markers(str(metaset) for metaset in metasets if metaset))
+    metaset_string = " or ".join(meta for meta in list(_metasets))
+    if not metaset_string:
+        return metaset_string
+    return str(packaging.markers.Marker(metaset_string))
 
 
 def set_metadata(candidates, traces, dependencies, pythons):
