@@ -1,5 +1,5 @@
 [packages]
-passa = { editable = true, path = '.' }
+passa = { editable = true, path = '.', extras = ['virtualenv'] }
 
 [dev-packages]
 black = '*'
