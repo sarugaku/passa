@@ -71,6 +71,9 @@ def _collect_derived_entries(state, traces, identifiers):
                 extras[name].extend(requirement.extras)
             except KeyError:
                 extras[name] = list(requirement.extras)
+        if requirement.editable and requirement.markers:
+            requirement.markers = set()
+            requirement.req.req.markers = set()
         entries[name] = next(iter(requirement.as_pipfile().values()))
     for name, ext in extras.items():
         entries[name]["extras"] = ext

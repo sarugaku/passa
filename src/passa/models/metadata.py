@@ -91,12 +91,13 @@ def _build_metasets(dependencies, pythons, key, trace, all_metasets):
             return
         all_parent_metasets.append((parent, parent_metasets))
 
-    metaset_iters = []
+    metasets = set()
     for parent, parent_metasets in all_parent_metasets:
         r = dependencies[parent][key]
         python = pythons[key]
+        markers = None if r.editable else get_without_extra(r.markers)
         metaset = (
-            get_without_extra(r.markers),
+            markers,
             packaging.specifiers.SpecifierSet(python),
         )
         metaset_iters.append(

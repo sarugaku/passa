@@ -5,7 +5,9 @@ from __future__ import absolute_import, unicode_literals
 import itertools
 import operator
 
-from packaging.specifiers import SpecifierSet, Specifier
+from packaging.markers import Marker
+from packaging.specifiers import Specifier, SpecifierSet
+
 from vistir.misc import dedup
 
 
@@ -17,7 +19,7 @@ except ImportError:
 
 @lru_cache(maxsize=128)
 def _tuplize_version(version):
-    return tuple(int(x) for x in version.split("."))
+    return tuple(int(x) for x in filter(lambda i: i != "*", version.split(".")))
 
 
 @lru_cache(maxsize=128)
@@ -35,8 +37,9 @@ def _format_pyspec(specifier):
         if not any(op in specifier for op in Specifier._operators.keys()):
             specifier = "=={0}".format(specifier)
         specifier = Specifier(specifier)
-    if specifier.operator == "==" and specifier.version.endswith(".*"):
-        specifier = Specifier("=={0}".format(specifier.version[:-2]))
+    version = specifier.version.replace(".*", "")
+    if ".*" in specifier.version:
+        specifier = Specifier("{0}{1}".format(specifier.operator, version))
     try:
         op = REPLACE_RANGES[specifier.operator]
     except KeyError:
@@ -53,14 +56,16 @@ def _format_pyspec(specifier):
 
 @lru_cache(maxsize=128)
 def _get_specs(specset):
+    if specset is None:
+        return
     if isinstance(specset, Specifier):
         specset = str(specset)
     if isinstance(specset, str):
         specset = SpecifierSet(specset.replace(".*", ""))
-    return [
-        (spec._spec[0], _tuplize_version(spec._spec[1]))
-        for spec in getattr(specset, "_specs", [])
-    ]
+    result = []
+    for spec in set(specset):
+        result.append((spec.operator, _tuplize_version(spec.version)))
+    return result
 
 
 @lru_cache(maxsize=128)
@@ -78,7 +83,7 @@ def cleanup_pyspecs(specs, joiner="or"):
     # for != operator we want to group by version
     # if all are consecutive, join as a list
     results = set()
-    for op, versions in _group_by_op(specs):
+    for op, versions in _group_by_op(tuple(specs)):
         versions = [version[1] for version in versions]
         versions = sorted(dedup(versions))
         # if we are doing an or operation, we need to use the min for >=
