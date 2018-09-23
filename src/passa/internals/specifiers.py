@@ -2,10 +2,10 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import collections
-import collections.abc
 import itertools
 import operator
+
+import six
 
 from cached_property import cached_property
 from packaging.markers import Marker
@@ -13,6 +13,9 @@ from packaging.specifiers import Specifier, SpecifierSet
 
 from vistir.misc import dedup
 
+
+six.add_move(six.MovedAttribute("Set", "collections", "collections.abc"))
+from six.moves import Set
 
 try:
     from functools import lru_cache
@@ -156,7 +159,7 @@ def pyspec_from_markers(marker):
     return None
 
 
-class PySpecs(collections.abc.Set):
+class PySpecs(Set):
     def __init__(self, specs=None):
         if not specs:
             specs = SpecifierSet()

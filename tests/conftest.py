@@ -58,7 +58,7 @@ def tmpvenv(virtualenv):
 
 @pytest.fixture(scope="function")
 def project(project_directory, tmpvenv):
-    passa_dist = BASE_WORKING_SET["passa"]
+    passa_dist = BASE_WORKING_SET.by_key["passa"]
     resolved = tmpvenv.resolve_dist(passa_dist, BASE_WORKING_SET)
     with tmpvenv.activated(extra_dists=list(resolved)):
         yield _Project(project_directory, tmpvenv)
