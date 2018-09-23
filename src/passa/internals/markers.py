@@ -54,10 +54,7 @@ def get_without_extra(marker):
     This could return `None` if the `extra == ...` part is the only one in the
     input marker.
     """
-    # TODO: Why is this very deep in the internals? Why is a better solution
-    # implementing it yourself when someone is already maintaining a codebase
-    # for this? It's literally a grammar implementation that is required to
-    # meet the demands of a pep... -d
+
     if not marker:
         return None
     marker = _ensure_marker(marker)

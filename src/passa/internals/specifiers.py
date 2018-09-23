@@ -3,6 +3,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import collections
+import collections.abc
 import itertools
 import operator
 
@@ -155,7 +156,7 @@ def pyspec_from_markers(marker):
     return None
 
 
-class PySpecs(collections.Set):
+class PySpecs(collections.abc.Set):
     def __init__(self, specs=None):
         if not specs:
             specs = SpecifierSet()
@@ -249,15 +250,14 @@ class PySpecs(collections.Set):
     @cached_property
     @lru_cache(maxsize=128)
     def marker_string(self):
-        marker_string = " and ".join(sorted(str(m) for m in self.as_string_set))
+        marker_string = " and ".join(sorted(str(m) for m in self.marker_set))
         if not marker_string:
             return ""
-        return marker_string
+        return str(Marker(marker_string))
 
     @cached_property
     @lru_cache(maxsize=128)
     def as_markers(self):
-        print("generating marker using string: %s" % self.marker_string)
         if not self.marker_string:
             return ""
         marker = Marker(self.marker_string)
@@ -265,8 +265,7 @@ class PySpecs(collections.Set):
 
     @lru_cache(maxsize=128)
     def __str__(self):
-        string_repr = u"{0}".format(str(self.marker_string))
-        print("converting to string: %s" % string_repr)
+        string_repr = "{0}".format(str(self.marker_string))
         return string_repr
 
     def __bool__(self):
@@ -301,9 +300,13 @@ class PySpecs(collections.Set):
                 for v in version.split(",")
             )
         elif op == "not in":
+            versions = version.split(",")
+            bad_versions = ["3.0", "3.1", "3.2", "3.3"]
+            if len(versions) >= 2 and any(v in versions for v in bad_versions):
+                versions = bad_versions
             specset.update(
                 Specifier("!={0}".format(v.strip()))
-                for v in version.split(",")
+                for v in bad_versions
             )
         else:
             specset.add(Specifier("".join([op, version])))
