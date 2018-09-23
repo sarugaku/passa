@@ -155,7 +155,7 @@ def pyspec_from_markers(marker):
     return None
 
 
-class PySpecs(collections.Set):
+class PySpecs(collections.abc.Set):
     def __init__(self, specs=None):
         if not specs:
             specs = SpecifierSet()
@@ -257,7 +257,6 @@ class PySpecs(collections.Set):
     @cached_property
     @lru_cache(maxsize=128)
     def as_markers(self):
-        print("generating marker using string: %s" % self.marker_string)
         if not self.marker_string:
             return ""
         marker = Marker(self.marker_string)
@@ -266,7 +265,6 @@ class PySpecs(collections.Set):
     @lru_cache(maxsize=128)
     def __str__(self):
         string_repr = u"{0}".format(str(self.marker_string))
-        print("converting to string: %s" % string_repr)
         return string_repr
 
     def __bool__(self):
