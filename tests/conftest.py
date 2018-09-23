@@ -4,6 +4,7 @@ import pytest
 import passa
 import passa.cli.options
 import mork.virtualenv
+import pkg_resources
 import sys
 import vistir
 
@@ -18,6 +19,9 @@ verify_ssl = true
 
 [dev-packages]
 """.strip()
+
+
+BASE_WORKING_SET = pkg_resources.WorkingSet(entries=sys.path)
 
 
 @pytest.fixture(scope="function")
@@ -54,8 +58,7 @@ def tmpvenv(virtualenv):
 
 @pytest.fixture(scope="function")
 def project(project_directory, tmpvenv):
-    venv_working_set = tmpvenv.initial_working_set
-    passa_dist = venv_working_set.by_key["passa"]
-    resolved = tmpvenv.resolve_dist(passa_dist, venv_working_set)
+    passa_dist = BASE_WORKING_SET["passa"]
+    resolved = tmpvenv.resolve_dist(passa_dist, BASE_WORKING_SET)
     with tmpvenv.activated(extra_dists=list(resolved)):
         yield _Project(project_directory, tmpvenv)
