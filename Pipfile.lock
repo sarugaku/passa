@@ -120,11 +120,11 @@
         },
         "installer": {
             "hashes": [
-                "sha256:4ad3f14753d506d9ce646ac10320a2b82395208109f2356ed9e7a234976d3b4b",
-                "sha256:b849d2d876ef71162cfa6fc92204120a5cd215cad373b83fddcab401490d5fbc"
+                "sha256:1ba23de573e9b95a8dcbd04fd026c40a64b77db0aadc48f28a844b4cb87479fe",
+                "sha256:f4f195c9b17ea7d2b631a758451485c6b080975349b4adebe45ef4bb022db069"
             ],
             "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
-            "version": "==0.1.0"
+            "version": "==0.1.1"
         },
         "modutil": {
             "hashes": [
@@ -136,11 +136,11 @@
         },
         "mork": {
             "hashes": [
-                "sha256:988dd3d768369e9c88bdade3d9b90ed3bfc91cb5eb229a0da4db9b119b0a5d7a",
-                "sha256:9cf945de7f69ed7ace8062509c5613c9484bdc2a5ac14caed6bba71f31f459c5"
+                "sha256:2a85d76bf669fd27d2532fa6721fc76fb7815d7ae7de62e095353f8aa845818c",
+                "sha256:bca61f20754f9432a7eec1874103b8fb6461a747e7b9b7dddcbd2fd6f9ffde32"
             ],
             "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
-            "version": "==0.1.0"
+            "version": "==0.1.1"
         },
         "packagebuilder": {
             "hashes": [
@@ -348,6 +348,7 @@
                 "sha256:62b089a55be1d8949cd2bc7e0df0bddb9e028faefc8c32038cc84862aefdd6e4",
                 "sha256:c31647edb69fd3d465a847ea3157d37bed1f95f19760b11a47aa91c04b666314"
             ],
+            "markers": "python_version == '2.6'",
             "version": "==1.4.0"
         },
         "arpeggio": {
@@ -568,11 +569,11 @@
         },
         "installer": {
             "hashes": [
-                "sha256:4ad3f14753d506d9ce646ac10320a2b82395208109f2356ed9e7a234976d3b4b",
-                "sha256:b849d2d876ef71162cfa6fc92204120a5cd215cad373b83fddcab401490d5fbc"
+                "sha256:1ba23de573e9b95a8dcbd04fd026c40a64b77db0aadc48f28a844b4cb87479fe",
+                "sha256:f4f195c9b17ea7d2b631a758451485c6b080975349b4adebe45ef4bb022db069"
             ],
             "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
-            "version": "==0.1.0"
+            "version": "==0.1.1"
         },
         "invoke": {
             "hashes": [
