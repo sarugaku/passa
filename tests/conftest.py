@@ -1,8 +1,9 @@
 # -*- coding=utf-8 -*-
 import os
 import pytest
+import passa
 import passa.cli.options
-import passa.models.virtualenv
+import mork.virtualenv
 import sys
 import vistir
 
@@ -41,17 +42,20 @@ def virtualenv(tmpdir_factory):
 
 class _Project(passa.cli.options.Project):
     def __init__(self, root, venv=None):
-        self.path = os.path.abspath(root)
+        self.path = root.strpath
         self.venv = venv
         super(_Project, self).__init__(self.path)
 
 
 @pytest.fixture
 def tmpvenv(virtualenv):
-    return passa.models.virtualenv.VirtualEnv(virtualenv)
+    return mork.virtualenv.VirtualEnv(virtualenv.strpath)
 
 
 @pytest.fixture(scope="function")
 def project(project_directory, tmpvenv):
-    with tmpvenv.activated():
+    venv_working_set = tmpvenv.initial_working_set
+    passa_dist = venv_working_set.by_key["passa"]
+    resolved = tmpvenv.resolve_dist(passa_dist, venv_working_set)
+    with tmpvenv.activated(extra_dists=list(resolved)):
         yield _Project(project_directory, tmpvenv)
