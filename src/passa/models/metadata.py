@@ -4,11 +4,14 @@ from __future__ import absolute_import, unicode_literals
 
 import copy
 import itertools
+import operator
 
 import packaging.markers
 import packaging.specifiers
 import vistir
 import vistir.misc
+
+from six.moves import reduce
 
 from ..internals.markers import get_without_extra
 from ..internals.specifiers import PySpecs
@@ -50,6 +53,18 @@ class MetaSet(object):
     def __iter__(self):
         return itertools.chain(self.markerset, self.pyspecset)
 
+    def __lt__(self, other):
+        return operator.lt(self.__key(), other.__key())
+
+    def __le__(self, other):
+        return operator.le(self.__key(), other.__key())
+
+    def __ge__(self, other):
+        return operator.ge(self.__key(), other.__key())
+
+    def __gt__(self, other):
+        return operator.gt(self.__key(), other.__key())
+
     def __str__(self):
         pyspecs = PySpecs()
         markerset = set()
@@ -80,19 +95,38 @@ class MetaSet(object):
         return self.__bool__()
 
     def __or__(self, pair):
-        marker, specset = pair
-        markerset = set(self.markerset)
-        specset = PySpecs(specset)
-        if marker:
-            marker_specs = PySpecs.from_marker(marker)
-            if not marker_specs:
-                markerset.add(str(marker))
-            else:
-                specset.add(marker_specs)
         metaset = MetaSet()
+        markerset = set(self.markerset)
+        pyspecset = PySpecs()
+        pyspecset |= self.pyspecset
+        if isinstance(pair, MetaSet):
+            markerset |= set(pair.markerset)
+            metaset.markerset = frozenset(markerset)
+            pyspecset |= pair.pyspecset
+            pyspecset.clean()
+            metaset.pyspecset = pyspecset
+            return metaset
+        marker, specset = pair
+        pyspecset |= PySpecs(specset)
+        if marker:
+            real_markers = set()
+            pyspec_markers = []
+            for mkr in marker._markers:
+                if isinstance(mkr, tuple):
+                    marker_string = " ".join([elem.serialize() for elem in mkr])
+                    if mkr[0].value == "python_version":
+                        pyspec_markers.append(marker_string)
+                    else:
+                        real_markers.add(marker_string)
+            if pyspec_markers:
+                pyspec_markers = " and ".join(pyspec_markers)
+                marker_specs = PySpecs.from_marker(packaging.markers.Marker(pyspec_markers))
+                pyspecset |= marker_specs
+            if real_markers:
+                markerset |= real_markers
+        pyspecset.clean()
+        metaset.pyspecset = pyspecset
         metaset.markerset = frozenset(markerset)
-        # TODO: Implement some logic to clean up dups like '3.0.*' and '3.0'.
-        metaset.pyspecset = self.pyspecset | specset
         return metaset
 
 
@@ -150,10 +184,13 @@ def _format_metasets(metasets):
         return None
 
     # This extra str(Marker()) call helps simplify the expression.
-    _metasets = (dedup_markers(str(metaset) for metaset in metasets if metaset))
-    metaset_string = " or ".join(meta for meta in list(_metasets))
+    combined_metaset = MetaSet()
+    metasets = [combined_metaset,] + metasets
+    combined_metaset = reduce(lambda x, y: x | y, metasets)
+    metaset_string = str(combined_metaset)
     if not metaset_string:
         return metaset_string
+    metaset_string = str(MetaSet() | (packaging.markers.Marker(metaset_string), None))
     return str(packaging.markers.Marker(metaset_string))
 
 

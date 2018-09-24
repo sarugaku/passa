@@ -15,7 +15,7 @@ from vistir.misc import dedup
 
 
 six.add_move(six.MovedAttribute("Set", "collections", "collections.abc"))
-from six.moves import Set
+from six.moves import reduce, Set
 
 try:
     from functools import lru_cache
@@ -159,6 +159,13 @@ def pyspec_from_markers(marker):
     return None
 
 
+def gen_marker(mkr):
+    m = Marker("python_version == '1'")
+    m._markers.pop()
+    m._markers.append(mkr)
+    return m
+
+
 class PySpecs(Set):
     def __init__(self, specs=None):
         if not specs:
@@ -292,7 +299,14 @@ class PySpecs(Set):
     @classmethod
     @lru_cache(maxsize=128)
     def from_marker(cls, marker):
-        if marker._markers[0][0] != 'python_version':
+        if len(marker._markers) > 1:
+            markers = [
+                gen_marker(mkr) for mkr in marker._markers
+                if not isinstance(mkr, six.string_types)
+            ]
+            markers = [cls.from_marker(mkr) for mkr in markers]
+            return reduce(lambda x, y: x | y, [marker for marker in markers if marker])
+        if marker._markers[0][0].value != 'python_version':
             return
         op = marker._markers[0][1].value
         version = marker._markers[0][2].value
