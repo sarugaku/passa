@@ -143,30 +143,6 @@ def cleanup_pyspecs(specs, joiner="or"):
     return results
 
 
-@lru_cache(maxsize=128)
-def pyspec_from_markers(marker):
-    if marker._markers[0][0] != 'python_version':
-        return
-    op = marker._markers[0][1].value
-    version = marker._markers[0][2].value
-    specset = set()
-    if op == "in":
-        specset.update(
-            Specifier("=={0}".format(v.strip()))
-            for v in version.split(",")
-        )
-    elif op == "not in":
-        specset.update(
-            Specifier("!={0}".format(v.strip()))
-            for v in version.split(",")
-        )
-    else:
-        specset.add(Specifier("".join([op, version])))
-    if specset:
-        return specset
-    return None
-
-
 def gen_marker(mkr):
     m = Marker("python_version == '1'")
     m._markers.pop()
@@ -175,6 +151,12 @@ def gen_marker(mkr):
 
 
 class PySpecs(Set):
+
+    MAX_VERSIONS = {
+        2: 7,
+        3: 9
+    }
+
     def __init__(self, specs=None):
         if not specs:
             specs = SpecifierSet()
@@ -209,6 +191,16 @@ class PySpecs(Set):
         for version in self.as_string_set:
             yield version
         return
+
+    @classmethod
+    def get_versions(cls):
+        major_versions = list(cls.MAX_VERSIONS.keys())
+        versions = (
+            "{0}.{1}".format(major, minor) for major in major_versions
+            for minor in range(cls.MAX_VERSIONS[major] + 1)
+        )
+        versions = (packaging.version.parse(v) for v in versions)
+        return versions
 
     def clean(self):
         if len(set(self.specifierset)) == 1:
@@ -305,13 +297,22 @@ class PySpecs(Set):
 
     @lru_cache(maxsize=128)
     def __and__(self, other):
+        # Unintuitive perhaps, but this is for "x or y" and needs to handle the
+        # widest possible range encapsulated by the two using the intersection
         if not isinstance(other, PySpecs):
             specset = PySpecs(other)
         if self == other:
             return self
         new_specset = SpecifierSet()
         diff_specset = SpecifierSet()
-        intersection = set(self.as_specset) & set(other.as_specset)
+        own_versions = [v for v in self.get_versions() if v in self.specifierset]
+        other_versions = [v for v in self.get_versions() if v in other.specifierset]
+        intersection = set(own_versions) & set(other_versions)
+        min_included = None
+        max_included = None
+        if intersection:
+        max_included = max(intersection)
+        min_included = min(intersection)
         diff_specset._specs = frozenset(set(self.as_specset) ^ set(other.as_specset))
         tuples = cleanup_pyspecs(diff_specset, joiner="or")
         new_marker_str = " and ".join(
