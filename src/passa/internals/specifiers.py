@@ -69,7 +69,15 @@ def _get_specs(specset):
         specset = SpecifierSet(specset.replace(".*", ""))
     result = []
     for spec in set(specset):
-        result.append((spec.operator, _tuplize_version(spec.version)))
+        version = spec.version
+        op = spec.operator
+        if op in ("in", "not in"):
+            versions = version.split(",")
+            op = "==" if op == "in" else "!="
+            for ver in versions:
+                result.append((op, _tuplize_version(ver.strip())))
+        else:
+            result.append((spec.operator, _tuplize_version(spec.version)))
     return result
 
 
@@ -77,7 +85,7 @@ def _get_specs(specset):
 def _group_by_op(specs):
     specs = [_get_specs(x) for x in list(specs)]
     flattened = [(op, version) for spec in specs for op, version in spec]
-    specs = sorted(flattened, key=operator.itemgetter(1))
+    specs = sorted(flattened)
     grouping = itertools.groupby(specs, key=operator.itemgetter(0))
     return grouping
 
@@ -208,15 +216,26 @@ class PySpecs(Set):
             if spec:
                 self.cleaned_tuples.add((spec.operator, spec.version))
         else:
-            self.cleaned_tuples = cleanup_pyspecs(self.specifierset)
+            self.cleaned_tuples = cleanup_pyspecs(self.specifierset, joiner="and")
             self.specifierset = self.as_specset
 
     def add(self, other):
-        new_pyspec = PySpecs(self.specifierset)
-        new_pyspec.specifierset &= other.specifierset
-        return new_pyspec
+        if not isinstance(other, self.__class__):
+            if isinstance(other, SpecifierSet):
+                other = PySpecs(other)
+            else:
+                raise TypeError("Cannot add type {0!r} to PySpecs".format(type(other)))
+        new_specifierset = SpecifierSet()
+        new_specifierset &= self.as_specset
+        try:
+            new_specifierset &= other.as_specset
+        except AttributeError:
+            pass
+        new_pyspec = PySpecs(new_specifierset)
+        self.specifierset = new_pyspec.specifierset
+        self.cleaned_tuples = new_pyspec.cleaned_tuples
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def as_specset(self):
         specs = set()
@@ -232,12 +251,12 @@ class PySpecs(Set):
         specifierset._specs = frozenset(specs)
         return specifierset
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def as_set(self):
         return set(self.specifierset)
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def as_string_set(self):
         returnval = set()
@@ -251,13 +270,13 @@ class PySpecs(Set):
             for s in sorted(self.cleaned_tuples)
         )
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def marker_set(self):
         markerset = {Marker(spec) for spec in self.as_string_set}
         return markerset
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def marker_string(self):
         marker_string = " and ".join(sorted(str(m) for m in self.marker_set))
@@ -265,7 +284,7 @@ class PySpecs(Set):
             return ""
         return str(Marker(marker_string))
 
-    @cached_property
+    @property
     @lru_cache(maxsize=128)
     def as_markers(self):
         if not self.marker_string:
@@ -285,6 +304,29 @@ class PySpecs(Set):
         return self.__bool__()
 
     @lru_cache(maxsize=128)
+    def __and__(self, other):
+        if not isinstance(other, PySpecs):
+            specset = PySpecs(other)
+        if self == other:
+            return self
+        new_specset = SpecifierSet()
+        diff_specset = SpecifierSet()
+        intersection = set(self.as_specset) & set(other.as_specset)
+        diff_specset._specs = frozenset(set(self.as_specset) ^ set(other.as_specset))
+        tuples = cleanup_pyspecs(diff_specset, joiner="or")
+        new_marker_str = " and ".join(
+            "python_version {0} '{1}'".format(op, val)
+            for op, val in tuples
+        )
+        specset = set()
+        if new_marker_str:
+            marker = Marker(new_marker_str)
+            specset = set(PySpecs.from_marker(marker).as_specset)
+        specset = frozenset(specset | intersection)
+        new_specset._specs = specset
+        return PySpecs(new_specset)
+
+    @lru_cache(maxsize=128)
     def __or__(self, specset):
         if not isinstance(specset, PySpecs):
             specset = PySpecs(specset)
@@ -297,15 +339,18 @@ class PySpecs(Set):
         return new_pyspec
 
     @classmethod
-    @lru_cache(maxsize=128)
     def from_marker(cls, marker):
+        if not marker:
+            return PySpecs()
         if len(marker._markers) > 1:
-            markers = [
-                gen_marker(mkr) for mkr in marker._markers
-                if not isinstance(mkr, six.string_types)
-            ]
-            markers = [cls.from_marker(mkr) for mkr in markers]
-            return reduce(lambda x, y: x | y, [marker for marker in markers if marker])
+            specs = PySpecs()
+            markers = sorted([
+                el for el in marker._markers
+                if isinstance(el, tuple)
+            ], key=lambda x: x[2].value)
+            for mkr in markers:
+                specs.add(cls.from_marker(gen_marker(mkr)))
+            return specs
         if marker._markers[0][0].value != 'python_version':
             return
         op = marker._markers[0][1].value
@@ -317,13 +362,13 @@ class PySpecs(Set):
                 for v in version.split(",")
             )
         elif op == "not in":
-            versions = version.split(",")
+            versions = [v.strip() for v in version.split(",")]
             bad_versions = ["3.0", "3.1", "3.2", "3.3"]
             if len(versions) >= 2 and any(v in versions for v in bad_versions):
                 versions = bad_versions
             specset.update(
                 Specifier("!={0}".format(v.strip()))
-                for v in bad_versions
+                for v in sorted(bad_versions)
             )
         else:
             specset.add(Specifier("".join([op, version])))
