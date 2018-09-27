@@ -7,15 +7,15 @@ import operator
 
 import six
 
-from cached_property import cached_property
 from packaging.markers import Marker
 from packaging.specifiers import Specifier, SpecifierSet
+import packaging.version
 
 from vistir.misc import dedup
 
-
 six.add_move(six.MovedAttribute("Set", "collections", "collections.abc"))
 from six.moves import reduce, Set
+
 
 try:
     from functools import lru_cache
@@ -55,6 +55,13 @@ def _format_pyspec(specifier):
         next_tuple = (curr_tuple[0], curr_tuple[1] + 1)
     except IndexError:
         next_tuple = (curr_tuple[0], 1)
+    if not next_tuple[1] <= PySpecs.MAX_VERSIONS[next_tuple[0]]:
+        if (specifier.operator == "<"
+                and next_tuple[1] - 1 <= PySpecs.MAX_VERSIONS[next_tuple[0]]):
+            op = "<="
+            next_tuple = (next_tuple[0], next_tuple[1] - 1)
+        else:
+            return specifier
     specifier = Specifier("{0}{1}".format(op, _format_version(next_tuple)))
     return specifier
 
@@ -143,6 +150,49 @@ def cleanup_pyspecs(specs, joiner="or"):
     return results
 
 
+def fix_version_tuple(version_tuple):
+    op, version = version_tuple
+    max_allowed = PySpecs.MAX_VERSIONS[version[0]]
+    if op == "<" and version[1] > max_allowed and version[1] - 1 <= max_allowed:
+        op = "<="
+        version = (version[0], version[1] - 1)
+    return (op, version)
+
+
+@lru_cache(maxsize=128)
+def get_versions(specset, group_by_operator=True):
+    specs = [_get_specs(x) for x in list(tuple(specset))]
+    initial_sort_key = lambda k: (k[0], k[1])
+    initial_grouping_key = operator.itemgetter(0)
+    if not group_by_operator:
+        initial_grouping_key = operator.itemgetter(1)
+        initial_sort_key = operator.itemgetter(1)
+    version_tuples = sorted(
+        set((op, version) for spec in specs for op, version in spec),
+        key=initial_sort_key
+    )
+    version_tuples = [fix_version_tuple(t) for t in version_tuples]
+    op_groups = [
+        (grp, list(map(operator.itemgetter(1), keys)))
+        for grp, keys in itertools.groupby(version_tuples, key=initial_grouping_key)
+    ]
+    versions = [
+        (op, packaging.version.parse(".".join(str(v) for v in val)))
+        for op, vals in op_groups for val in vals
+    ]
+    return versions
+
+
+def get_next_python(version):
+    version_index = ALL_PYTHON_VERSIONS.index(version)
+    return ALL_PYTHON_VERSIONS[version_index + 1]
+
+
+def get_previous_python(version):
+    version_index = ALL_PYTHON_VERSIONS.index(version)
+    return ALL_PYTHON_VERSIONS[version_index - 1]
+
+
 def gen_marker(mkr):
     m = Marker("python_version == '1'")
     m._markers.pop()
@@ -191,16 +241,6 @@ class PySpecs(Set):
         for version in self.as_string_set:
             yield version
         return
-
-    @classmethod
-    def get_versions(cls):
-        major_versions = list(cls.MAX_VERSIONS.keys())
-        versions = (
-            "{0}.{1}".format(major, minor) for major in major_versions
-            for minor in range(cls.MAX_VERSIONS[major] + 1)
-        )
-        versions = (packaging.version.parse(v) for v in versions)
-        return versions
 
     def clean(self):
         if len(set(self.specifierset)) == 1:
@@ -295,36 +335,89 @@ class PySpecs(Set):
     def __nonzero__(self):  # Python 2.
         return self.__bool__()
 
+    def get_versions(self, group_by_operator=True):
+        return get_versions(self.specifierset, group_by_operator=group_by_operator)
+
+    def get_versions_in_specset(self):
+        return set([v[1] for v in self.get_versions() if v[1] in self.specifierset])
+
+    def get_version_excludes(self):
+        return set(v[1] for v in self.get_versions() if v[1] not in self.specifierset)
+
+    def group_specs(self, specs=None, handle_exclusions=True):
+        if not specs:
+            specs = self.get_versions(group_by_operator=handle_exclusions)
+        else:
+            specs = get_versions(specs, group_by_operator=handle_exclusions)
+        pyversions = enumerate(self.get_versions(group_by_operator=handle_exclusions))
+
+        def get_version(v):
+            return ALL_PYTHON_VERSIONS.index(v[1][1])
+
+        excludes = set()
+        ranges = set()
+
+        # group the versions on their index from ALL_PYTHON_VERSIONS - their index here
+        # consecutive elements will share a group, e.g.
+        # ALL_PYTHON_VERSIONS.index(parse_version("2.7")) == 7, 3.0 == 8, 3.1 == 9
+        # if 2.7 is element 1, (7 - 1) = 6, if 3.0 is element 2, (8 - 2) = 6
+        # and they will share a group (i.e. they are consecutive)
+        for k, grp in itertools.groupby(pyversions, lambda t: get_version(t) - t[0]):
+            version_group = list(grp)
+            op = next(iter(v[1][0] for v in version_group), None)
+            _versions = [v[1][1] for v in version_group]
+            if op == "!=":
+                excludes.update(set(_versions))
+            else:
+                min_ = min(_versions)
+                max_ = max(_versions)
+                if len(_versions) == 1 or str(min_) == str(max_):
+                    ranges.add((min_,))
+                else:
+                    ranges.add((min_, max_))
+        return ranges, excludes
+
+    def create_specset_from_ranges(self, specset=None, ranges=None, excludes=None):
+        group_args = {"handle_exclusions": False}
+        if specset:
+            group_args["specs"] = specset
+        if not ranges:
+            ranges, _ = self.group_specs(**group_args)
+        if not excludes:
+            group_args["handle_exclusions"] = True
+            _, excludes = self.group_specs(**group_args)
+        spec_ranges = set()
+        for range_ in ranges:
+            if len(range_) == 1:
+                spec_ranges.add(Specifier("=={0}".format(str(next(iter(range_))))))
+            else:
+                min_, max_ = range_
+                if min_ == max_:
+                    spec_ranges.add("<={0}").format(min_)
+                else:
+                    spec_ranges.add(Specifier(">={0}".format(str(min_))))
+                    spec_ranges.add(Specifier("<={0}".format(str(max_))))
+        for exclude in excludes:
+            spec_ranges.add(Specifier("!={0}".format(str(exclude))))
+        new_specset = SpecifierSet()
+        new_specset._specs = frozenset(spec_ranges)
+
     @lru_cache(maxsize=128)
     def __and__(self, other):
         # Unintuitive perhaps, but this is for "x or y" and needs to handle the
         # widest possible range encapsulated by the two using the intersection
         if not isinstance(other, PySpecs):
-            specset = PySpecs(other)
+            other = PySpecs(other)
         if self == other:
             return self
         new_specset = SpecifierSet()
-        diff_specset = SpecifierSet()
-        own_versions = [v for v in self.get_versions() if v in self.specifierset]
-        other_versions = [v for v in self.get_versions() if v in other.specifierset]
-        intersection = set(own_versions) & set(other_versions)
-        min_included = None
-        max_included = None
-        if intersection:
-        max_included = max(intersection)
-        min_included = min(intersection)
-        diff_specset._specs = frozenset(set(self.as_specset) ^ set(other.as_specset))
-        tuples = cleanup_pyspecs(diff_specset, joiner="or")
-        new_marker_str = " and ".join(
-            "python_version {0} '{1}'".format(op, val)
-            for op, val in tuples
-        )
-        specset = set()
-        if new_marker_str:
-            marker = Marker(new_marker_str)
-            specset = set(PySpecs.from_marker(marker).as_specset)
-        specset = frozenset(specset | intersection)
-        new_specset._specs = specset
+        own_ranges, own_excludes = self.group_specs()
+        other_ranges, other_excludes = other.group_specs()
+        # In order to do an "or" propertly we need to intersect the "good" versions
+        intersection = self.get_versions_in_specset() & other.get_versions_in_specset()
+        # And then we need to union the "bad" versions
+        excludes = own_excludes | other_excludes
+        new_specset = self.create_specset_from_ranges(ranges=intersection, excludes=excludes)
         return PySpecs(new_specset)
 
     @lru_cache(maxsize=128)
@@ -379,3 +472,16 @@ class PySpecs(Set):
             newset = cls(specifierset)
             return newset
         return None
+
+
+def get_all_python_versions():
+    major_versions = list(PySpecs.MAX_VERSIONS.keys())
+    versions = (
+        "{0}.{1}".format(major, minor) for major in major_versions
+        for minor in range(PySpecs.MAX_VERSIONS[major] + 1)
+    )
+    versions = (packaging.version.parse(v) for v in versions)
+    return versions
+
+
+ALL_PYTHON_VERSIONS = sorted(get_all_python_versions())
