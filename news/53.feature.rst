@@ -1,0 +1,1 @@
+Refactored and restructured the internals for improved organization and separation of concerns.

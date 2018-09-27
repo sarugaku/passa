@@ -82,21 +82,6 @@ def is_pinned(ireq):
     return True
 
 
-def filter_sources(requirement, sources):
-    """Returns a filtered list of sources for this requirement.
-
-    This considers the index specified by the requirement, and returns only
-    matching source entries if there is at least one.
-    """
-    if not sources or not requirement.index:
-        return sources
-    filtered_sources = [
-        source for source in sources
-        if source.get("name") == requirement.index
-    ]
-    return filtered_sources or sources
-
-
 def get_allow_prereleases(requirement, global_setting):
     # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
     return global_setting
