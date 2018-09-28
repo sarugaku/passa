@@ -10,7 +10,7 @@ import six
 import tomlkit.exceptions
 
 import passa.models.projects
-import passa.models.virtualenv
+import mork
 import vistir
 
 
@@ -36,8 +36,8 @@ class Project(passa.models.projects.Project):
 
     def get_venv(self, root):
         if 'VIRTUAL_ENV' in os.environ:
-            return passa.models.virtualenv.VirtualEnv(os.environ['VIRTUAL_ENV'])
-        return passa.models.virtualenv.VirtualEnv.from_project_path(root)
+            return mork.VirtualEnv(os.environ['VIRTUAL_ENV'])
+        return mork.VirtualEnv.from_project_path(root)
 
     def __name__(self):
         return "Project Root"

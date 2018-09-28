@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import, unicode_literals, print_function
 
 import collections
 import contextlib
@@ -13,8 +13,6 @@ import pkg_resources
 import packaging.markers
 import packaging.version
 import requirementslib
-
-from .virtualenv import VirtualEnv
 
 from ..internals._pip import uninstall, EditableInstaller, WheelInstaller
 
@@ -135,7 +133,7 @@ def _clean(names, venv=None):
         if name in PROTECTED_FROM_CLEAN:
             continue
         with _remove_package(name, venv=venv) as uninst:
-            if uninst.paths:
+            if uninst:
                 cleaned.add(name)
     return cleaned
 
@@ -244,11 +242,13 @@ class Cleaner(object):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
     def print(self, packages):
+        message = ""
         if not self.sync:
             message = "Would clean: {0}"
         else:
             message = "Cleaned: {0}"
-        print(message.format(", ".join(sorted(set(packages)))))
+        packages = ", ".join(sorted(set(packages))) if packages else "<empty>"
+        print(message.format(packages))
 
     def clean(self):
         groupcoll = _group_installed_names(self.packages, venv=self.project.venv)
