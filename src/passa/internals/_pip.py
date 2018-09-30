@@ -9,16 +9,21 @@ import distutils.log
 import os
 
 import distlib.database
+import distlib.metadata
 import distlib.scripts
 import distlib.wheel
 import packaging.utils
 import pip_shims
 import setuptools.dist
 import six
+import sys
+import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
-from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+from ._pip_shims import (
+    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+)
 from .utils import filter_sources
 
 
@@ -282,6 +287,7 @@ class NoopInstaller(object):
     arguments, and should be called in that order to prepare an installation
     operation, and to actually install things.
     """
+
     def prepare(self):
         pass
 
@@ -289,39 +295,121 @@ class NoopInstaller(object):
         pass
 
 
-class EditableInstaller(NoopInstaller):
-    """Installer to handle editable.
-    """
-    def __init__(self, requirement):
-        ireq = requirement.as_ireq()
-        self.working_directory = ireq.setup_py_dir
-        self.setup_py = ireq.setup_py
+class VenvInstaller(NoopInstaller):
+    """Virtualenv-capable installer"""
 
-    def install(self):
-        with vistir.cd(self.working_directory), _suppress_distutils_logs():
-            # Access from Setuptools to ensure things are patched correctly.
-            setuptools.dist.distutils.core.run_setup(
-                self.setup_py, ["develop", "--no-deps"],
-            )
-
-
-class WheelInstaller(NoopInstaller):
-    """Installer by building a wheel.
-
-    The wheel is built during `prepare()`, and installed in `install()`.
-    """
-    def __init__(self, requirement, sources, paths):
+    def __init__(self, requirement, sources=None, paths=None, venv=None):
         self.ireq = requirement.as_ireq()
         self.sources = filter_sources(requirement, sources)
         self.hashes = requirement.hashes or None
         self.paths = paths
-        self.wheel = None
+        self.venv = venv
+        self.built = None
+        self.python = sys.executable if not self.venv else self.venv.python
+        self.py_version = self.venv.python_version if self.venv else sysconfig.get_python_version()
+        self.metadata = None
+        self.is_wheel = False
+
+    @property
+    def src_dir(self):
+        build_dir = os.environ.get("PASSA_BUILD_DIR", None)
+        if not build_dir:
+            build_dir = vistir.path.create_tracked_tempdir("passa-build-dir")
+        return build_dir
+
+    @property
+    def setup_dir(self):
+        if not self.built:
+            return self.ireq.setup_py_dir
+        return vistir.compat.Path(self.built.path).parent
+
+    @property
+    def installation_args(self):
+        install_arg = "install" if not self.ireq.editable else "develop"
+        setup_path = self.setup_dir.joinpath("setup.py")
+        install_keys = ["headers", "purelib", "platlib", "scripts", "data"]
+        install_args = [
+            self.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(), install_arg,
+            "--single-version-externally-managed", "--no-deps",
+            "--prefix={0}".format(self.paths["prefix"])
+        ]
+        for key in install_keys:
+            install_args.append("--install-{0}={1}".format(key, self.paths[key]))
+        return install_args
+
+    def build_wheel(self):
+        self.built = build_wheel(self.ireq, self.sources, self.hashes)
+        self.metadata = read_wheel_metadata(self.built)
+        self.is_wheel = True
+
+    def build_sdist(self):
+        finder = _get_finder(self.sources)
+        self.ireq.populate_link(finder, True, False)
+        self.ireq.ensure_has_source_dir(self.src_dir)
+        self.built = get_sdist(self.ireq)
+        self.metadata = read_sdist_metadata(self.built)
+
+    def install_wheel(self):
+        scripts = distlib.scripts.ScriptMaker(None, None)
+        self.built.install(self.paths, scripts)
+
+    def install_sdist(self):
+        with vistir.cd(self.setup_dir.as_posix()), _suppress_distutils_logs():
+            c = vistir.misc.run(self.installation_args, return_object=True, block=True,
+                                    nospin=True)
+            if c.returncode != 0:
+                err_text = "{0!r}: {1!r}".format(c.err, c.out)
+                raise RuntimeError("Failed to install package: {0!r}".format(err_text))
+            return
 
     def prepare(self):
-        self.wheel = build_wheel(self.ireq, self.sources, self.hashes)
+        pass
 
     def install(self):
-        self.wheel.install(self.paths, distlib.scripts.ScriptMaker(None, None))
+        if self.venv:
+            with self.venv.activated():
+                self._install()
+        else:
+            self._install()
+
+
+class SdistInstaller(VenvInstaller):
+    """Installer for SDists"""
+    def __init__(self, *args, **kwargs):
+        super(SdistInstaller, self).__init__(*args, **kwargs)
+
+    def prepare(self):
+        try:
+            self.build_wheel()
+        except WheelBuildError:
+            self.build_sdist()
+            if not self.built or not self.metadata:
+                raise
+
+    def _install(self):
+        if self.is_wheel:
+            self.install_wheel()
+        else:
+            self.install_sdist()
+
+
+class Installer(SdistInstaller):
+    """Installer to handle editable.
+    """
+    def __init__(self, *args, **kwargs):
+        super(Installer, self).__init__(*args, **kwargs)
+
+    @property
+    def src_dir(self):
+        build_dir = os.environ.get("PIP_SRC", None)
+        venv = os.environ.get("VIRTUAL_ENV", None)
+        if venv:
+            src_dir = os.path.join(venv, "src")
+            if os.path.exists(src_dir):
+                build_dir = src_dir
+        if not build_dir:
+            build_dir = vistir.path.create_tracked_tempdir("passa-build-dir")
+        return build_dir
 
 
 def _iter_egg_info_directories(root, name):
@@ -389,9 +477,28 @@ def _find_egg_info(ireq):
     return top_egg_info
 
 
-def read_sdist_metadata(ireq):
+def get_sdist(ireq):
     egg_info_dir = _find_egg_info(ireq)
     if not egg_info_dir:
         return None
-    distribution = distlib.database.EggInfoDistribution(egg_info_dir)
-    return distribution.metadata
+    return distlib.database.EggInfoDistribution(egg_info_dir)
+
+
+def read_sdist_metadata(sdist):
+    if not getattr(sdist, "metadata", None):
+        sdist = get_sdist(sdist)
+    if not sdist:
+        return None
+    return sdist.metadata
+
+
+def read_wheel_metadata(wheel):
+    metadata = None
+    try:
+        metadata = wheel.metadata
+    except distlib.metadata.MetadataConflictError:
+        import zipfile
+        metadata = wheel.get_wheel_metadata(
+            zipfile.ZipFile(os.path.join(wheel.dirname, wheel.filename))
+        )
+    return metadata

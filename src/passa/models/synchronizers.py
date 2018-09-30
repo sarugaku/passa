@@ -8,13 +8,14 @@ import os
 import sys
 import sysconfig
 
+import distlib.wheel
 import pkg_resources
 
 import packaging.markers
 import packaging.version
 import requirementslib
 
-from ..internals._pip import uninstall, EditableInstaller, WheelInstaller
+from ..internals._pip import uninstall, Installer
 
 
 def _is_installation_local(name, venv=None):
@@ -191,10 +192,7 @@ class Synchronizer(object):
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
             r.markers = None
-            if r.editable:
-                installer = EditableInstaller(r, venv=self.venv)
-            else:
-                installer = WheelInstaller(r, self.sources, self.paths)
+            installer = Installer(r, sources=self.sources, paths=self.paths, venv=self.venv)
             try:
                 installer.prepare()
             except Exception as e:
@@ -242,13 +240,11 @@ class Cleaner(object):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
     def print(self, packages):
-        message = ""
         if not self.sync:
             message = "Would clean: {0}"
         else:
             message = "Cleaned: {0}"
-        packages = ", ".join(sorted(set(packages))) if packages else "<empty>"
-        print(message.format(packages))
+        print(message.format(", ".join(sorted(set(packages)))))
 
     def clean(self):
         groupcoll = _group_installed_names(self.packages, venv=self.project.venv)

@@ -25,7 +25,7 @@ class Project(passa.models.projects.Project):
             raise argparse.ArgumentError(
                 project, "{0!r} is not a Pipfile project".format(root.as_posix()),
             )
-        self.venv = self.get_venv(root)
+        self.venv = kwargs.pop("venv", self.get_venv(root))
         try:
             super(Project, self).__init__(root.as_posix(), env_prefix=self.venv.venv_dir,
                                             *args, **kwargs)

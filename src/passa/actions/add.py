@@ -48,7 +48,7 @@ def add_packages(packages=[], editables=[], project=None, dev=False, sync=False,
 
     syncer = Synchronizer(
         project, default=default, develop=develop,
-        clean_unneeded=clean
+        clean_unneeded=clean, venv=getattr(project, "venv", None)
     )
     success = sync(syncer)
     if not success:

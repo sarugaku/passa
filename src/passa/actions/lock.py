@@ -11,7 +11,8 @@ def lock(project=None):
     locker = BasicLocker(project)
     success = lock(locker)
     if not success:
-        return
+        return 1
 
     project._l.write()
     print("Written to project at", project.root)
+    return 0
