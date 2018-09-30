@@ -53,10 +53,10 @@ def tmpvenv(virtualenv):
 
 
 @pytest.fixture(scope="function")
-def project(project_directory, tmpvenv):
+def project(project_directory, tmpvenv, tmpdir):
     import pkg_resources
     passa_dist = pkg_resources.get_distribution(pkg_resources.Requirement('passa'))
-    # passa_dist = tmpvenv.initial_working_set.by_key["passa"]
     resolved = tmpvenv.resolve_dist(passa_dist, tmpvenv.base_working_set)
-    with tmpvenv.activated(extra_dists=list(resolved)):
+    with vistir.contextmanagers.temp_environ(), tmpvenv.activated(extra_dists=list(resolved)):
+        os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
         yield _Project(project_directory, tmpvenv)

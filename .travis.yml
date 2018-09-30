@@ -7,8 +7,8 @@ matrix:
   fast_finish: true
 
 install:
-  - "python -m pip install --upgrade pip pytest-timeout"
-  - "python -m pip install --upgrade -e .[tests]"
+  - "python -m pip install --upgrade pip setuptools pytest-timeout"
+  - "python -m pip install --upgrade -e .[tests,virtualenv]"
 script:
   - "python -m pytest -v -n 8 tests/"
 
@@ -24,7 +24,7 @@ jobs:
     - stage: packaging
       python: "3.6"
       install:
-        - "python -m pip install --upgrade pip"
+        - "python -m pip install --upgrade pip setuptools"
         - "python -m pip install --upgrade check-manifest readme-renderer"
       script:
         - "python setup.py check -m -r -s"
@@ -38,8 +38,7 @@ jobs:
     - stage: coverage
       python: "3.6"
       install:
-        - "python -m pip install --upgrade pip"
-        - "python -m pip install --upgrade -e .[tests]"
-        - "python -m pip install --upgrade pytest-timeout pytest-xdist pytest-cov"
+        - "python -m pip install --upgrade pip setuptools pytest-timeout pytest-cov pytest-xdist"
+        - "python -m pip install --upgrade -e .[tests,virtualenv]"
       script:
         - "pytest -n auto --timeout 300 --cov=passa --cov-report=term-missing --cov-report=xml --cov-report=html tests"
