@@ -36,3 +36,4 @@ def remove(project=None, only="default", packages=[], clean=True, sync=False):
         return 1
 
     print("Cleaned project at", project.root)
+    return 0

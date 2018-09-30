@@ -2,10 +2,15 @@
 import os
 import pytest
 import passa
+import passa.models.projects
 import passa.cli.options
-import mork.virtualenv
+import mork
+import pkg_resources
+import plette
 import sys
 import vistir
+
+from collections import deque
 
 
 DEFAULT_PIPFILE_CONTENTS = """
@@ -20,12 +25,18 @@ verify_ssl = true
 """.strip()
 
 
-@pytest.fixture(scope="function")
-def project_directory(tmpdir_factory):
-    project_dir = tmpdir_factory.mktemp("passa-project")
-    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS)
-    with vistir.contextmanagers.cd(project_dir.strpath):
-        yield project_dir
+@pytest.fixture(scope="session")
+def working_set_extension():
+    dists = set()
+    passa_dist = pkg_resources.get_distribution(pkg_resources.Requirement('passa'))
+    dists.add(passa_dist)
+    requirements = deque(passa_dist.requires(extras=('tests', 'virtualenv')))
+    while requirements:
+        req = requirements.popleft()
+        dist = pkg_resources.working_set.find(req)
+        dists.add(dist)
+        requirements.extend(dist.requires())
+    return dists
 
 
 @pytest.fixture(scope="function")
@@ -41,22 +52,50 @@ def virtualenv(tmpdir_factory):
 
 
 class _Project(passa.cli.options.Project):
-    def __init__(self, root, venv=None):
-        self.path = root.strpath
+    def __init__(self, root, venv=None, working_set_extension=[]):
+        self.path = root
         self.venv = venv
-        super(_Project, self).__init__(self.path)
+        self.working_set_extension = working_set_extension
+        super(_Project, self).__init__(self.path, venv=venv)
+        self.pipfile_instance = vistir.compat.Path(self.pipfile_location)
+        self.lockfile_instance = vistir.compat.Path(self.lockfile_location)
+
+    def reload(self):
+        self._p = passa.models.projects.ProjectFile.read(
+            os.path.join(self.path, "Pipfile"),
+            plette.Pipfile,
+        )
+        self._l = passa.models.projects.ProjectFile.read(
+            os.path.join(self.path, "Pipfile.lock"),
+            plette.Lockfile,
+            invalid_ok=True,
+        )
+
+@pytest.fixture(scope="function")
+def project_directory(tmpdir_factory):
+    project_dir = tmpdir_factory.mktemp("passa-project")
+    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS)
+    with vistir.contextmanagers.cd(project_dir.strpath):
+        yield project_dir
 
 
 @pytest.fixture
-def tmpvenv(virtualenv):
-    return mork.virtualenv.VirtualEnv(virtualenv.strpath)
+def tmpvenv(virtualenv, tmpdir):
+    venv_srcdir = virtualenv.join("src").mkdir()
+    venv = mork.virtualenv.VirtualEnv(virtualenv.strpath)
+    venv.run(["pip", "install", "--upgrade", "mork", "setuptools"])
+    with vistir.contextmanagers.temp_environ():
+        os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
+        os.environ["PIP_QUIET"] = "1"
+        os.environ["PIP_SRC"] = venv_srcdir.strpath
+        venv.is_installed = lambda x: any(d for d in venv.get_distributions() if d.project_name == x)
+        yield venv
 
 
 @pytest.fixture(scope="function")
-def project(project_directory, tmpvenv, tmpdir):
-    import pkg_resources
-    passa_dist = pkg_resources.get_distribution(pkg_resources.Requirement('passa'))
-    resolved = tmpvenv.resolve_dist(passa_dist, tmpvenv.base_working_set)
-    with vistir.contextmanagers.temp_environ(), tmpvenv.activated(extra_dists=list(resolved)):
-        os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
-        yield _Project(project_directory, tmpvenv)
+def project(project_directory, working_set_extension, tmpvenv):
+    # resolved = tmpvenv.resolve_dist(passa_dist, tmpvenv.base_working_set)
+    with tmpvenv.activated(extra_dists=list(working_set_extension)):
+        project = _Project(project_directory.strpath, venv=tmpvenv, working_set_extension=working_set_extension)
+        project.is_installed = lambda x: any(d for d in tmpvenv.get_working_set() if d.project_name == x)
+        yield project

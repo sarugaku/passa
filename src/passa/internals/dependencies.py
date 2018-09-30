@@ -14,7 +14,9 @@ import requirementslib
 import six
 
 from ..models.caches import DependencyCache, RequiresPythonCache
-from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
+from ._pip import (
+    WheelBuildError, build_wheel, get_sdist, read_wheel_metadata, read_sdist_metadata
+)
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 
@@ -225,17 +227,18 @@ def _get_dependencies_from_pip(ireq, sources):
     """
     extras = ireq.extras or ()
     try:
-        wheel = build_wheel(ireq, sources)
+        built = build_wheel(ireq, sources)
     except WheelBuildError:
         # XXX: This depends on a side effect of `build_wheel`. This block is
         # reached when it fails to build an sdist, where the sdist would have
         # been downloaded, extracted into `ireq.source_dir`, and partially
         # built (hopefully containing .egg-info).
-        metadata = read_sdist_metadata(ireq)
+        built = get_sdist(ireq)
+        metadata = read_sdist_metadata(built)
         if not metadata:
             raise
     else:
-        metadata = wheel.metadata
+        metadata = read_wheel_metadata(built)
     requirements = _read_requirements(metadata, extras)
     requires_python = _read_requires_python(metadata)
     return requirements, requires_python

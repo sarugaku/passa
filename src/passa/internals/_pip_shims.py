@@ -59,3 +59,12 @@ unpack_url = pip_shims.unpack_url
 if PIP_VERSION < VERSION_10:
     build_wheel = _build_wheel_pre10
     unpack_url = _unpack_url_pre10
+
+
+SETUPTOOLS_SHIM = (
+    "import setuptools, tokenize;__file__=%r;"
+    "f=getattr(tokenize, 'open', open)(__file__);"
+    "code=f.read().replace('\\r\\n', '\\n');"
+    "f.close();"
+    "exec(compile(code, __file__, 'exec'))"
+)
