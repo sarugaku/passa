@@ -11,7 +11,18 @@ There are currently two members:
 
 from __future__ import absolute_import, unicode_literals
 
+import distlib.metadata
 import pip_shims
+import recursive_monkey_patch
+
+
+class LegacyMetadata():
+    def set_metadata_version(self):
+        metadata_version = self._fields.get("Metadata-Version")
+        if metadata_version == "2.1":
+            self._fields["Metadata-Version"] = metadata_version
+        else:
+            self._fields['Metadata-Version'] = distlib.metadata._best_version(self._fields)
 
 
 def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
@@ -68,3 +79,6 @@ SETUPTOOLS_SHIM = (
     "f.close();"
     "exec(compile(code, __file__, 'exec'))"
 )
+
+
+recursive_monkey_patch.monkey_patch(LegacyMetadata, distlib.metadata.LegacyMetadata)

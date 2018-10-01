@@ -14,7 +14,6 @@ import distlib.scripts
 import distlib.wheel
 import packaging.utils
 import pip_shims
-import setuptools.dist
 import six
 import sys
 import sysconfig
@@ -339,15 +338,15 @@ class VenvInstaller(NoopInstaller):
 
     def build_wheel(self):
         self.built = build_wheel(self.ireq, self.sources, self.hashes)
-        self.metadata = read_wheel_metadata(self.built)
+        self.metadata = self.built.metadata
         self.is_wheel = True
 
     def build_sdist(self):
         finder = _get_finder(self.sources)
-        self.ireq.populate_link(finder, True, False)
+        self.ireq.populate_link(finder, False, False)
         self.ireq.ensure_has_source_dir(self.src_dir)
         self.built = get_sdist(self.ireq)
-        self.metadata = read_sdist_metadata(self.built)
+        self.metadata = read_sdist_metadata(self.ireq)
 
     def install_wheel(self):
         scripts = distlib.scripts.ScriptMaker(None, None)
@@ -381,7 +380,7 @@ class SdistInstaller(VenvInstaller):
     def prepare(self):
         try:
             self.build_wheel()
-        except WheelBuildError:
+        except (WheelBuildError, distlib.metadata.MetadataConflictError):
             self.build_sdist()
             if not self.built or not self.metadata:
                 raise
@@ -484,21 +483,8 @@ def get_sdist(ireq):
     return distlib.database.EggInfoDistribution(egg_info_dir)
 
 
-def read_sdist_metadata(sdist):
-    if not getattr(sdist, "metadata", None):
-        sdist = get_sdist(sdist)
+def read_sdist_metadata(ireq):
+    sdist = get_sdist(ireq)
     if not sdist:
         return None
     return sdist.metadata
-
-
-def read_wheel_metadata(wheel):
-    metadata = None
-    try:
-        metadata = wheel.metadata
-    except distlib.metadata.MetadataConflictError:
-        import zipfile
-        metadata = wheel.get_wheel_metadata(
-            zipfile.ZipFile(os.path.join(wheel.dirname, wheel.filename))
-        )
-    return metadata
