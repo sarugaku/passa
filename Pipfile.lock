@@ -131,6 +131,14 @@
             "markers": "python_version >= '2.6' and python_version >= '3.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==2.0.0"
         },
+        "mork": {
+            "hashes": [
+                "sha256:13772edb4724915cf0cfa30d31426e0565487a3b2d7883b8468718eaed8ecfc2",
+                "sha256:b1b41bc31603eef1b50e42e75ae2d74d7a0d9ab46ea4d0dd1ba387a451870873"
+            ],
+            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==0.1.4"
+        },
         "packagebuilder": {
             "hashes": [
                 "sha256:1e85c4e0e994322996b93cd6685c12834d30f3558889154f8e3de8fb1f3fd1e7",
