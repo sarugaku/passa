@@ -69,7 +69,7 @@ class MetaSet(object):
 
     def __str__(self):
         self.markerset = frozenset(filter(None, self.markerset))
-        return " and ".join(dedup_markers(itertools.chain(
+        return " and ".join([mkr_part for mkr_part in dedup_markers(itertools.chain(
             # Make sure to always use the same quotes so we can dedup properly.
             (
                 "{0}".format(ms) if " or " in ms else ms
@@ -78,8 +78,8 @@ class MetaSet(object):
             ),
             (
                 "{0}".format(str(self.pyspecset)) if self.pyspecset else "",
-            )
-        )))
+            ))) if mkr_part
+        ])
 
     def __bool__(self):
         return bool(self.markerset or self.pyspecset)

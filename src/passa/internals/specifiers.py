@@ -183,16 +183,6 @@ def get_versions(specset, group_by_operator=True):
     return versions
 
 
-def get_next_python(version):
-    version_index = ALL_PYTHON_VERSIONS.index(version)
-    return ALL_PYTHON_VERSIONS[version_index + 1]
-
-
-def get_previous_python(version):
-    version_index = ALL_PYTHON_VERSIONS.index(version)
-    return ALL_PYTHON_VERSIONS[version_index - 1]
-
-
 def gen_marker(mkr):
     m = Marker("python_version == '1'")
     m._markers.pop()
@@ -342,14 +332,24 @@ class PySpecs(Set):
         return set([v[1] for v in self.get_versions() if v[1] in self.specifierset])
 
     def get_version_excludes(self):
-        return set(v[1] for v in self.get_versions() if v[1] not in self.specifierset)
+        return set([v[1] for v in self.get_versions() if v[1] not in self.specifierset])
+
+    def get_version_includes(self):
+        return set([v for v in ALL_PYTHON_VERSIONS if v in self.specifierset])
+
+    def get_specset_from_versions(self, versions, include=True):
+        _specset = SpecifierSet()
+        op = "==" if include else "!="
+        specs = set([Specifier("{0}{1}".format(op, v)) for v in versions])
+        _specset._specs = frozenset(specs)
+        return _specset
 
     def group_specs(self, specs=None, handle_exclusions=True):
         if not specs:
             specs = self.get_versions(group_by_operator=handle_exclusions)
         else:
             specs = get_versions(specs, group_by_operator=handle_exclusions)
-        pyversions = enumerate(self.get_versions(group_by_operator=handle_exclusions))
+        pyversions = enumerate(specs)
 
         def get_version(v):
             return ALL_PYTHON_VERSIONS.index(v[1][1])
@@ -378,7 +378,23 @@ class PySpecs(Set):
         return ranges, excludes
 
     def create_specset_from_ranges(self, specset=None, ranges=None, excludes=None):
+        """This method takes a specifier set and simplifies it down to some range sets.
+
+        The goal is to consume a list of matching individual version specifiers in
+        "==" notation (accompanied by a set of excluded versions, that is a set() of
+        Version objects) and produce a SpecifierSet with a min and max range and the
+        appropriate excludes (i.e. the simplified set).
+
+        :param specset: A specifierset with the enumerated versions
+        :param ranges: The ranges to use as inputs (or the specset will be generated from it)
+        :param excludes: A set of Version objects to exclude in the specifierset
+        :return: A specifierset with the desired ranges
+        """
+
         group_args = {"handle_exclusions": False}
+        if ranges and not specset and isinstance(ranges, SpecifierSet):
+            group_args["specs"] = ranges
+            ranges, _ = self.group_specs(**group_args)
         if specset:
             group_args["specs"] = specset
         if not ranges:
@@ -387,20 +403,22 @@ class PySpecs(Set):
             group_args["handle_exclusions"] = True
             _, excludes = self.group_specs(**group_args)
         spec_ranges = set()
-        for range_ in ranges:
-            if len(range_) == 1:
-                spec_ranges.add(Specifier("=={0}".format(str(next(iter(range_))))))
-            else:
-                min_, max_ = range_
-                if min_ == max_:
-                    spec_ranges.add("<={0}").format(min_)
-                else:
-                    spec_ranges.add(Specifier(">={0}".format(str(min_))))
-                    spec_ranges.add(Specifier("<={0}".format(str(max_))))
+        if len(ranges) == 1:
+            spec_ranges.add(Specifier("=={0}".format(str(next(iter(ranges[0]))))))
+        else:
+            min_version = min([r[0] for r in ranges])
+            rhs_versions = [
+                r[1] for r in ranges if isinstance(r, tuple) and len(r) > 1
+            ]
+            max_version = max(rhs_versions) if rhs_versions else None
+            spec_ranges.add(Specifier(">={0}".format(str(min_version))))
+            if max_version and max_version != ALL_PYTHON_VERSIONS[-1]:
+                spec_ranges.add(Specifier("<={0}".format(str(max_version))))
         for exclude in excludes:
             spec_ranges.add(Specifier("!={0}".format(str(exclude))))
         new_specset = SpecifierSet()
         new_specset._specs = frozenset(spec_ranges)
+        return new_specset
 
     @lru_cache(maxsize=128)
     def __and__(self, other):
@@ -414,10 +432,11 @@ class PySpecs(Set):
         own_ranges, own_excludes = self.group_specs()
         other_ranges, other_excludes = other.group_specs()
         # In order to do an "or" propertly we need to intersect the "good" versions
-        intersection = self.get_versions_in_specset() & other.get_versions_in_specset()
+        intersection = self.get_version_includes() | other.get_version_includes()
+        intersection_specset = self.get_specset_from_versions(intersection)
         # And then we need to union the "bad" versions
-        excludes = own_excludes | other_excludes
-        new_specset = self.create_specset_from_ranges(ranges=intersection, excludes=excludes)
+        excludes = self.get_version_excludes() | other.get_version_excludes()
+        new_specset = self.create_specset_from_ranges(ranges=intersection_specset, excludes=excludes)
         return PySpecs(new_specset)
 
     @lru_cache(maxsize=128)
