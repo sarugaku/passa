@@ -7,8 +7,8 @@ matrix:
   fast_finish: true
 
 install:
-  - "python -m pip install --upgrade pip setuptools pytest-timeout"
-  - "python -m pip install --upgrade -e .[tests,virtualenv]"
+  - "python -m pip install --upgrade --upgrade-strategy=eager pip setuptools pytest pytest-timeout pytest-cov pytest-xdist"
+  - "python -m pip install --upgrade --upgrade-strategy=eager -e .[tests,virtualenv]"
 script:
   - "python -m pytest -v -n 8 tests/"
 
@@ -31,14 +31,14 @@ jobs:
     - stage: packing
       python: "3.6"
       install:
-        - "python -m pip install --upgrade -e .[pack]"
+        - "python -m pip install --upgrade --upgrade-strategy=eager -e .[pack]"
       script:
         - "invoke pack"
         - "python2.7 pack/passa.zip --help"
     - stage: coverage
       python: "3.6"
       install:
-        - "python -m pip install --upgrade pip setuptools pytest-timeout pytest-cov pytest-xdist"
-        - "python -m pip install --upgrade -e .[tests,virtualenv]"
+        - "python -m pip install --upgrade --upgrade-strategy=eager pip setuptools pytest-timeout pytest-cov pytest-xdist"
+        - "python -m pip install --upgrade --upgrade-strategy=eager -e .[tests,virtualenv]"
       script:
         - "pytest -n auto --timeout 300 --cov=passa --cov-report=term-missing --cov-report=xml --cov-report=html tests"
