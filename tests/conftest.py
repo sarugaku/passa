@@ -34,6 +34,7 @@ def working_set_extension():
     while requirements:
         req = requirements.popleft()
         dist = pkg_resources.working_set.find(req)
+        assert dist, req
         dists.add(dist)
         requirements.extend(dist.requires())
     return dists
