@@ -4,18 +4,19 @@ from __future__ import absolute_import, unicode_literals
 
 import itertools
 
+import resolvelib
+
 import plette
 import requirementslib
-import resolvelib
 import vistir
 
+from ..internals.hashes import get_hashes
+from ..internals.reporters import StdOutReporter
+from ..internals.traces import trace_graph
+from ..internals.utils import identify_requirment
 from .caches import HashCache
-from .hashes import get_hashes
 from .metadata import set_metadata
 from .providers import BasicProvider, EagerUpgradeProvider, PinReuseProvider
-from .reporters import StdOutReporter
-from .traces import trace_graph
-from .utils import identify_requirment
 
 
 def _get_requirements(model, section_name):
