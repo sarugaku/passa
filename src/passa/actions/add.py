@@ -39,8 +39,8 @@ def add_packages(packages=[], editables=[], project=None, dev=False, sync=False,
     if not sync:
         return
 
-    from passa.models.synchronizers import Synchronizer
-    from passa.operations.sync import sync
+    from installer.synchronizer import Synchronizer
+    from installer.operations import sync
 
     lockfile_diff = project.difference_lockfile(prev_lockfile)
     default = any(lockfile_diff.default)
@@ -48,7 +48,7 @@ def add_packages(packages=[], editables=[], project=None, dev=False, sync=False,
 
     syncer = Synchronizer(
         project, default=default, develop=develop,
-        clean_unneeded=clean,
+        clean_unneeded=clean
     )
     success = sync(syncer)
     if not success:

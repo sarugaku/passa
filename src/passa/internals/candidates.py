@@ -6,7 +6,8 @@ import packaging.specifiers
 import packaging.version
 import requirementslib
 
-from ._pip import find_installation_candidates, get_vcs_ref
+from packagebuilder import find_installation_candidates
+from ..models.caches import CACHE_DIR
 
 
 def _filter_matching_python_requirement(candidates, required_python):
@@ -57,11 +58,11 @@ def find_candidates(requirement, sources, requires_python, allow_prereleases):
     if not requirement.is_named:
         candidate = _copy_requirement(requirement)
         if candidate.is_vcs:
-            candidate.req.ref = get_vcs_ref(candidate)
+            candidate.req.ref = requirement.get_commit_hash()
         return [candidate]
 
     ireq = requirement.as_ireq()
-    icans = find_installation_candidates(ireq, sources)
+    icans = find_installation_candidates(ireq, sources, cache_dir=CACHE_DIR)
 
     if requires_python:
         matching_icans = list(_filter_matching_python_requirement(

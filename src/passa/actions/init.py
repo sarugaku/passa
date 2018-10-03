@@ -4,14 +4,13 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import io
 import os
-from pip_shims import Command as PipCommand, cmdoptions
-import plette
+
 import six
+
+import packagebuilder
+
+import plette
 import vistir
-
-
-class PipCmd(PipCommand):
-    name = "PipCmd"
 
 
 def get_sources(urls, trusted_hosts):
@@ -36,13 +35,9 @@ def init_project(root=None, python_version=None):
         raise RuntimeError("{0!r} is already a Pipfile project".format(root))
     if not os.path.exists(root):
         vistir.path.mkdir_p(root, mode=0o755)
-    pip_command = PipCmd()
-    cmdoptions.make_option_group(cmdoptions.index_group, pip_command.parser)
-    parsed, _ = pip_command.parser.parse_args([])
-    index_urls = [parsed.index_url] + parsed.extra_index_urls
-    sources = get_sources(index_urls, parsed.trusted_hosts)
+    sources = packagebuilder.get_sources()
     data = {
-        "sources": sources,
+        "source": sources,
         "packages": {},
         "dev-packages": {},
     }

@@ -34,8 +34,8 @@ def upgrade(project=None, strategy="only-if-needed", sync=True, packages=[]):
     if not sync:
         return
 
-    from passa.operations.sync import sync
-    from passa.models.synchronizers import Synchronizer
+    from installer.operations import sync
+    from installer.synchronizer import Synchronizer
 
     lockfile_diff = project.difference_lockfile(prev_lockfile)
     default = bool(any(lockfile_diff.default))

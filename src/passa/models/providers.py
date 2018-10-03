@@ -6,10 +6,12 @@ import os
 
 import resolvelib
 
+from packagebuilder import filter_sources
+
 from ..internals.candidates import find_candidates
 from ..internals.dependencies import get_dependencies
 from ..internals.utils import (
-    filter_sources, get_allow_prereleases, identify_requirment, strip_extras,
+    get_allow_prereleases, identify_requirment, strip_extras,
 )
 
 

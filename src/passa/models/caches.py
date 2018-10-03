@@ -13,11 +13,12 @@ import pip_shims
 import requests
 import vistir
 
-from ..internals._pip_shims import VCS_SUPPORT
 from ..internals.utils import get_pinned_version
 
 
 CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))
+
+VCS_SUPPORT = pip_shims.VcsSupport()
 
 
 class HashCache(pip_shims.SafeFileCache):

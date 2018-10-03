@@ -4,14 +4,14 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from ..actions.add import add_packages
 from ._base import BaseCommand
-from .options import package_group
+from .options import package_group, clean_group
 
 
 class Command(BaseCommand):
 
     name = "add"
     description = "Add packages to project."
-    arguments = [package_group]
+    arguments = [package_group, clean_group]
 
     def run(self, options):
         if not options.editables and not options.packages:
@@ -20,7 +20,8 @@ class Command(BaseCommand):
             packages=options.packages,
             editables=options.editables,
             project=options.project,
-            dev=options.dev
+            dev=options.dev,
+            clean=options.clean
         )
 
 
