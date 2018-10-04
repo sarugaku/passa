@@ -18,7 +18,6 @@ passa-remove = 'python -m passa.cli.remove'
 passa-upgrade = 'python -m passa.cli.upgrade'
 passa-lock = 'python -m passa.cli.lock'
 passa-freeze = 'python -m passa.cli.freeze'
-
 black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"'
 build = 'inv build'
 changelog = 'towncrier'

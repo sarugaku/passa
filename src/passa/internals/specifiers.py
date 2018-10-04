@@ -152,6 +152,9 @@ def cleanup_pyspecs(specs, joiner="or"):
 
 def fix_version_tuple(version_tuple):
     op, version = version_tuple
+    max_major = max(PySpecs.MAX_VERSIONS.keys())
+    if version[0] > max_major:
+        return (op, (max_major, PySpecs.MAX_VERSIONS[max_major]))
     max_allowed = PySpecs.MAX_VERSIONS[version[0]]
     if op == "<" and version[1] > max_allowed and version[1] - 1 <= max_allowed:
         op = "<="
@@ -332,7 +335,10 @@ class PySpecs(Set):
         return set([v[1] for v in self.get_versions() if v[1] in self.specifierset])
 
     def get_version_excludes(self):
-        return set([v[1] for v in self.get_versions() if v[1] not in self.specifierset])
+        return set([
+            v[1] for v in self.get_versions()
+            if v[0] == "!=" and v[1] not in self.specifierset
+        ])
 
     def get_version_includes(self):
         return set([v for v in ALL_PYTHON_VERSIONS if v in self.specifierset])
@@ -403,7 +409,7 @@ class PySpecs(Set):
             group_args["handle_exclusions"] = True
             _, excludes = self.group_specs(**group_args)
         spec_ranges = set()
-        if len(ranges) == 1:
+        if len(ranges) == 1 and not isinstance(next(iter(ranges)), tuple):
             spec_ranges.add(Specifier("=={0}".format(str(next(iter(ranges[0]))))))
         else:
             min_version = min([r[0] for r in ranges])
@@ -429,13 +435,11 @@ class PySpecs(Set):
         if self == other:
             return self
         new_specset = SpecifierSet()
-        own_ranges, own_excludes = self.group_specs()
-        other_ranges, other_excludes = other.group_specs()
         # In order to do an "or" propertly we need to intersect the "good" versions
         intersection = self.get_version_includes() | other.get_version_includes()
         intersection_specset = self.get_specset_from_versions(intersection)
         # And then we need to union the "bad" versions
-        excludes = self.get_version_excludes() | other.get_version_excludes()
+        excludes = self.get_version_excludes() & other.get_version_excludes()
         new_specset = self.create_specset_from_ranges(ranges=intersection_specset, excludes=excludes)
         return PySpecs(new_specset)
 
@@ -445,10 +449,9 @@ class PySpecs(Set):
             specset = PySpecs(specset)
         if str(self) == str(specset):
             return self
-        combined_set = self.as_set | specset.as_set
-        new_specset = SpecifierSet()
-        new_specset._specs = frozenset(combined_set)
-        new_pyspec = PySpecs(new_specset)
+        combined_set = self.specifierset & specset.specifierset
+        # new_specset._specs = frozenset(combined_set)
+        new_pyspec = PySpecs(combined_set)
         return new_pyspec
 
     @classmethod

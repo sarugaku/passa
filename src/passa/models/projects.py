@@ -9,10 +9,11 @@ import os
 import attr
 import packaging.markers
 import packaging.utils
-import plette
-import plette.models
 import six
 import tomlkit
+
+import plette
+import plette.models
 
 
 SectionDifference = collections.namedtuple("SectionDifference", [

@@ -240,6 +240,8 @@ def parse_marker_dict(marker_dict):
             if not sides:
                 sides = [lhs, rhs]
             sides = reduce(lambda x, y: x | y, sides)
+            if not sides:
+                return sides
             return PySpecs.from_marker(Marker(str(sides)))
         # Actually when we "or" things as well we can also just turn them into a reduced
         # set using this logic now
