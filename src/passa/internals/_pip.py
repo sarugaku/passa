@@ -22,7 +22,7 @@ import vistir
 from ..models.caches import CACHE_DIR
 from ..models.environments import Environment
 from ._pip_shims import (
-    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url, patch_pathset
+    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
 )
 from .utils import filter_sources
 
