@@ -144,6 +144,7 @@ class Synchronizer(object):
     """
     def __init__(self, project, default, develop, clean_unneeded, venv=None):
         self._root = project.root   # Only for repr.
+        self.project = project
         self.packages = _get_packages(project.lockfile, default, develop)
         self.sources = project.lockfile.meta.sources._data
         self.clean_unneeded = clean_unneeded
