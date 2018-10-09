@@ -10,13 +10,12 @@ import packaging.specifiers
 import packaging.utils
 import packaging.version
 import requests
-import requirementslib
 import six
 
+import requirementslib
+
 from ..models.caches import DependencyCache, RequiresPythonCache
-from ._pip import (
-    WheelBuildError, build_wheel, get_sdist, read_sdist_metadata
-)
+from ._pip import WheelBuildError, build_wheel, get_sdist, read_sdist_metadata
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 

@@ -10,8 +10,9 @@ import six
 import tomlkit.exceptions
 
 import passa.models.projects
-import mork
 import vistir
+
+from ..models.environments import Environment
 
 
 PYTHON_VERSION = ".".join(str(v) for v in sys.version_info[:2])
@@ -21,23 +22,25 @@ class Project(passa.models.projects.Project):
     def __init__(self, root, *args, **kwargs):
         root = vistir.compat.Path(root).absolute()
         pipfile = root.joinpath("Pipfile")
+        environment = kwargs.pop("environment", self.get_env())
         if not pipfile.is_file():
             raise argparse.ArgumentError(
                 project, "{0!r} is not a Pipfile project".format(root.as_posix()),
             )
-        self.venv = kwargs.pop("venv", self.get_venv(root))
         try:
-            super(Project, self).__init__(root.as_posix(), env_prefix=self.venv.venv_dir,
+            super(Project, self).__init__(root.as_posix(), environment=environment,
                                             *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
                 project, "failed to parse Pipfile: {0!r}".format(str(e)),
             )
 
-    def get_venv(self, root):
+    def get_env(self):
+        if self.environment:
+            return self.environment
         if 'VIRTUAL_ENV' in os.environ:
-            return mork.VirtualEnv(os.environ['VIRTUAL_ENV'])
-        return mork.VirtualEnv.from_project_path(root)
+            return Environment(prefix=os.environ['VIRTUAL_ENV'], is_venv=True)
+        return Environment()
 
     def __name__(self):
         return "Project Root"

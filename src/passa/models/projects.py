@@ -14,6 +14,8 @@ import plette.models
 import six
 import tomlkit
 
+from .environments import Environment
+
 
 SectionDifference = collections.namedtuple("SectionDifference", [
     "inthis", "inthat",
@@ -84,7 +86,7 @@ class ProjectFile(object):
 class Project(object):
 
     root = attr.ib()
-    env_prefix = attr.ib(default=None)
+    environment = attr.ib(default=attr.Factory(Environment))
     _p = attr.ib(init=False)
     _l = attr.ib(init=False)
 

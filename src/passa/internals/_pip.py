@@ -20,8 +20,9 @@ import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
+from ..models.environments import Environment
 from ._pip_shims import (
-    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url, patch_pathset
 )
 from .utils import filter_sources
 
@@ -200,24 +201,8 @@ def build_wheel(ireq, sources, hashes=None):
     return distlib.wheel.Wheel(wheel_path)
 
 
-def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
-    target_dir = os.path.join(src_dir, name)
-    target_rev = vcs_obj.make_rev_options(rev)
-    if not os.path.exists(target_dir):
-        vcs_obj.obtain(target_dir)
-    if (not vcs_obj.is_commit_id_equal(target_dir, rev) and
-            not vcs_obj.is_commit_id_equal(target_dir, target_rev)):
-        vcs_obj.update(target_dir, target_rev)
-    return vcs_obj.get_revision(target_dir)
-
-
 def get_vcs_ref(requirement):
-    backend = VCS_SUPPORT.get_backend(requirement.vcs)
-    vcs = backend(url=requirement.req.vcs_uri)
-    src = _get_src_dir()
-    name = requirement.normalized_name
-    ref = _obtrain_ref(vcs, src, name, rev=requirement.req.ref)
-    return ref
+    return requirement.commit_hash
 
 
 def find_installation_candidates(ireq, sources):
@@ -231,17 +216,24 @@ class RequirementUninstaller(object):
     This uses `UninstallPathSet` to control the workflow. If the inner block
     exits correctly, the uninstallation is committed, otherwise rolled back.
     """
-    def __init__(self, ireq, auto_confirm, verbose):
+    def __init__(self, ireq, auto_confirm, verbose, env=None):
         self.ireq = ireq
         self.pathset = None
         self.auto_confirm = auto_confirm
         self.verbose = verbose
+        self.env = env if env else Environment()
+
+    def check_permitted(self, pathset, path):
+        if self.env.is_venv and self.env.is_installed(self.ireq.name):
+            return True
+        return pathset._permitted(path)
 
     def __enter__(self):
         self.pathset = self.ireq.uninstall(
             auto_confirm=self.auto_confirm,
             verbose=self.verbose,
         )
+        self.pathset._permitted = self.check_permitted
         return self.pathset
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -294,18 +286,15 @@ class NoopInstaller(object):
         pass
 
 
-class VenvInstaller(NoopInstaller):
+class BaseInstaller(NoopInstaller):
     """Virtualenv-capable installer"""
 
-    def __init__(self, requirement, sources=None, paths=None, venv=None):
+    def __init__(self, requirement, sources=None, environment=None):
         self.ireq = requirement.as_ireq()
         self.sources = filter_sources(requirement, sources)
         self.hashes = requirement.hashes or None
-        self.paths = paths
-        self.venv = venv
+        self.environment = environment if environment else Environment()
         self.built = None
-        self.python = sys.executable if not self.venv else self.venv.python
-        self.py_version = self.venv.python_version if self.venv else sysconfig.get_python_version()
         self.metadata = None
         self.is_wheel = False
 
@@ -328,12 +317,14 @@ class VenvInstaller(NoopInstaller):
         setup_path = self.setup_dir.joinpath("setup.py")
         install_keys = ["headers", "purelib", "platlib", "scripts", "data"]
         install_args = [
-            self.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(), install_arg,
-            "--single-version-externally-managed", "--no-deps",
-            "--prefix={0}".format(self.paths["prefix"])
+            self.environment.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(),
+            install_arg, "--single-version-externally-managed", "--no-deps",
+            "--prefix={0}".format(self.environment.paths["prefix"])
         ]
         for key in install_keys:
-            install_args.append("--install-{0}={1}".format(key, self.paths[key]))
+            install_args.append(
+                "--install-{0}={1}".format(key, self.environment.paths[key])
+            )
         return install_args
 
     def build_wheel(self):
@@ -350,12 +341,12 @@ class VenvInstaller(NoopInstaller):
 
     def install_wheel(self):
         scripts = distlib.scripts.ScriptMaker(None, None)
-        self.built.install(self.paths, scripts)
+        self.built.install(self.environment.paths, scripts)
 
     def install_sdist(self):
         with vistir.cd(self.setup_dir.as_posix()), _suppress_distutils_logs():
-            c = vistir.misc.run(self.installation_args, return_object=True, block=True,
-                                    nospin=True)
+            c = self.environment.run(self.installation_args, return_object=True,
+                                        block=True, nospin=True)
             if c.returncode != 0:
                 err_text = "{0!r}: {1!r}".format(c.err, c.out)
                 raise RuntimeError("Failed to install package: {0!r}".format(err_text))
@@ -365,14 +356,11 @@ class VenvInstaller(NoopInstaller):
         pass
 
     def install(self):
-        if self.venv:
-            with self.venv.activated():
-                self._install()
-        else:
+        with self.environment.activated():
             self._install()
 
 
-class SdistInstaller(VenvInstaller):
+class SdistInstaller(BaseInstaller):
     """Installer for SDists"""
     def __init__(self, *args, **kwargs):
         super(SdistInstaller, self).__init__(*args, **kwargs)

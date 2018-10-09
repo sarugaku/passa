@@ -4,7 +4,8 @@ import pytest
 import passa
 import passa.models.projects
 import passa.cli.options
-import mork
+# import mork
+import passa.models.environments
 import pkg_resources
 import plette
 import sys
@@ -52,11 +53,11 @@ def virtualenv(tmpdir_factory):
 
 
 class _Project(passa.cli.options.Project):
-    def __init__(self, root, venv=None, working_set_extension=[]):
+    def __init__(self, root, environment=None, working_set_extension=[]):
         self.path = root
-        self.venv = venv
         self.working_set_extension = working_set_extension
-        super(_Project, self).__init__(self.path, venv=venv)
+        self.env = environment
+        super(_Project, self).__init__(self.path, environment=environment)
         self.pipfile_instance = vistir.compat.Path(self.pipfile_location)
         self.lockfile_instance = vistir.compat.Path(self.lockfile_location)
 
@@ -71,6 +72,7 @@ class _Project(passa.cli.options.Project):
             invalid_ok=True,
         )
 
+
 @pytest.fixture(scope="function")
 def project_directory(tmpdir_factory):
     project_dir = tmpdir_factory.mktemp("passa-project")
@@ -82,7 +84,11 @@ def project_directory(tmpdir_factory):
 @pytest.fixture
 def tmpvenv(virtualenv, tmpdir):
     venv_srcdir = virtualenv.join("src").mkdir()
-    venv = mork.virtualenv.VirtualEnv(virtualenv.strpath)
+    # venv = mork.virtualenv.VirtualEnv(virtualenv.strpath)
+    workingset = pkg_resources.WorkingSet(sys.path)
+    venv = passa.models.environments.Environment(prefix=virtualenv.strpath, is_venv=True,
+                                                    base_working_set=workingset)
+    venv.add_dist("passa")
     venv.run(["pip", "install", "--upgrade", "mork", "setuptools"])
     with vistir.contextmanagers.temp_environ():
         os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
@@ -96,6 +102,6 @@ def tmpvenv(virtualenv, tmpdir):
 def project(project_directory, working_set_extension, tmpvenv):
     # resolved = tmpvenv.resolve_dist(passa_dist, tmpvenv.base_working_set)
     with tmpvenv.activated(extra_dists=list(working_set_extension)):
-        project = _Project(project_directory.strpath, venv=tmpvenv, working_set_extension=working_set_extension)
+        project = _Project(project_directory.strpath, environment=tmpvenv, working_set_extension=working_set_extension)
         project.is_installed = lambda x: any(d for d in tmpvenv.get_working_set() if d.project_name == x)
         yield project

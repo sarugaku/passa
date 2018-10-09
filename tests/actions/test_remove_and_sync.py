@@ -29,14 +29,14 @@ def test_remove_one(project, sync, is_dev):
     lockfile_section = "default" if not is_dev else "develop"
     assert pkg in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert project.venv.is_installed(pkg) or project.is_installed(pkg)
+        assert project.env.is_installed(pkg) or project.is_installed(pkg)
     remove = "default" if not is_dev else "dev"
     retcode = passa.actions.remove.remove(project=project, packages=[pkg,], sync=sync, only=remove)
     assert not retcode
     project.reload()
     assert pkg not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.venv.is_installed(pkg)
+        assert not project.env.is_installed(pkg)
 
 
 @pytest.mark.parametrize(
@@ -60,11 +60,11 @@ def test_remove_one_with_deps(project, sync, is_dev):
     assert 'requests' in project.lockfile._data[lockfile_section].keys()
     assert 'idna' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.venv.python), "-c", "import requests"],
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import requests"],
                                 nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.venv.is_installed("requests") or project.is_installed("requests")
-        assert project.venv.is_installed("idna") or project.is_installed("idna")
+        assert project.env.is_installed("requests") or project.is_installed("requests")
+        assert project.env.is_installed("idna") or project.is_installed("idna")
     remove = "default" if not is_dev else "dev"
     retcode = passa.actions.remove.remove(project=project, packages=["requests",], sync=sync, only=remove)
     assert not retcode
@@ -72,8 +72,8 @@ def test_remove_one_with_deps(project, sync, is_dev):
     assert "requests" not in project.lockfile._data[lockfile_section].keys()
     assert "idna" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.venv.is_installed("requests")
-        assert not project.venv.is_installed("idna")
+        assert not project.env.is_installed("requests")
+        assert not project.env.is_installed("idna")
 
 
 @pytest.mark.parametrize(
@@ -96,17 +96,17 @@ def test_remove_editable(project, sync, is_dev):
     lockfile_section = "default" if not is_dev else "develop"
     assert 'shellingham' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.venv.python), "-c", "import shellingham"],
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import shellingham"],
                                 nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.venv.is_installed("shellingham") or project.is_installed("shellingham")
+        assert project.env.is_installed("shellingham") or project.is_installed("shellingham")
     remove = "default" if not is_dev else "dev"
     retcode = passa.actions.remove.remove(project=project, packages=["shellingham",], sync=sync, only=remove)
     assert not retcode
     project.reload()
     assert "shellingham" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.venv.is_installed("shellingham")
+        assert not project.env.is_installed("shellingham")
 
 
 @pytest.mark.parametrize(
@@ -129,14 +129,14 @@ def test_remove_sdist(project, is_dev, sync):
     lockfile_section = "default" if not is_dev else "develop"
     assert 'arrow' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.venv.python), "-c", "import arrow"],
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import arrow"],
                                 nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.venv.is_installed("arrow") or project.is_installed("arrow")
+        assert project.env.is_installed("arrow") or project.is_installed("arrow")
     remove = "default" if not is_dev else "dev"
     retcode = passa.actions.remove.remove(project=project, packages=["arrow",], sync=sync, only=remove)
     assert not retcode
     project.reload()
     assert "arrow" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.venv.is_installed("arrow")
+        assert not project.env.is_installed("arrow")
