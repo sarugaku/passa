@@ -36,8 +36,6 @@ class Project(passa.models.projects.Project):
             )
 
     def get_env(self):
-        if self.environment:
-            return self.environment
         if 'VIRTUAL_ENV' in os.environ:
             return Environment(prefix=os.environ['VIRTUAL_ENV'], is_venv=True)
         return Environment()
