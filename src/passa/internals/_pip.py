@@ -203,7 +203,7 @@ def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
         vcs_obj.obtain(target_dir)
     if (not vcs_obj.is_commit_id_equal(target_dir, rev) and
             not vcs_obj.is_commit_id_equal(target_dir, target_rev)):
-        vcs_obj.update(target_dir, target_rev)
+        vcs_obj.update(target_dir, vcs_obj.url, target_rev)
     return vcs_obj.get_revision(target_dir)
 
 
