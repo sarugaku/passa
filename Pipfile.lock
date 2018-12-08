@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "fec17982dae915ce2f8505841cee7a3670da96aa698de83e4408ca6eb53a6a96"
+            "sha256": "98ad4ec51e7ea8861ce2e31ac6d39a134251d84a2a7b47f2053e905900312639"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -116,7 +116,7 @@
         },
         "functools32": {
             "file": "https://github.com/sarugaku/functools32/releases/download/3.2.3-2/functools32-3.2.3.post2-py2.py3-none-any.whl",
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version < '2.8' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3'"
+            "markers": "python_version < '3.0' or python_version < '3.0' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.0' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'"
         },
         "idna": {
             "hashes": [
@@ -151,7 +151,7 @@
                 "sha256:25199318e8cc3c25dcb45cbe084cc061051336d5a9ea2a12448d3d8cb748f742",
                 "sha256:5887121d7f7df3603bca2f710e7219f3eca0eb69e0b7cc6e0a022e155ac931a7"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==2.3.3"
         },
         "pep517": {
@@ -234,7 +234,7 @@
                 "sha256:c9009c527929f6e25604aec39b0a43c3f831d2947d89d6caaab22f057b7055c8",
                 "sha256:f5c71e29b4e2af7ccdc03a020c626ede51da471173b4a6ad1e904f2b2e04b4bd"
             ],
-            "markers": "python_version < '3.5' and python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.9.0"
         },
         "six": {
@@ -258,7 +258,7 @@
                 "sha256:57dcf675a99b74d64dacf6fba08fb17cf7e3d5fdff53d4a30ea2a5e7e52543d4",
                 "sha256:a4c8473ce11a65999c8f59cb093e70686b6c84c98df58c1dae9b3b196089858a"
             ],
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' or python_version >= '3.4' and python_version < '3.5' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' or python_version >= '3.4' and python_version < '3.5' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==3.6.6"
         },
         "urllib3": {
@@ -525,7 +525,7 @@
         },
         "functools32": {
             "file": "https://github.com/sarugaku/functools32/releases/download/3.2.3-2/functools32-3.2.3.post2-py2.py3-none-any.whl",
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version < '2.8' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3'"
+            "markers": "python_version < '3.0' or python_version < '3.0' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.0' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'"
         },
         "idna": {
             "hashes": [
@@ -615,13 +615,6 @@
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==4.3.0"
         },
-        "ordereddict": {
-            "hashes": [
-                "sha256:1c35b4ac206cef2d24816c89f89cf289dd3d38cf7c449bb3fab7bf6d43f01b1f"
-            ],
-            "markers": "python_version < '3.0' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
-            "version": "==1.1"
-        },
         "packaging": {
             "hashes": [
                 "sha256:0886227f54515e592aaa2e5a553332c73962917f2831f1b0f9b9f4380a4b9807",
@@ -651,7 +644,7 @@
                 "sha256:25199318e8cc3c25dcb45cbe084cc061051336d5a9ea2a12448d3d8cb748f742",
                 "sha256:5887121d7f7df3603bca2f710e7219f3eca0eb69e0b7cc6e0a022e155ac931a7"
             ],
-            "markers": "python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==2.3.3"
         },
         "pep517": {
@@ -826,7 +819,7 @@
                 "sha256:c9009c527929f6e25604aec39b0a43c3f831d2947d89d6caaab22f057b7055c8",
                 "sha256:f5c71e29b4e2af7ccdc03a020c626ede51da471173b4a6ad1e904f2b2e04b4bd"
             ],
-            "markers": "python_version < '3.5' and python_version < '3.6' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version < '3.6' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.9.0"
         },
         "six": {
@@ -910,7 +903,7 @@
                 "sha256:57dcf675a99b74d64dacf6fba08fb17cf7e3d5fdff53d4a30ea2a5e7e52543d4",
                 "sha256:a4c8473ce11a65999c8f59cb093e70686b6c84c98df58c1dae9b3b196089858a"
             ],
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' or python_version >= '3.4' and python_version < '3.5' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' or python_version >= '3.4' and python_version < '3.5' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '3.5' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version < '3.5' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==3.6.6"
         },
         "urllib3": {
