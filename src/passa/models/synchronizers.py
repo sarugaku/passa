@@ -18,14 +18,14 @@ import requirementslib
 from ..internals._pip import uninstall, Installer
 
 
-def _is_installation_local(name, venv=None):
+def _is_installation_local(name, environment=None):
     """Check whether the distribution is in the current Python installation.
 
-    This is used to distinguish packages seen by a virtual environment. A venv
+    This is used to distinguish packages seen by a virtual environment. A environment
     may be able to see global packages, but we don't want to mess with them.
     """
-    if venv:
-        return venv.is_installed(name)
+    if environment:
+        return environment.is_installed(name)
     loc = os.path.normcase(pkg_resources.working_set.by_key[name].location)
     pre = os.path.normcase(sys.prefix)
     return os.path.commonprefix([loc, pre]) == pre
@@ -41,13 +41,13 @@ GroupCollection = collections.namedtuple("GroupCollection", [
 ])
 
 
-def _group_installed_names(packages, venv=None):
+def _group_installed_names(packages, environment=None):
     """Group locally installed packages based on given specifications.
 
     `packages` is a name-package mapping that are used as baseline to
     determine how the installed package should be grouped.
 
-    `venv` is the virtual environment object of the virtualenv being installed into.
+    `environment` is the virtual environment object of the virtualenv being installed into.
 
     Returns a 3-tuple of disjoint sets, all containing names of installed
     packages:
@@ -59,8 +59,8 @@ def _group_installed_names(packages, venv=None):
     """
     groupcoll = GroupCollection(set(), set(), set(), set())
 
-    if venv:
-        working_set = venv.get_working_set()
+    if environment:
+        working_set = environment.get_working_set()
     else:
         working_set = pkg_resources.working_set
 
@@ -85,13 +85,13 @@ def _group_installed_names(packages, venv=None):
 
 
 @contextlib.contextmanager
-def _remove_package(name, venv=None):
-    if name is None or not _is_installation_local(name, venv=venv):
+def _remove_package(name, environment=None):
+    if name is None or not _is_installation_local(name, environment=environment):
         yield None
         return
     _uninstall = uninstall
-    if venv:
-        _uninstall = venv.uninstall
+    if environment:
+        _uninstall = environment.uninstall
     with _uninstall(name, auto_confirm=True, verbose=False) as uninstaller:
         yield uninstaller
 
@@ -108,15 +108,15 @@ def _get_packages(lockfile, default, develop):
     return packages
 
 
-def _build_paths(venv=None):
+def _build_paths(environment=None):
     """Prepare paths for distlib.wheel.Wheel to install into.
     """
-    if venv:
-        paths = venv.paths
+    if environment:
+        paths = environment.paths
     else:
         paths = sysconfig.get_paths()
     return {
-        "prefix": sys.prefix if not venv else venv.venv_dir.as_posix(),
+        "prefix": sys.prefix if not environment else environment.prefix.as_posix(),
         "data": paths["data"],
         "scripts": paths["scripts"],
         "headers": paths["include"],
@@ -128,12 +128,12 @@ def _build_paths(venv=None):
 PROTECTED_FROM_CLEAN = {"setuptools", "pip", "wheel"}
 
 
-def _clean(names, venv=None):
+def _clean(names, environment=None):
     cleaned = set()
     for name in names:
         if name in PROTECTED_FROM_CLEAN:
             continue
-        with _remove_package(name, venv=venv) as uninst:
+        with _remove_package(name, environment=environment) as uninst:
             if uninst:
                 cleaned.add(name)
     return cleaned
@@ -142,35 +142,36 @@ def _clean(names, venv=None):
 class Synchronizer(object):
     """Helper class to install packages from a project's lock file.
     """
-    def __init__(self, project, default, develop, clean_unneeded, venv=None):
+    def __init__(self, project, default, develop, clean_unneeded, environment=None):
         self._root = project.root   # Only for repr.
         self.project = project
         self.packages = _get_packages(project.lockfile, default, develop)
         self.sources = project.lockfile.meta.sources._data
         self.clean_unneeded = clean_unneeded
-        if not venv:
-            self._venv = getattr(project, "venv", None)
+        if not environment:
+            self._environment = getattr(project, "environment", None)
         else:
-            self._venv = venv
-        self.paths = _build_paths(venv=self.venv)
+            self._environment = environment
+        super(Synchronizer, self).__init__()
+        self.paths = _build_paths(environment=self.environment)
 
     @property
-    def venv(self):
-        if self._venv:
-            return self._venv
-        return self.project.venv
+    def environment(self):
+        if self._environment:
+            return self._environment
+        return self.project.environment
 
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
     def sync(self):
-        if not self.venv:
+        if not self.environment:
             return self._sync()
-        with self.venv.activated():
+        with self.environment.activated():
             return self._sync()
 
     def _sync(self):
-        groupcoll = _group_installed_names(self.packages, venv=self.venv)
+        groupcoll = _group_installed_names(self.packages, environment=self.environment)
 
         installed = set()
         updated = set()
@@ -179,7 +180,7 @@ class Synchronizer(object):
         # TODO: Show a prompt to confirm cleaning. We will need to implement a
         # reporter pattern for this as well.
         if self.clean_unneeded:
-            names = _clean(groupcoll.unneeded, venv=self.venv)
+            names = _clean(groupcoll.unneeded, environment=self.environment)
             cleaned.update(names)
 
         # TODO: Specify installation order? (pypa/pipenv#2274)
@@ -193,7 +194,7 @@ class Synchronizer(object):
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
             r.markers = None
-            installer = Installer(r, sources=self.sources, paths=self.paths, venv=self.venv)
+            installer = Installer(r, sources=self.sources, paths=self.paths, environment=self.environment)
             try:
                 installer.prepare()
             except Exception as e:
@@ -211,7 +212,7 @@ class Synchronizer(object):
             else:
                 name_to_remove = None
             try:
-                with _remove_package(name_to_remove, venv=self.venv):
+                with _remove_package(name_to_remove, environment=self.environment):
                     installer.install()
             except Exception as e:
                 if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
@@ -248,10 +249,10 @@ class Cleaner(object):
         print(message.format(", ".join(sorted(set(packages)))))
 
     def clean(self):
-        groupcoll = _group_installed_names(self.packages, venv=self.project.venv)
+        groupcoll = _group_installed_names(self.packages, environment=self.project.environment)
         cleaned = set()
         if self.sync:
-            cleaned = _clean(groupcoll.unneeded, venv=self.project.venv)
+            cleaned = _clean(groupcoll.unneeded, environment=self.project.environment)
         else:
             return groupcoll.unneeded
         return cleaned

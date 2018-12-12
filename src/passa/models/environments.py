@@ -215,6 +215,19 @@ class Environment(object):
             return "purelib", purelib
         return "platlib", self.paths["platlib"]
 
+    @cached_property
+    def paths(self):
+        paths = {}
+        with vistir.contextmanagers.temp_environ(), vistir.contextmanagers.temp_path():
+            os.environ["PYTHONIOENCODING"] = vistir.compat.fs_str("utf-8")
+            os.environ["PYTHONDONTWRITEBYTECODE"] = vistir.compat.fs_str("1")
+            paths = self.base_paths
+            os.environ["PATH"] = paths["PATH"]
+            os.environ["PYTHONPATH"] = paths["PYTHONPATH"]
+            if "headers" not in paths:
+                paths["headers"] = paths["include"]
+        return paths
+
     def get_distributions(self):
         """Retrives the distributions installed on the library path of the environment
 

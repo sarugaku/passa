@@ -93,21 +93,21 @@ def _get_pip_session(trusted_hosts):
     options, _ = cmd.parser.parse_args([])
     options.cache_dir = CACHE_DIR
     options.trusted_hosts = trusted_hosts
-    session = cmd._build_session(options)
-    return session
+    return cmd._build_session(options)
 
 
+@contextlib.contextmanager
 def _get_finder(sources):
     index_urls, trusted_hosts = _get_pip_index_urls(sources)
-    session = _get_pip_session(trusted_hosts)
-    finder = pip_shims.PackageFinder(
-        find_links=[],
-        index_urls=index_urls,
-        trusted_hosts=trusted_hosts,
-        allow_all_prereleases=True,
-        session=session,
-    )
-    return finder
+    with contextlib.closing(_get_pip_session(trusted_hosts)) as session:
+        finder = pip_shims.PackageFinder(
+            find_links=[],
+            index_urls=index_urls,
+            trusted_hosts=trusted_hosts,
+            allow_all_prereleases=True,
+            session=session,
+        )
+        yield finder
 
 
 def _get_wheel_cache():
@@ -140,7 +140,7 @@ class WheelBuildError(RuntimeError):
     pass
 
 
-def build_wheel(ireq, sources, hashes=None):
+def build_wheel(ireq, sources, finder, hashes=None):
     """Build a wheel file for the InstallRequirement object.
 
     An artifact is downloaded (or read from cache). If the artifact is not a
@@ -154,7 +154,6 @@ def build_wheel(ireq, sources, hashes=None):
     `RuntimeError` subclass) if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
-    finder = _get_finder(sources)
 
     # Not for upgrade, hash not required. Hashes are not required here even
     # when we provide them, because pip skips local wheel cache if we set it
@@ -207,8 +206,10 @@ def get_vcs_ref(requirement):
 
 
 def find_installation_candidates(ireq, sources):
-    finder = _get_finder(sources)
-    return finder.find_all_candidates(ireq.name)
+    candidates = []
+    with _get_finder(sources) as finder:
+        candidates = finder.find_all_candidates(ireq.name)
+    return candidates
 
 
 class RequirementUninstaller(object):
@@ -381,16 +382,17 @@ class BaseInstaller(NoopInstaller):
         return install_args
 
     def build_wheel(self):
-        self.built = build_wheel(self.ireq, self.sources, self.hashes)
-        self.metadata = self.built.metadata
+        with _get_finder(self.sources) as finder:
+            self.built = build_wheel(self.ireq, self.sources, finder, self.hashes)
+            self.metadata = self.built.metadata
         self.is_wheel = True
 
     def build_sdist(self):
-        finder = _get_finder(self.sources)
-        self.ireq.populate_link(finder, False, False)
-        self.ireq.ensure_has_source_dir(self.src_dir)
-        self.built = get_sdist(self.ireq)
-        self.metadata = read_sdist_metadata(self.ireq)
+        with _get_finder(self.sources) as finder:
+            self.ireq.populate_link(finder, False, False)
+            self.ireq.ensure_has_source_dir(self.src_dir)
+            self.built = get_sdist(self.ireq)
+            self.metadata = read_sdist_metadata(self.ireq)
 
     def install_wheel(self):
         scripts = distlib.scripts.ScriptMaker(None, None)
@@ -398,8 +400,10 @@ class BaseInstaller(NoopInstaller):
 
     def install_sdist(self):
         with vistir.cd(self.setup_dir.as_posix()), _suppress_distutils_logs():
-            c = self.environment.run(self.installation_args, return_object=True,
-                                        block=True, nospin=True)
+            c = self.environment.run(
+                self.installation_args, return_object=True, block=True, nospin=True,
+                combine_stderr=False, write_to_stdout=False
+            )
             if c.returncode != 0:
                 err_text = "{0!r}: {1!r}".format(c.err, c.out)
                 raise RuntimeError("Failed to install package: {0!r}".format(err_text))

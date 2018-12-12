@@ -141,20 +141,20 @@ def _get_dependencies_from_json(ireq, sources):
         if proc_url.endswith("/simple")
     ]
 
-    session = requests.session()
+    with requests.session() as session:
 
-    for prefix in url_prefixes:
-        url = "{prefix}/pypi/{name}/{version}/json".format(
-            prefix=prefix,
-            name=packaging.utils.canonicalize_name(ireq.name),
-            version=version,
-        )
-        try:
-            dependencies = _get_dependencies_from_json_url(url, session)
-            if dependencies is not None:
-                return dependencies
-        except Exception as e:
-            print("unable to read dependencies via {0} ({1})".format(url, e))
+        for prefix in url_prefixes:
+            url = "{prefix}/pypi/{name}/{version}/json".format(
+                prefix=prefix,
+                name=packaging.utils.canonicalize_name(ireq.name),
+                version=version,
+            )
+            try:
+                dependencies = _get_dependencies_from_json_url(url, session)
+                if dependencies is not None:
+                    return dependencies
+            except Exception as e:
+                print("unable to read dependencies via {0} ({1})".format(url, e))
     return
 
 

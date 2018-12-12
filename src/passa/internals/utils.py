@@ -1,9 +1,33 @@
 # -*- coding=utf-8 -*-
 
-from __future__ import absolute_import, unicode_literals
+from __future__ import absolute_import, unicode_literals, print_function
+
+import atexit
+import os
+
+import requests
+
+
+def is_type_checking():
+    # type: () -> bool
+    try:
+        from typing import TYPE_CHECKING
+    except ImportError:
+        return False
+    return TYPE_CHECKING
+
+
+MYPY_RUNNING = os.environ.get("MYPY_RUNNING", is_type_checking())
+
+
+if MYPY_RUNNING:
+    from typing import Any, List, Dict  # noqa
+    from requirementslib.models.requirements import Requirement  # noqa
+    from pip_shims.shims import InstallRequirement  # noqa
 
 
 def identify_requirment(r):
+    # type: (Requirement) -> str
     """Produce an identifier for a requirement to use in the resolver.
 
     Note that we are treating the same package with different extras as
@@ -18,6 +42,7 @@ def identify_requirment(r):
 
 
 def get_pinned_version(ireq):
+    # type: (InstallRequirement) -> str
     """Get the pinned version of an InstallRequirement.
 
     An InstallRequirement is considered pinned if:
@@ -60,6 +85,7 @@ def get_pinned_version(ireq):
 
 
 def is_pinned(ireq):
+    # type: (InstallRequirement) -> bool
     """Returns whether an InstallRequirement is a "pinned" requirement.
 
     An InstallRequirement is considered pinned if:
@@ -83,6 +109,7 @@ def is_pinned(ireq):
 
 
 def filter_sources(requirement, sources):
+    # type: (Requirement, List[Dict[str, Union[bool, str]]]) -> List[Dict[str, Union[bool, str]]]
     """Returns a filtered list of sources for this requirement.
 
     This considers the index specified by the requirement, and returns only
@@ -98,11 +125,13 @@ def filter_sources(requirement, sources):
 
 
 def get_allow_prereleases(requirement, global_setting):
+    # type: (Requirement, bool) -> bool
     # TODO: Implement per-package prereleases flag. (pypa/pipenv#1696)
     return global_setting
 
 
 def are_requirements_equal(this, that):
+    # type: (Requirement, Requirement) -> bool
     return (
         this.as_line(include_hashes=False) ==
         that.as_line(include_hashes=False)
@@ -110,9 +139,22 @@ def are_requirements_equal(this, that):
 
 
 def strip_extras(requirement):
+    # type: (Requirement) -> Requirement
     """Returns a new requirement object with extras removed.
     """
     line = requirement.as_line()
     new = type(requirement).from_line(line)
     new.extras = None
     return new
+
+
+REQUESTS_SESSIONS = []  # type: List[requests.Session]
+
+
+def get_tracked_session():
+    # type: () -> requests.Session
+    """Build a requests session and register it to be closed with interpreter exit"""
+
+    session = requests.Session()
+    atexit.register(session.close)
+    return session
