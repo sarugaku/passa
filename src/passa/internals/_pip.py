@@ -7,6 +7,7 @@ import io
 import itertools
 import distutils.log
 import os
+import re
 
 import distlib.database
 import distlib.metadata
@@ -284,6 +285,58 @@ class NoopInstaller(object):
 
     def install(self):
         pass
+
+
+dist_info_re = re.compile(r"""^(?P<namever>(?P<name>.+?)(-(?P<ver>.+?))?)
+                                \.dist-info$""", re.VERBOSE)
+
+
+def root_is_purelib(name, wheeldir):
+    """
+    Return True if the extracted wheel in wheeldir should go into purelib.
+    """
+    name_folded = name.replace("-", "_")
+    for item in os.listdir(wheeldir):
+        match = dist_info_re.match(item)
+        if match and match.group('name') == name_folded:
+            with open(os.path.join(wheeldir, item, 'WHEEL')) as wheel:
+                for line in wheel:
+                    line = line.lower().rstrip()
+                    if line == "root-is-purelib: true":
+                        return True
+    return False
+
+
+def get_entrypoints(filename):
+    import pkg_resources
+    if not os.path.exists(filename):
+        return {}, {}
+
+    # This is done because you can pass a string to entry_points wrappers which
+    # means that they may or may not be valid INI files. The attempt here is to
+    # strip leading and trailing whitespace in order to make them valid INI
+    # files.
+    with open(filename) as fp:
+        data = io.StringIO()
+        for line in fp:
+            data.write(line.strip())
+            data.write("\n")
+        data.seek(0)
+
+    # get the entry points and then the script names
+    entry_points = pkg_resources.EntryPoint.parse_map(data)
+    console = entry_points.get('console_scripts', {})
+    gui = entry_points.get('gui_scripts', {})
+
+    def _split_ep(s):
+        """get the string representation of EntryPoint, remove space and split
+        on '='"""
+        return str(s).replace(" ", "").split("=")
+
+    # convert the EntryPoint objects into strings with module:function
+    console = dict(_split_ep(v) for v in console.values())
+    gui = dict(_split_ep(v) for v in gui.values())
+    return console, gui
 
 
 class BaseInstaller(NoopInstaller):
