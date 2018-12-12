@@ -194,7 +194,7 @@ class Synchronizer(object):
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
             r.markers = None
-            installer = Installer(r, sources=self.sources, paths=self.paths, environment=self.environment)
+            installer = Installer(r, sources=self.sources, environment=self.environment)
             try:
                 installer.prepare()
             except Exception as e:
