@@ -30,3 +30,4 @@ def install(project=None, check=True, dev=False, clean=True):
         return 1
 
     print("Synchronized project at", project.root)
+    return 0

@@ -1,5 +1,5 @@
 [packages]
-passa = { editable = true, path = '.' }
+passa = {editable = true,path = '.',extras = ['virtualenv']}
 
 # Override sdist-only dependency via TOMLkit to fix build. (sarugaku/passa#61)
 [packages.functools32]
@@ -12,12 +12,13 @@ markers = "python_version < '3.0'"
 black = '*'
 invoke = '*'
 parver = '*'
-passa = { editable = true, path = '.', extras = ['tests'] }
+passa = {editable = true,path = '.',extras = ['tests']}
 sphinx = '*'
 sphinx-rtd-theme = '*'
 towncrier = '*'
 twine = '*'
 wheel = '*'
+coverage = "<5.0"
 
 [scripts]
 passa-add = 'python -m passa.cli.add'
@@ -25,7 +26,6 @@ passa-remove = 'python -m passa.cli.remove'
 passa-upgrade = 'python -m passa.cli.upgrade'
 passa-lock = 'python -m passa.cli.lock'
 passa-freeze = 'python -m passa.cli.freeze'
-
 black = 'black src/passa/ --exclude "/(\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/"'
 build = 'inv build'
 changelog = 'towncrier'
@@ -34,3 +34,6 @@ draft = 'towncrier --draft'
 release = 'inv release'
 tests = "pytest -v tests"
 upload = 'inv upload'
+
+[pipenv]
+allow_prereleases = true

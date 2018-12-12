@@ -10,11 +10,12 @@ import packaging.specifiers
 import packaging.utils
 import packaging.version
 import requests
-import requirementslib
 import six
 
+import requirementslib
+
 from ..models.caches import DependencyCache, RequiresPythonCache
-from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
+from ._pip import WheelBuildError, build_wheel, get_sdist, read_sdist_metadata
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 
@@ -140,20 +141,20 @@ def _get_dependencies_from_json(ireq, sources):
         if proc_url.endswith("/simple")
     ]
 
-    session = requests.session()
+    with requests.session() as session:
 
-    for prefix in url_prefixes:
-        url = "{prefix}/pypi/{name}/{version}/json".format(
-            prefix=prefix,
-            name=packaging.utils.canonicalize_name(ireq.name),
-            version=version,
-        )
-        try:
-            dependencies = _get_dependencies_from_json_url(url, session)
-            if dependencies is not None:
-                return dependencies
-        except Exception as e:
-            print("unable to read dependencies via {0} ({1})".format(url, e))
+        for prefix in url_prefixes:
+            url = "{prefix}/pypi/{name}/{version}/json".format(
+                prefix=prefix,
+                name=packaging.utils.canonicalize_name(ireq.name),
+                version=version,
+            )
+            try:
+                dependencies = _get_dependencies_from_json_url(url, session)
+                if dependencies is not None:
+                    return dependencies
+            except Exception as e:
+                print("unable to read dependencies via {0} ({1})".format(url, e))
     return
 
 
@@ -225,17 +226,18 @@ def _get_dependencies_from_pip(ireq, sources):
     """
     extras = ireq.extras or ()
     try:
-        wheel = build_wheel(ireq, sources)
+        built = build_wheel(ireq, sources)
     except WheelBuildError:
         # XXX: This depends on a side effect of `build_wheel`. This block is
         # reached when it fails to build an sdist, where the sdist would have
         # been downloaded, extracted into `ireq.source_dir`, and partially
         # built (hopefully containing .egg-info).
+        built = get_sdist(ireq)
         metadata = read_sdist_metadata(ireq)
         if not metadata:
             raise
     else:
-        metadata = wheel.metadata
+        metadata = built.metadata
     requirements = _read_requirements(metadata, extras)
     requires_python = _read_requires_python(metadata)
     return requirements, requires_python

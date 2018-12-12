@@ -7,18 +7,24 @@ import io
 import itertools
 import distutils.log
 import os
+import re
 
 import distlib.database
+import distlib.metadata
 import distlib.scripts
 import distlib.wheel
 import packaging.utils
 import pip_shims
-import setuptools.dist
 import six
+import sys
+import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
-from ._pip_shims import VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+from ..models.environments import Environment
+from ._pip_shims import (
+    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
+)
 from .utils import filter_sources
 
 
@@ -87,21 +93,21 @@ def _get_pip_session(trusted_hosts):
     options, _ = cmd.parser.parse_args([])
     options.cache_dir = CACHE_DIR
     options.trusted_hosts = trusted_hosts
-    session = cmd._build_session(options)
-    return session
+    return cmd._build_session(options)
 
 
+@contextlib.contextmanager
 def _get_finder(sources):
     index_urls, trusted_hosts = _get_pip_index_urls(sources)
-    session = _get_pip_session(trusted_hosts)
-    finder = pip_shims.PackageFinder(
-        find_links=[],
-        index_urls=index_urls,
-        trusted_hosts=trusted_hosts,
-        allow_all_prereleases=True,
-        session=session,
-    )
-    return finder
+    with contextlib.closing(_get_pip_session(trusted_hosts)) as session:
+        finder = pip_shims.PackageFinder(
+            find_links=[],
+            index_urls=index_urls,
+            trusted_hosts=trusted_hosts,
+            allow_all_prereleases=True,
+            session=session,
+        )
+        yield finder
 
 
 def _get_wheel_cache():
@@ -134,7 +140,7 @@ class WheelBuildError(RuntimeError):
     pass
 
 
-def build_wheel(ireq, sources, hashes=None):
+def build_wheel(ireq, sources, finder, hashes=None):
     """Build a wheel file for the InstallRequirement object.
 
     An artifact is downloaded (or read from cache). If the artifact is not a
@@ -148,7 +154,6 @@ def build_wheel(ireq, sources, hashes=None):
     `RuntimeError` subclass) if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
-    finder = _get_finder(sources)
 
     # Not for upgrade, hash not required. Hashes are not required here even
     # when we provide them, because pip skips local wheel cache if we set it
@@ -196,29 +201,15 @@ def build_wheel(ireq, sources, hashes=None):
     return distlib.wheel.Wheel(wheel_path)
 
 
-def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
-    target_dir = os.path.join(src_dir, name)
-    target_rev = vcs_obj.make_rev_options(rev)
-    if not os.path.exists(target_dir):
-        vcs_obj.obtain(target_dir)
-    if (not vcs_obj.is_commit_id_equal(target_dir, rev) and
-            not vcs_obj.is_commit_id_equal(target_dir, target_rev)):
-        vcs_obj.update(target_dir, target_rev)
-    return vcs_obj.get_revision(target_dir)
-
-
 def get_vcs_ref(requirement):
-    backend = VCS_SUPPORT.get_backend(requirement.vcs)
-    vcs = backend(url=requirement.req.vcs_uri)
-    src = _get_src_dir()
-    name = requirement.normalized_name
-    ref = _obtrain_ref(vcs, src, name, rev=requirement.req.ref)
-    return ref
+    return requirement.commit_hash
 
 
 def find_installation_candidates(ireq, sources):
-    finder = _get_finder(sources)
-    return finder.find_all_candidates(ireq.name)
+    candidates = []
+    with _get_finder(sources) as finder:
+        candidates = finder.find_all_candidates(ireq.name)
+    return candidates
 
 
 class RequirementUninstaller(object):
@@ -227,17 +218,24 @@ class RequirementUninstaller(object):
     This uses `UninstallPathSet` to control the workflow. If the inner block
     exits correctly, the uninstallation is committed, otherwise rolled back.
     """
-    def __init__(self, ireq, auto_confirm, verbose):
+    def __init__(self, ireq, auto_confirm, verbose, env=None):
         self.ireq = ireq
         self.pathset = None
         self.auto_confirm = auto_confirm
         self.verbose = verbose
+        self.env = env if env else Environment()
+
+    def check_permitted(self, pathset, path):
+        if self.env.is_venv and self.env.is_installed(self.ireq.name):
+            return True
+        return pathset._permitted(path)
 
     def __enter__(self):
         self.pathset = self.ireq.uninstall(
             auto_confirm=self.auto_confirm,
             verbose=self.verbose,
         )
+        self.pathset._permitted = self.check_permitted
         return self.pathset
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -282,6 +280,7 @@ class NoopInstaller(object):
     arguments, and should be called in that order to prepare an installation
     operation, and to actually install things.
     """
+
     def prepare(self):
         pass
 
@@ -289,39 +288,172 @@ class NoopInstaller(object):
         pass
 
 
-class EditableInstaller(NoopInstaller):
-    """Installer to handle editable.
+dist_info_re = re.compile(r"""^(?P<namever>(?P<name>.+?)(-(?P<ver>.+?))?)
+                                \.dist-info$""", re.VERBOSE)
+
+
+def root_is_purelib(name, wheeldir):
     """
-    def __init__(self, requirement):
-        ireq = requirement.as_ireq()
-        self.working_directory = ireq.setup_py_dir
-        self.setup_py = ireq.setup_py
-
-    def install(self):
-        with vistir.cd(self.working_directory), _suppress_distutils_logs():
-            # Access from Setuptools to ensure things are patched correctly.
-            setuptools.dist.distutils.core.run_setup(
-                self.setup_py, ["develop", "--no-deps"],
-            )
-
-
-class WheelInstaller(NoopInstaller):
-    """Installer by building a wheel.
-
-    The wheel is built during `prepare()`, and installed in `install()`.
+    Return True if the extracted wheel in wheeldir should go into purelib.
     """
-    def __init__(self, requirement, sources, paths):
+    name_folded = name.replace("-", "_")
+    for item in os.listdir(wheeldir):
+        match = dist_info_re.match(item)
+        if match and match.group('name') == name_folded:
+            with open(os.path.join(wheeldir, item, 'WHEEL')) as wheel:
+                for line in wheel:
+                    line = line.lower().rstrip()
+                    if line == "root-is-purelib: true":
+                        return True
+    return False
+
+
+def get_entrypoints(filename):
+    import pkg_resources
+    if not os.path.exists(filename):
+        return {}, {}
+
+    # This is done because you can pass a string to entry_points wrappers which
+    # means that they may or may not be valid INI files. The attempt here is to
+    # strip leading and trailing whitespace in order to make them valid INI
+    # files.
+    with open(filename) as fp:
+        data = io.StringIO()
+        for line in fp:
+            data.write(line.strip())
+            data.write("\n")
+        data.seek(0)
+
+    # get the entry points and then the script names
+    entry_points = pkg_resources.EntryPoint.parse_map(data)
+    console = entry_points.get('console_scripts', {})
+    gui = entry_points.get('gui_scripts', {})
+
+    def _split_ep(s):
+        """get the string representation of EntryPoint, remove space and split
+        on '='"""
+        return str(s).replace(" ", "").split("=")
+
+    # convert the EntryPoint objects into strings with module:function
+    console = dict(_split_ep(v) for v in console.values())
+    gui = dict(_split_ep(v) for v in gui.values())
+    return console, gui
+
+
+class BaseInstaller(NoopInstaller):
+    """Virtualenv-capable installer"""
+
+    def __init__(self, requirement, sources=None, environment=None):
         self.ireq = requirement.as_ireq()
         self.sources = filter_sources(requirement, sources)
         self.hashes = requirement.hashes or None
-        self.paths = paths
-        self.wheel = None
+        self.environment = environment if environment else Environment()
+        self.built = None
+        self.metadata = None
+        self.is_wheel = False
+
+    @property
+    def src_dir(self):
+        build_dir = os.environ.get("PASSA_BUILD_DIR", None)
+        if not build_dir:
+            build_dir = vistir.path.create_tracked_tempdir("passa-build-dir")
+        return build_dir
+
+    @property
+    def setup_dir(self):
+        if not self.built:
+            return self.ireq.setup_py_dir
+        return vistir.compat.Path(self.built.path).parent
+
+    @property
+    def installation_args(self):
+        install_arg = "install" if not self.ireq.editable else "develop"
+        setup_path = self.setup_dir.joinpath("setup.py")
+        install_keys = ["headers", "purelib", "platlib", "scripts", "data"]
+        install_args = [
+            self.environment.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(),
+            install_arg, "--single-version-externally-managed", "--no-deps",
+            "--prefix={0}".format(self.environment.paths["prefix"])
+        ]
+        for key in install_keys:
+            install_args.append(
+                "--install-{0}={1}".format(key, self.environment.paths[key])
+            )
+        return install_args
+
+    def build_wheel(self):
+        with _get_finder(self.sources) as finder:
+            self.built = build_wheel(self.ireq, self.sources, finder, self.hashes)
+            self.metadata = self.built.metadata
+        self.is_wheel = True
+
+    def build_sdist(self):
+        with _get_finder(self.sources) as finder:
+            self.ireq.populate_link(finder, False, False)
+            self.ireq.ensure_has_source_dir(self.src_dir)
+            self.built = get_sdist(self.ireq)
+            self.metadata = read_sdist_metadata(self.ireq)
+
+    def install_wheel(self):
+        scripts = distlib.scripts.ScriptMaker(None, None)
+        self.built.install(self.environment.paths, scripts)
+
+    def install_sdist(self):
+        with vistir.cd(self.setup_dir.as_posix()), _suppress_distutils_logs():
+            c = self.environment.run(
+                self.installation_args, return_object=True, block=True, nospin=True,
+                combine_stderr=False, write_to_stdout=False
+            )
+            if c.returncode != 0:
+                err_text = "{0!r}: {1!r}".format(c.err, c.out)
+                raise RuntimeError("Failed to install package: {0!r}".format(err_text))
+            return
 
     def prepare(self):
-        self.wheel = build_wheel(self.ireq, self.sources, self.hashes)
+        pass
 
     def install(self):
-        self.wheel.install(self.paths, distlib.scripts.ScriptMaker(None, None))
+        with self.environment.activated():
+            self._install()
+
+
+class SdistInstaller(BaseInstaller):
+    """Installer for SDists"""
+    def __init__(self, *args, **kwargs):
+        super(SdistInstaller, self).__init__(*args, **kwargs)
+
+    def prepare(self):
+        try:
+            self.build_wheel()
+        except (WheelBuildError, distlib.metadata.MetadataConflictError):
+            self.build_sdist()
+            if not self.built or not self.metadata:
+                raise
+
+    def _install(self):
+        if self.is_wheel:
+            self.install_wheel()
+        else:
+            self.install_sdist()
+
+
+class Installer(SdistInstaller):
+    """Installer to handle editable.
+    """
+    def __init__(self, *args, **kwargs):
+        super(Installer, self).__init__(*args, **kwargs)
+
+    @property
+    def src_dir(self):
+        build_dir = os.environ.get("PIP_SRC", None)
+        venv = os.environ.get("VIRTUAL_ENV", None)
+        if venv:
+            src_dir = os.path.join(venv, "src")
+            if os.path.exists(src_dir):
+                build_dir = src_dir
+        if not build_dir:
+            build_dir = vistir.path.create_tracked_tempdir("passa-build-dir")
+        return build_dir
 
 
 def _iter_egg_info_directories(root, name):
@@ -389,9 +521,15 @@ def _find_egg_info(ireq):
     return top_egg_info
 
 
-def read_sdist_metadata(ireq):
+def get_sdist(ireq):
     egg_info_dir = _find_egg_info(ireq)
     if not egg_info_dir:
         return None
-    distribution = distlib.database.EggInfoDistribution(egg_info_dir)
-    return distribution.metadata
+    return distlib.database.EggInfoDistribution(egg_info_dir)
+
+
+def read_sdist_metadata(ireq):
+    sdist = get_sdist(ireq)
+    if not sdist:
+        return None
+    return sdist.metadata

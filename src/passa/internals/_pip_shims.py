@@ -11,7 +11,19 @@ There are currently two members:
 
 from __future__ import absolute_import, unicode_literals
 
+import distlib.metadata
+import importlib
 import pip_shims
+import recursive_monkey_patch
+
+
+class LegacyMetadata(object):
+    def set_metadata_version(self):
+        metadata_version = self._fields.get("Metadata-Version")
+        if metadata_version == "2.1":
+            self._fields["Metadata-Version"] = metadata_version
+        else:
+            self._fields['Metadata-Version'] = distlib.metadata._best_version(self._fields)
 
 
 def _build_wheel_pre10(ireq, output_dir, finder, wheel_cache, kwargs):
@@ -47,8 +59,8 @@ def _unpack_url_pre10(*args, **kwargs):
     return pip_shims.unpack_url(*args, **kwargs)
 
 
-PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
-VERSION_10 = pip_shims.utils._parse("10")
+PIP_VERSION = pip_shims._parse(pip_shims.pip_version)
+VERSION_10 = pip_shims._parse("10")
 
 
 VCS_SUPPORT = pip_shims.VcsSupport()
@@ -59,3 +71,15 @@ unpack_url = pip_shims.unpack_url
 if PIP_VERSION < VERSION_10:
     build_wheel = _build_wheel_pre10
     unpack_url = _unpack_url_pre10
+
+
+SETUPTOOLS_SHIM = (
+    "import setuptools, tokenize;__file__=%r;"
+    "f=getattr(tokenize, 'open', open)(__file__);"
+    "code=f.read().replace('\\r\\n', '\\n');"
+    "f.close();"
+    "exec(compile(code, __file__, 'exec'))"
+)
+
+
+recursive_monkey_patch.monkey_patch(LegacyMetadata, distlib.metadata.LegacyMetadata)
