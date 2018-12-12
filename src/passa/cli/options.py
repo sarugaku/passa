@@ -25,14 +25,14 @@ class Project(passa.models.projects.Project):
         environment = kwargs.pop("environment", self.get_env())
         if not pipfile.is_file():
             raise argparse.ArgumentError(
-                project, "{0!r} is not a Pipfile project".format(root.as_posix()),
+                "project", "{0!r} is not a Pipfile project".format(root),
             )
         try:
             super(Project, self).__init__(root.as_posix(), environment=environment,
                                             *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
-                project, "failed to parse Pipfile: {0!r}".format(str(e)),
+                "project", "failed to parse Pipfile: {0!r}".format(str(e)),
             )
 
     def get_env(self):
@@ -94,9 +94,12 @@ class Option(object):
 
 
 class ArgumentGroup(object):
-    def __init__(self, name, parser=None, is_mutually_exclusive=False, required=False, options=[]):
+    def __init__(
+            self, name, parser=None,
+            is_mutually_exclusive=False,
+            required=None, options=None):
         self.name = name
-        self.options = options
+        self.options = options or []
         self.parser = parser
         self.required = required
         self.is_mutually_exclusive = is_mutually_exclusive

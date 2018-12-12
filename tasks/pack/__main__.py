@@ -23,7 +23,7 @@ def get_site_packages():
 
 
 def insert_before_site_packages(*paths):
-    site_packages =  get_site_packages()
+    site_packages = get_site_packages()
     index = None
     for i, path in enumerate(sys.path):
         if path in site_packages:
