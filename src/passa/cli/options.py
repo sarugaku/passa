@@ -23,7 +23,7 @@ class Project(passa.models.projects.Project):
         pipfile = root.joinpath("Pipfile")
         if not pipfile.is_file():
             raise argparse.ArgumentError(
-                project, "{0!r} is not a Pipfile project".format(root.as_posix()),
+                "project", "{0!r} is not a Pipfile project".format(root),
             )
         self.venv = kwargs.pop("venv", self.get_venv(root))
         try:
@@ -31,7 +31,7 @@ class Project(passa.models.projects.Project):
                                             *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
-                project, "failed to parse Pipfile: {0!r}".format(str(e)),
+                "project", "failed to parse Pipfile: {0!r}".format(str(e)),
             )
 
     def get_venv(self, root):
@@ -93,9 +93,12 @@ class Option(object):
 
 
 class ArgumentGroup(object):
-    def __init__(self, name, parser=None, is_mutually_exclusive=False, required=False, options=[]):
+    def __init__(
+            self, name, parser=None,
+            is_mutually_exclusive=False,
+            required=None, options=None):
         self.name = name
-        self.options = options
+        self.options = options or []
         self.parser = parser
         self.required = required
         self.is_mutually_exclusive = is_mutually_exclusive
