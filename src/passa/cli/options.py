@@ -27,7 +27,7 @@ class Project(passa.models.projects.Project):
             )
         self.venv = kwargs.pop("venv", self.get_venv(root))
         try:
-            super(Project, self).__init__(root.as_posix(), env_prefix=self.venv.venv_dir,
+            super(Project, self).__init__(root.as_posix(), env_prefix=self.venv.prefix,
                                             *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
