@@ -12,18 +12,23 @@ import sys
 import vistir
 
 from collections import deque
+from pytest_pypi.app import prepare_packages
 
 
 DEFAULT_PIPFILE_CONTENTS = """
 [[source]]
 name = "pypi"
-url = "https://pypi.org/simple"
+url = "{pypi}/simple"
 verify_ssl = true
 
 [packages]
 
 [dev-packages]
 """.strip()
+TESTS_ROOT = os.path.dirname(os.path.abspath(__file__))
+PYPI_VENDOR_DIR = os.path.join(TESTS_ROOT, 'pypi')
+
+prepare_packages(PYPI_VENDOR_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -44,8 +49,9 @@ def working_set_extension():
 def virtualenv(tmpdir_factory):
     venv_dir = tmpdir_factory.mktemp("passa-testenv")
     print("Creating virtualenv {0!r}".format(venv_dir.strpath))
-    c = vistir.misc.run([sys.executable, "-m", "virtualenv", venv_dir.strpath],
-                            return_object=True, block=True, nospin=True)
+    venv_module = "venv" if sys.version_info[0] > 2 else "virtualenv"
+    c = vistir.misc.run([sys.executable, "-m", venv_module, venv_dir.strpath],
+                        return_object=True, block=True, nospin=True)
     if c.returncode == 0:
         print("Virtualenv created...")
         return venv_dir
@@ -74,10 +80,11 @@ class _Project(passa.cli.options.Project):
 
 
 @pytest.fixture(scope="function")
-def project_directory(tmpdir_factory):
+def project_directory(tmpdir_factory, pypi):
     project_dir = tmpdir_factory.mktemp("passa-project")
-    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS)
-    with vistir.contextmanagers.cd(project_dir.strpath):
+    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS.format(pypi=pypi.url))
+    with vistir.contextmanagers.cd(project_dir.strpath), vistir.contextmanagers.temp_environ():
+        os.environ["PIP_INDEX_URL"] = "{}/simple".format(pypi.url)
         yield project_dir
 
 
@@ -87,9 +94,9 @@ def tmpvenv(virtualenv, tmpdir):
     # venv = mork.virtualenv.VirtualEnv(virtualenv.strpath)
     workingset = pkg_resources.WorkingSet(sys.path)
     venv = passa.models.environments.Environment(prefix=virtualenv.strpath, is_venv=True,
-                                                    base_working_set=workingset)
-    venv.add_dist("passa")
-    venv.run(["pip", "install", "--upgrade", "mork", "setuptools"])
+                                                 base_working_set=workingset)
+    # venv.add_dist("passa")
+    # venv.run(["pip", "install", "--upgrade", "mork", "setuptools"])
     with vistir.contextmanagers.temp_environ():
         os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
         os.environ["PIP_QUIET"] = "1"
@@ -105,3 +112,8 @@ def project(project_directory, working_set_extension, tmpvenv):
         project = _Project(project_directory.strpath, environment=tmpvenv, working_set_extension=working_set_extension)
         project.is_installed = lambda x: any(d for d in tmpvenv.get_working_set() if d.project_name == x)
         yield project
+
+
+@pytest.fixture(params=[True, False])
+def is_dev(request):
+    return request.param

@@ -4,12 +4,8 @@ import passa.actions.install
 import passa.actions.add
 import passa.cli.options
 import passa.models.projects
-import pytest
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_install_one(project, is_dev):
     add_kwargs = {
         "project": project,
@@ -28,9 +24,6 @@ def test_install_one(project, is_dev):
     assert project.env.is_installed("pytz") or project.is_installed("pytz")
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_install_one_with_deps(project, is_dev):
     add_kwargs = {
         "project": project,
@@ -51,9 +44,6 @@ def test_install_one_with_deps(project, is_dev):
     assert project.env.is_installed("idna") or project.is_installed("idna")
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_install_editable(project, is_dev):
     add_kwargs = {
         "project": project,
@@ -71,16 +61,13 @@ def test_install_editable(project, is_dev):
     assert install == 0
     project.reload()
     assert (project.env.is_installed("shellingham") or
-                project.is_installed("shellingham")), list([dist.project_name for dist in project.env.get_distributions()])
+            project.is_installed("shellingham")), list([dist.project_name for dist in project.env.get_distributions()])
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_install_sdist(project, is_dev):
     add_kwargs = {
         "project": project,
-        "packages": ["arrow",],
+        "packages": ["cerberus",],
         "editables": [],
         "dev": is_dev,
         "sync": False,
@@ -89,8 +76,8 @@ def test_install_sdist(project, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'arrow' in project.lockfile._data[lockfile_section].keys()
+    assert 'cerberus' in project.lockfile._data[lockfile_section].keys()
     install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
     assert install == 0
     project.reload()
-    assert project.env.is_installed("arrow") or project.is_installed("arrow")
+    assert project.env.is_installed("cerberus") or project.is_installed("cerberus")
