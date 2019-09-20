@@ -260,7 +260,7 @@ def get_dependencies(requirement, sources):
     for getter in getters:
         try:
             result = getter(ireq)
-        except Exception as e:
+        except Exception:
             last_exc = sys.exc_info()
             continue
         if result is not None:

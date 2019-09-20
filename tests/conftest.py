@@ -117,3 +117,8 @@ def project(project_directory, working_set_extension, tmpvenv):
 @pytest.fixture(params=[True, False])
 def is_dev(request):
     return request.param
+
+
+@pytest.fixture(params=[True, False])
+def sync(request):
+    return request.param

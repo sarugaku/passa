@@ -8,12 +8,6 @@ import pytest
 import vistir
 
 
-@pytest.mark.parametrize(
-    'sync', (True, False)
-)
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_remove_one(project, sync, is_dev):
     pkg = "xlrd"
     add_kwargs = {
@@ -39,16 +33,10 @@ def test_remove_one(project, sync, is_dev):
         assert not project.env.is_installed(pkg)
 
 
-@pytest.mark.parametrize(
-    'sync', (True, False),
-)
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_remove_one_with_deps(project, sync, is_dev):
     add_kwargs = {
         "project": project,
-        "packages": ["requests",],
+        "packages": ["tablib"],
         "editables": [],
         "dev": is_dev,
         "sync": sync,
@@ -57,31 +45,26 @@ def test_remove_one_with_deps(project, sync, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'requests' in project.lockfile._data[lockfile_section].keys()
-    assert 'idna' in project.lockfile._data[lockfile_section].keys()
+    assert 'tablib' in project.lockfile._data[lockfile_section].keys()
+    assert 'xlrd' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import requests"],
-                                nospin=True, block=True, return_object=True)
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import tablib"],
+                            nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.env.is_installed("requests") or project.is_installed("requests")
-        assert project.env.is_installed("idna") or project.is_installed("idna")
+        assert project.env.is_installed("tablib") or project.is_installed("tablib")
+        assert project.env.is_installed("xlrd") or project.is_installed("xlrd")
     remove = "default" if not is_dev else "dev"
-    retcode = passa.actions.remove.remove(project=project, packages=["requests",], sync=sync, only=remove)
+    retcode = passa.actions.remove.remove(project=project, packages=["tablib",], sync=sync, only=remove)
     assert not retcode
     project.reload()
-    assert "requests" not in project.lockfile._data[lockfile_section].keys()
-    assert "idna" not in project.lockfile._data[lockfile_section].keys()
+    assert "tablib" not in project.lockfile._data[lockfile_section].keys()
+    assert "xlrd" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.env.is_installed("requests")
-        assert not project.env.is_installed("idna")
+        assert not project.env.is_installed("django")
+        assert not project.env.is_installed("xlrd")
 
 
-@pytest.mark.parametrize(
-    'sync', (True, False),
-)
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
+@pytest.mark.needs_internet
 def test_remove_editable(project, sync, is_dev):
     add_kwargs = {
         "project": project,
@@ -97,7 +80,7 @@ def test_remove_editable(project, sync, is_dev):
     assert 'shellingham' in project.lockfile._data[lockfile_section].keys()
     if sync:
         c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import shellingham"],
-                                nospin=True, block=True, return_object=True)
+                            nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
         assert project.env.is_installed("shellingham") or project.is_installed("shellingham")
     remove = "default" if not is_dev else "dev"
@@ -109,16 +92,10 @@ def test_remove_editable(project, sync, is_dev):
         assert not project.env.is_installed("shellingham")
 
 
-@pytest.mark.parametrize(
-    'sync', (True, False),
-)
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
 def test_remove_sdist(project, is_dev, sync):
     add_kwargs = {
         "project": project,
-        "packages": ["arrow"],
+        "packages": ["docopt"],
         "editables": [],
         "dev": is_dev,
         "sync": sync,
@@ -127,16 +104,16 @@ def test_remove_sdist(project, is_dev, sync):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'arrow' in project.lockfile._data[lockfile_section].keys()
+    assert 'docopt' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import arrow"],
-                                nospin=True, block=True, return_object=True)
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import docopt"],
+                            nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.env.is_installed("arrow") or project.is_installed("arrow")
+        assert project.env.is_installed("docopt") or project.is_installed("docopt")
     remove = "default" if not is_dev else "dev"
-    retcode = passa.actions.remove.remove(project=project, packages=["arrow",], sync=sync, only=remove)
+    retcode = passa.actions.remove.remove(project=project, packages=["docopt",], sync=sync, only=remove)
     assert not retcode
     project.reload()
-    assert "arrow" not in project.lockfile._data[lockfile_section].keys()
+    assert "docopt" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.env.is_installed("arrow")
+        assert not project.env.is_installed("docopt")
