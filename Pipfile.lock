@@ -112,15 +112,6 @@
             ],
             "version": "==2.0.1"
         },
-        "functools32": {
-            "file": "https://github.com/sarugaku/functools32/releases/download/3.2.3-2/functools32-3.2.3.post2-py2.py3-none-any.whl",
-            "hashes": [
-                "sha256:89d824aa6c358c421a234d7f9ee0bd75933a67c29588ce50aaa3acdf4d403fa0",
-                "sha256:f6253dfbe0538ad2e387bd8fdfd9293c925d63553f5813c4e587745416501e6d"
-            ],
-            "markers": "python_version < '3.0'",
-            "version": "==3.2.3.post2"
-        },
         "idna": {
             "hashes": [
                 "sha256:c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407",

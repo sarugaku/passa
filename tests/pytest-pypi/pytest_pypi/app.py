@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function
+
 import contextlib
 import io
 import json
 import os
-
 from tarfile import is_tarfile
 from zipfile import is_zipfile
 
 import requests
+import six
+from flask import Flask, abort, jsonify, redirect, render_template, send_file
 from six.moves import xmlrpc_client
-
-from flask import Flask, redirect, abort, render_template, send_file, jsonify
-
 
 app = Flask(__name__)
 session = requests.Session()
 
 packages = {}
 ARTIFACTS = {}
+if six.PY2:
+    FileNotFoundError = OSError
 
 
 @contextlib.contextmanager

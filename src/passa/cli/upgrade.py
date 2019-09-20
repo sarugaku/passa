@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
     def run(self, options):
         return upgrade(project=options.project, strategy=options.strategy,
-                            sync=options.sync, packages=options.packages)
+                       sync=options.sync, packages=options.packages)
 
 
 if __name__ == "__main__":

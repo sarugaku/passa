@@ -85,6 +85,8 @@ def project_directory(tmpdir_factory, pypi):
     project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS.format(pypi=pypi.url))
     with vistir.contextmanagers.cd(project_dir.strpath), vistir.contextmanagers.temp_environ():
         os.environ["PIP_INDEX_URL"] = "{}/simple".format(pypi.url)
+        os.environ["PASSA_CACHE_DIR"] = project_dir.join(".caches").strpath
+        os.environ["PIP_SRC"] = project_dir.join("src").strpath
         yield project_dir
 
 

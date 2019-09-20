@@ -29,7 +29,7 @@ class Project(passa.models.projects.Project):
             )
         try:
             super(Project, self).__init__(root.as_posix(), environment=environment,
-                                            *args, **kwargs)
+                                          *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
                 "project", "failed to parse Pipfile: {0!r}".format(str(e)),

@@ -69,7 +69,7 @@ def test_remove_editable(project, sync, is_dev):
     add_kwargs = {
         "project": project,
         "packages": [],
-        "editables": ["git+https://github.com/sarugaku/shellingham.git@1.2.1#egg=shellingham",],
+        "editables": ["git+https://github.com/pallets/click.git@6.7#egg=click",],
         "dev": is_dev,
         "sync": sync,
         "clean": False
@@ -77,19 +77,19 @@ def test_remove_editable(project, sync, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'shellingham' in project.lockfile._data[lockfile_section].keys()
+    assert 'click' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import shellingham"],
+        c = vistir.misc.run(["{0}".format(project.env.python), "-c", "import click"],
                             nospin=True, block=True, return_object=True)
         assert c.returncode == 0, (c.out, c.err)
-        assert project.env.is_installed("shellingham") or project.is_installed("shellingham")
+        assert project.env.is_installed("click") or project.is_installed("click")
     remove = "default" if not is_dev else "dev"
-    retcode = passa.actions.remove.remove(project=project, packages=["shellingham",], sync=sync, only=remove)
+    retcode = passa.actions.remove.remove(project=project, packages=["click",], sync=sync, only=remove)
     assert not retcode
     project.reload()
-    assert "shellingham" not in project.lockfile._data[lockfile_section].keys()
+    assert "click" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.env.is_installed("shellingham")
+        assert not project.env.is_installed("click")
 
 
 def test_remove_sdist(project, is_dev, sync):

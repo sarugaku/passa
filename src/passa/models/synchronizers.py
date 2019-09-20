@@ -8,7 +8,6 @@ import os
 import sys
 import sysconfig
 
-import distlib.wheel
 import pkg_resources
 
 import packaging.markers

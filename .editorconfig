@@ -11,10 +11,7 @@ insert_final_newline = true
 [*.md]
 trim_trailing_whitespace = false
 
-[*.toml]
-indent_size = 2
-
-[*.yaml]
+[*.{toml,yaml,yml}]
 indent_size = 2
 
 # Makefiles always use tabs for indentation

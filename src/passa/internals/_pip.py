@@ -3,9 +3,9 @@
 from __future__ import absolute_import, unicode_literals
 
 import contextlib
+import distutils.log
 import io
 import itertools
-import distutils.log
 import os
 import re
 
@@ -16,15 +16,13 @@ import distlib.wheel
 import packaging.utils
 import pip_shims
 import six
-import sys
-import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
 from ..models.environments import Environment
-from ._pip_shims import (
-    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
-)
+from ._pip_shims import SETUPTOOLS_SHIM
+from ._pip_shims import build_wheel as _build_wheel
+from ._pip_shims import unpack_url
 from .utils import filter_sources
 
 

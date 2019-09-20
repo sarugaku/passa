@@ -12,6 +12,7 @@ recursive-include docs Makefile *.rst *.py *.bat
 recursive-exclude docs requirements*.txt
 
 prune .github
+prune .gitmodules
 prune docs/build
 prune news
 prune tasks

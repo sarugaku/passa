@@ -50,7 +50,7 @@ def test_install_editable(project, is_dev):
     add_kwargs = {
         "project": project,
         "packages": [],
-        "editables": ["git+https://github.com/sarugaku/shellingham.git@1.2.1#egg=shellingham",],
+        "editables": ["git+https://github.com/pallets/click.git@6.7#egg=click",],
         "dev": is_dev,
         "sync": False,
         "clean": False
@@ -58,12 +58,14 @@ def test_install_editable(project, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'shellingham' in project.lockfile._data[lockfile_section].keys()
+    assert 'click' in project.lockfile._data[lockfile_section].keys()
     install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
     assert install == 0
     project.reload()
-    assert (project.env.is_installed("shellingham") or
-            project.is_installed("shellingham")), list([dist.project_name for dist in project.env.get_distributions()])
+    assert (
+        project.env.is_installed("click")
+        or project.is_installed("click")
+    ), list([dist.project_name for dist in project.env.get_distributions()])
 
 
 def test_install_sdist(project, is_dev):

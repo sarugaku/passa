@@ -60,9 +60,11 @@ def get_without_extra(marker):
 def _markers_collect_extras(markers, collection):
     # Optimization: the marker element is usually appended at the end.
     for el in reversed(markers):
-        if (isinstance(el, tuple) and
-                el[0].value == "extra" and
-                el[1].value == "=="):
+        if (
+            isinstance(el, tuple)
+            and el[0].value == "extra"
+            and el[1].value == "=="
+        ):
             collection.add(el[2].value)
         elif isinstance(el, list):
             _markers_collect_extras(el, collection)

@@ -137,8 +137,7 @@ def _format_metasets(metasets):
     # This extra str(Marker()) call helps simplify the expression.
     return str(packaging.markers.Marker(" or ".join(
         "{0}".format(s) if " and " in s else s
-        for s in dedup_markers(str(metaset) for metaset in metasets
-        if metaset)
+        for s in dedup_markers(str(metaset) for metaset in metasets if metaset)
     )))
 
 

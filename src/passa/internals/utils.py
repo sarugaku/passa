@@ -21,7 +21,7 @@ MYPY_RUNNING = os.environ.get("MYPY_RUNNING", is_type_checking())
 
 
 if MYPY_RUNNING:
-    from typing import Any, List, Dict  # noqa
+    from typing import Any, List, Dict, Union  # noqa
     from requirementslib.models.requirements import Requirement  # noqa
     from pip_shims.shims import InstallRequirement  # noqa
 
@@ -133,8 +133,8 @@ def get_allow_prereleases(requirement, global_setting):
 def are_requirements_equal(this, that):
     # type: (Requirement, Requirement) -> bool
     return (
-        this.as_line(include_hashes=False) ==
-        that.as_line(include_hashes=False)
+        this.as_line(include_hashes=False)
+        == that.as_line(include_hashes=False)
     )
 
 
