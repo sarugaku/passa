@@ -14,6 +14,7 @@ import passa.cli.options
 import passa.models.environments
 import passa.models.projects
 import passa.models.synchronizers
+from passa.models.caches import DependencyCache, RequiresPythonCache
 from requirementslib import Requirement
 from pytest_pypi.app import prepare_packages
 
@@ -62,7 +63,7 @@ class InstallManager(passa.models.synchronizers.InstallManager):
         return any(name == dist.key for dist in self.working_set)
 
     def install(self, req):
-        if isinstance(req, six.text_type):
+        if isinstance(req, six.string_types):
             req = Requirement.from_line(req)
         dist = _Distro(req.name, req.get_version())
         self.working_set.add(dist)
@@ -108,9 +109,19 @@ def project(tmpdir_factory, pypi, install_manager, mocker):
     project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS.format(pypi=pypi.url))
     with vistir.contextmanagers.cd(project_dir.strpath), vistir.contextmanagers.temp_environ():
         mocker.patch("passa.models.synchronizers.InstallManager", return_value=install_manager)
+        cache_path = project_dir.join(".cache").strpath
         os.environ["PIP_INDEX_URL"] = "{}/simple".format(pypi.url)
-        os.environ["PASSA_CACHE_DIR"] = project_dir.join(".cache").strpath
-        mocker.patch("passa.models.caches.CACHE_DIR", project_dir.join(".cache").strpath)
+        os.environ["PASSA_CACHE_DIR"] = cache_path
+        mocker.patch("passa.models.caches.CACHE_DIR", cache_path)
+        mocker.patch("passa.internals._pip.CACHE_DIR", cache_path)
+        mocker.patch(
+            "passa.internals.dependencies.DEPENDENCY_CACHE",
+            DependencyCache(cache_path)
+        )
+        mocker.patch(
+            "passa.internals.dependencies.REQUIRES_PYTHON_CACHE",
+            RequiresPythonCache(cache_path)
+        )
         os.environ["PIP_SRC"] = project_dir.join("src").strpath
         p = _Project(project_dir.strpath)
         p.is_installed = lambda x: install_manager.is_installation_local(x)
