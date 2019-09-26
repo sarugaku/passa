@@ -7,8 +7,7 @@ import passa.models.projects
 import pytest
 
 
-def test_lock_one(project_directory, is_dev):
-    project = passa.cli.options.Project(project_directory.strpath)
+def test_lock_one(project, is_dev):
     line = "pytz"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)
@@ -17,8 +16,7 @@ def test_lock_one(project_directory, is_dev):
     assert 'pytz' in project.lockfile._data[lockfile_section].keys()
 
 
-def test_lock_one_with_deps(project_directory, is_dev):
-    project = passa.cli.options.Project(project_directory.strpath)
+def test_lock_one_with_deps(project, is_dev):
     line = "requests"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)
@@ -29,8 +27,7 @@ def test_lock_one_with_deps(project_directory, is_dev):
 
 
 @pytest.mark.needs_internet
-def test_lock_editable(project_directory, is_dev):
-    project = passa.cli.options.Project(project_directory.strpath)
+def test_lock_editable(project, is_dev):
     line = "-e git+https://github.com/pallets/click.git@6.7#egg=click"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)
@@ -40,8 +37,7 @@ def test_lock_editable(project_directory, is_dev):
 
 
 @pytest.mark.needs_internet
-def test_lock_editable_with_deps(project_directory, is_dev):
-    project = passa.cli.options.Project(project_directory.strpath)
+def test_lock_editable_with_deps(project, is_dev):
     line = "-e git+https://github.com/sarugaku/plette.git@0.2.2#egg=plette"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)

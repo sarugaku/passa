@@ -15,9 +15,9 @@ def test_init(tmpdir):
     assert project.pipfile.dev_packages._data == {}
 
 
-def test_init_exists(project_directory):
+def test_init_exists(project):
     with pytest.raises(RuntimeError, match=r'.* is already a Pipfile project'):
-        passa.actions.init.init_project(root=project_directory.strpath)
+        passa.actions.init.init_project(root=project.root)
 
 
 def test_init_inherit_pip_source(tmpdir):

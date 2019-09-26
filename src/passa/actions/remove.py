@@ -27,11 +27,11 @@ def remove(project=None, only="default", packages=[], clean=True, sync=False):
     if not clean:
         return
 
-    from passa.models.synchronizers import Cleaner
+    from passa.models.synchronizers import Synchronizer
     from passa.operations.sync import clean
 
-    cleaner = Cleaner(project, default=True, develop=True)
-    success = clean(cleaner)
+    syncer = Synchronizer(project, default=True, develop=True, clean_unneeded=True)
+    success = clean(syncer)
     if not success:
         return 1
 
