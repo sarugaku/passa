@@ -1,6 +1,5 @@
 [packages]
-passa = {editable = true,path = '.',extras = ['virtualenv']}
-
+tomlkit = "<=0.5.3"
 # Override sdist-only dependency via TOMLkit to fix build. (sarugaku/passa#61)
 [packages.functools32]
 file = """\

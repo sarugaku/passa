@@ -40,7 +40,7 @@ def _get_packages(lockfile, default, develop):
 PROTECTED_FROM_CLEAN = {"setuptools", "pip", "wheel"}
 
 
-class InstallManager:
+class InstallManager(object):
     """A centrialized manager object to handle install and uninstall operations."""
 
     def __init__(self, sources=None):
