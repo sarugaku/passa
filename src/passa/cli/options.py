@@ -25,14 +25,14 @@ class Project(passa.models.projects.Project):
         environment = kwargs.pop("environment", self.get_env())
         if not pipfile.is_file():
             raise argparse.ArgumentError(
-                "project", "{0!r} is not a Pipfile project".format(root),
+                None, "{0!r} is not a Pipfile project".format(root),
             )
         try:
             super(Project, self).__init__(root.as_posix(), environment=environment,
                                           *args, **kwargs)
         except tomlkit.exceptions.ParseError as e:
             raise argparse.ArgumentError(
-                "project", "failed to parse Pipfile: {0!r}".format(str(e)),
+                None, "failed to parse Pipfile: {0!r}".format(str(e)),
             )
 
     def get_env(self):
