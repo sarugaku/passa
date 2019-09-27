@@ -142,14 +142,11 @@ def mock_git_obtain(self, location):
     shutil.copytree(source_dir, location)
 
 
-def mock_git_get_revision(self, _):
-    return '1234567890abcdef'
-
-
 @pytest.fixture(autouse=True)
 def setup(mocker):
     mocker.patch("pip._internal.vcs.git.Git.obtain", new=mock_git_obtain)
-    mocker.patch("pip._internal.vcs.git.Git.get_revision", new=mock_git_get_revision)
+    p = mocker.patch("pip._internal.vcs.git.Git.get_revision")
+    p.return_value = 'c55ee5cc8230a338a8a942704a9fe7eff8f88a1c'
     yield
 
 
