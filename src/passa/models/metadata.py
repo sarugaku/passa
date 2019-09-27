@@ -65,6 +65,15 @@ class MetaSet(object):
     def __nonzero__(self):  # Python 2.
         return self.__bool__()
 
+    # Identity check for deduplication.
+    def __eq__(self, other):
+        if not isinstance(other, MetaSet):
+            return False
+        return (self.markerset, self.pyspecset) == (other.markerset, other.pyspecset)
+
+    def __hash__(self):
+        return hash((self.markerset, self.pyspecset))
+
     def __or__(self, pair):
         marker, specset = pair
         markerset = set(self.markerset)
@@ -82,19 +91,21 @@ class MetaSet(object):
 
 
 def _build_metasets(dependencies, pythons, key, trace, all_metasets):
-    all_parent_metasets = []
+    all_parent_metasets = {}
     for route in trace:
         parent = route[-1]
+        if parent in all_parent_metasets:
+            continue
         try:
             parent_metasets = all_metasets[parent]
         except KeyError:    # Parent not calculated yet. Wait for it.
             return
-        all_parent_metasets.append((parent, parent_metasets))
+        all_parent_metasets[parent] = parent_metasets
 
     metaset_iters = []
-    for parent, parent_metasets in all_parent_metasets:
+    for parent, parent_metasets in all_parent_metasets.items():
         r = dependencies[parent][key]
-        python = pythons[key]
+        python = pythons.get(key, "")
         metaset = (
             get_without_extra(r.markers),
             packaging.specifiers.SpecifierSet(python),
@@ -103,7 +114,7 @@ def _build_metasets(dependencies, pythons, key, trace, all_metasets):
             parent_metaset | metaset
             for parent_metaset in parent_metasets
         )
-    return list(itertools.chain.from_iterable(metaset_iters))
+    return set(itertools.chain.from_iterable(metaset_iters))
 
 
 def _calculate_metasets_mapping(dependencies, pythons, traces):

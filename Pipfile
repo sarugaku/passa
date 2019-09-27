@@ -1,4 +1,5 @@
 [packages]
+passa = {editable = true,path = '.'}
 tomlkit = "<=0.5.3"
 # Override sdist-only dependency via TOMLkit to fix build. (sarugaku/passa#61)
 [packages.functools32]
