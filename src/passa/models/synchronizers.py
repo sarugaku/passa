@@ -43,10 +43,13 @@ PROTECTED_FROM_CLEAN = {"setuptools", "pip", "wheel"}
 class InstallManager(object):
     """A centrialized manager object to handle install and uninstall operations."""
 
-    def __init__(self, sources=None):
+    def __init__(self, sources=None, environment=None):
         self.sources = sources
+        self.environment = environment
 
     def get_working_set(self):
+        if self.environment:
+            return self.environment.get_working_set()
         return pkg_resources.working_set
 
     def is_installation_local(self, name):
@@ -55,6 +58,8 @@ class InstallManager(object):
         This is used to distinguish packages seen by a virtual environment. A environment
         may be able to see global packages, but we don't want to mess with them.
         """
+        if self.environment:
+            return self.environment.is_installed(name)
         loc = os.path.normcase(self.get_working_set().by_key[name].location)
         pre = os.path.normcase(sys.prefix)
         return os.path.commonprefix([loc, pre]) == pre
@@ -62,11 +67,14 @@ class InstallManager(object):
     def remove(self, name):
         if name is None or not self.is_installation_local(name):
             return False
-        with uninstall(name, auto_confirm=True, verbose=False):
+        _uninstall = uninstall
+        if self.environment:
+            _uninstall = self.environment.uninstall
+        with _uninstall(name, auto_confirm=True, verbose=False):
             return True
 
     def install(self, req):
-        installer = Installer(req, sources=self.sources)
+        installer = Installer(req, sources=self.sources, environment=self.environment)
         try:
             installer.prepare()
         except Exception as e:
@@ -109,7 +117,8 @@ class Synchronizer(object):
         self.dry_run = dry_run
         super(Synchronizer, self).__init__()
         sources = project.lockfile.meta.sources._data
-        self.install_manager = InstallManager(sources)
+        environment = self.project.environment
+        self.install_manager = InstallManager(sources, environment)
 
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)

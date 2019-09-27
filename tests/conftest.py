@@ -91,7 +91,6 @@ class _Project(passa.cli.options.Project):
     def __init__(self, root, environment=None, working_set_extension=[]):
         self.path = vistir.compat.Path(root).absolute()
         self.working_set_extension = working_set_extension
-        self.env = environment
         super(_Project, self).__init__(root, environment=environment)
         self.pipfile_instance = vistir.compat.Path(self.pipfile_location)
         self.lockfile_instance = vistir.compat.Path(self.lockfile_location)
