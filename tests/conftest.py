@@ -2,6 +2,7 @@
 import os
 import six
 from collections import deque, namedtuple
+import shutil
 
 import pkg_resources
 import plette
@@ -29,6 +30,7 @@ verify_ssl = true
 [dev-packages]
 """.strip()
 TESTS_ROOT = os.path.dirname(os.path.abspath(__file__))
+FIXTURES_DIR = os.path.join(TESTS_ROOT, "fixtures")
 PYPI_VENDOR_DIR = os.path.join(TESTS_ROOT, 'pypi')
 
 prepare_packages(PYPI_VENDOR_DIR)
@@ -65,7 +67,10 @@ class InstallManager(passa.models.synchronizers.InstallManager):
     def install(self, req):
         if isinstance(req, six.string_types):
             req = Requirement.from_line(req)
-        dist = _Distro(req.name, req.get_version())
+        if req.is_vcs:
+            dist = _Distro(req.name, req.req.ref)
+        else:
+            dist = _Distro(req.name, req.get_version())
         self.working_set.add(dist)
         return True
 
@@ -126,6 +131,26 @@ def project(tmpdir_factory, pypi, install_manager, mocker):
         p = _Project(project_dir.strpath)
         p.is_installed = lambda x: install_manager.is_installation_local(x)
         yield p
+
+
+def mock_git_obtain(self, location):
+    url, _ = self.get_url_rev_options(self.url)
+    parsed_url = six.moves.urllib_parse.urlparse(url)
+    path = '{}{}'.format(parsed_url.netloc, parsed_url.path)
+    source_dir = os.path.join(FIXTURES_DIR, 'git', path)
+    shutil.rmtree(location, ignore_errors=True)
+    shutil.copytree(source_dir, location)
+
+
+def mock_git_get_revision(self, _):
+    return '1234567890abcdef'
+
+
+@pytest.fixture(autouse=True)
+def setup(mocker):
+    mocker.patch("pip._internal.vcs.git.Git.obtain", new=mock_git_obtain)
+    mocker.patch("pip._internal.vcs.git.Git.get_revision", new=mock_git_get_revision)
+    yield
 
 
 @pytest.fixture(params=[True, False])

@@ -65,7 +65,7 @@ def test_remove_editable(project, sync, is_dev):
     add_kwargs = {
         "project": project,
         "packages": [],
-        "editables": ["git+https://github.com/pallets/click.git@6.7#egg=click",],
+        "editables": ["git+https://github.com/testing/demo.git#egg=demo",],
         "dev": is_dev,
         "sync": sync,
         "clean": False
@@ -73,16 +73,16 @@ def test_remove_editable(project, sync, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'click' in project.lockfile._data[lockfile_section].keys()
+    assert 'demo' in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert project.is_installed("click")
+        assert project.is_installed("demo")
     remove = "default" if not is_dev else "dev"
-    retcode = passa.actions.remove.remove(project=project, packages=["click",], sync=sync, only=remove)
+    retcode = passa.actions.remove.remove(project=project, packages=["demo",], sync=sync, only=remove)
     assert not retcode
     project.reload()
-    assert "click" not in project.lockfile._data[lockfile_section].keys()
+    assert "demo" not in project.lockfile._data[lockfile_section].keys()
     if sync:
-        assert not project.is_installed("click")
+        assert not project.is_installed("demo")
 
 
 def test_remove_sdist(project, is_dev, sync):

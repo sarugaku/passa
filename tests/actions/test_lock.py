@@ -28,20 +28,20 @@ def test_lock_one_with_deps(project, is_dev):
 
 @pytest.mark.needs_internet
 def test_lock_editable(project, is_dev):
-    line = "-e git+https://github.com/pallets/click.git@6.7#egg=click"
+    line = "-e git+https://github.com/testing/no_dep.git#egg=no_dep"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)
     assert retcode == 0
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'click' in project.lockfile._data[lockfile_section].keys(), project.lockfile._data
+    assert 'no-dep' in project.lockfile._data[lockfile_section].keys(), project.lockfile._data
 
 
 @pytest.mark.needs_internet
 def test_lock_editable_with_deps(project, is_dev):
-    line = "-e git+https://github.com/sarugaku/plette.git@0.2.2#egg=plette"
+    line = "-e git+https://github.com/testing/demo.git#egg=demo"
     project.add_line_to_pipfile(line, develop=is_dev)
     retcode = passa.actions.lock.lock(project=project)
     assert retcode == 0
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'plette' in project.lockfile._data[lockfile_section].keys()
-    assert 'tomlkit' in project.lockfile._data[lockfile_section].keys()
+    assert 'demo' in project.lockfile._data[lockfile_section].keys()
+    assert 'requests' in project.lockfile._data[lockfile_section].keys()
