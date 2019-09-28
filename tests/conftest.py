@@ -18,6 +18,7 @@ import passa.models.synchronizers
 from passa.models.caches import DependencyCache, RequiresPythonCache
 from requirementslib import Requirement
 from pytest_pypi.app import prepare_packages
+from tests import PYPI_VENDOR_DIR, FIXTURES_DIR
 
 DEFAULT_PIPFILE_CONTENTS = """
 [[source]]
@@ -29,9 +30,6 @@ verify_ssl = true
 
 [dev-packages]
 """.strip()
-TESTS_ROOT = os.path.dirname(os.path.abspath(__file__))
-FIXTURES_DIR = os.path.join(TESTS_ROOT, "fixtures")
-PYPI_VENDOR_DIR = os.path.join(TESTS_ROOT, 'pypi')
 
 prepare_packages(PYPI_VENDOR_DIR)
 
@@ -118,6 +116,7 @@ def project(tmpdir_factory, pypi, install_manager, mocker):
         os.environ["PASSA_CACHE_DIR"] = cache_path
         mocker.patch("passa.models.caches.CACHE_DIR", cache_path)
         mocker.patch("passa.internals._pip.CACHE_DIR", cache_path)
+        mocker.patch("requirementslib.models.setup_info.CACHE_DIR", cache_path)
         mocker.patch(
             "passa.internals.dependencies.DEPENDENCY_CACHE",
             DependencyCache(cache_path)

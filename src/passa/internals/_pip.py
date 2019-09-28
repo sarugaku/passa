@@ -189,6 +189,11 @@ def build_wheel(ireq, sources, hashes=None):
             # If this is a wheel, use the downloaded thing.
             output_dir = kwargs["wheel_download_dir"]
             wheel_path = os.path.join(output_dir, ireq.link.filename)
+        elif ireq.editable:
+            # For editable sdist, only produce egg_info and raise.
+            # TODO: support pep517 builds.
+            ireq.run_egg_info()
+            raise WheelBuildError
         else:
             # Othereise we need to build an ephemeral wheel.
             wheel_path = _build_wheel(

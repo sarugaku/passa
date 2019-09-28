@@ -15,7 +15,7 @@ import six
 import requirementslib
 
 from ..models.caches import DependencyCache, RequiresPythonCache
-from ._pip import WheelBuildError, build_wheel, get_sdist, read_sdist_metadata
+from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 
@@ -232,7 +232,7 @@ def _get_dependencies_from_pip(ireq, sources):
         # reached when it fails to build an sdist, where the sdist would have
         # been downloaded, extracted into `ireq.source_dir`, and partially
         # built (hopefully containing .egg-info).
-        built = get_sdist(ireq)
+        built = None
         metadata = read_sdist_metadata(ireq)
         if not metadata:
             raise
