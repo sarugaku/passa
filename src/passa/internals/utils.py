@@ -142,8 +142,7 @@ def strip_extras(requirement):
     # type: (Requirement) -> Requirement
     """Returns a new requirement object with extras removed.
     """
-    line = requirement.as_line()
-    new = type(requirement).from_line(line)
+    new = requirement.copy()
     new.extras = None
     return new
 
