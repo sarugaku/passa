@@ -9,9 +9,8 @@ import os
 import attr
 import packaging.markers
 import packaging.utils
-import plette
-import plette.models
 import six
+import plette
 import tomlkit
 
 from .environments import Environment

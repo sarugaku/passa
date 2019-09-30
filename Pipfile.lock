@@ -123,7 +123,7 @@
                 "sha256:6bd0f6ad48ec2aa117d3d141940d484deccda84d4fcd884f5c3d93c23ecd8c79",
                 "sha256:8ad8c4783bf61ded74527bffb48ed9b54166685e4230386a9ed9b1279e2df5b1"
             ],
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '2.8' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.1.6"
         },
         "first": {
@@ -150,7 +150,7 @@
             "hashes": [
                 "sha256:b6ee7066fea66e35f8d0acee24d98006de1a0a8a94a8ce6efe73a9a23c8d9826"
             ],
-            "markers": "python_version < '2.7' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '2.7' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.0.4"
         },
         "importlib-metadata": {
@@ -203,7 +203,9 @@
         },
         "passa": {
             "editable": true,
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "extras": [
+                "virtualenv"
+            ],
             "path": "."
         },
         "pathlib2": {
@@ -238,7 +240,7 @@
                 "sha256:c0e3553c1e581d8423daccbd825789c6e7f29b7d9e00e5331b12e1642a1a26d3",
                 "sha256:dde5d525cf5f0cbad4d938c83b93db17887918daf63c13eafed257c4f61b07b4"
             ],
-            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==0.2.2"
         },
         "pyparsing": {
@@ -400,7 +402,6 @@
                 "sha256:a5258b84f76661d558492fa87e42db634df143685a0e51802d59cae7daad8732",
                 "sha256:dc5c0541e7cc2c6033dc0338133436abfac53655624784736e9bc8bd35e56583"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.9.0"
         },
         "atomicwrites": {
@@ -503,7 +504,7 @@
                 "sha256:2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13",
                 "sha256:5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"
             ],
-            "markers": "python_version >= '2.7' and python_version >= '3.6' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '3.6'",
             "version": "==7.0"
         },
         "click-default-group": {
@@ -597,7 +598,7 @@
                 "sha256:6bd0f6ad48ec2aa117d3d141940d484deccda84d4fcd884f5c3d93c23ecd8c79",
                 "sha256:8ad8c4783bf61ded74527bffb48ed9b54166685e4230386a9ed9b1279e2df5b1"
             ],
-            "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '2.8' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.1.6"
         },
         "execnet": {
@@ -624,6 +625,12 @@
             "markers": "python_version < '3.0' and python_version < '3.3' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.0.2"
         },
+        "future": {
+            "hashes": [
+                "sha256:e39ced1ab767b5936646cedba8bcce582398233d6a627067d4c6a454c90cfedb"
+            ],
+            "version": "==0.16.0"
+        },
         "functools32": {
             "file": "https://github.com/sarugaku/functools32/releases/download/3.2.3-2/functools32-3.2.3.post2-py2.py3-none-any.whl",
             "markers": "python_version >= '2.6' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3' or python_version >= '2.7' and python_version < '2.8' or python_version >= '2.7' and python_version >= '2.7' and python_version < '2.8' and python_version not in '3.0, 3.1, 3.2, 3.3'"
@@ -648,7 +655,7 @@
             "hashes": [
                 "sha256:b6ee7066fea66e35f8d0acee24d98006de1a0a8a94a8ce6efe73a9a23c8d9826"
             ],
-            "markers": "python_version < '2.7' and python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version < '2.7' and python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.0.4"
         },
         "importlib-metadata": {
@@ -783,7 +790,6 @@
             "extras": [
                 "tests"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "path": "."
         },
         "pathlib2": {
@@ -826,7 +832,7 @@
                 "sha256:c0e3553c1e581d8423daccbd825789c6e7f29b7d9e00e5331b12e1642a1a26d3",
                 "sha256:dde5d525cf5f0cbad4d938c83b93db17887918daf63c13eafed257c4f61b07b4"
             ],
-            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==0.2.2"
         },
         "pluggy": {
