@@ -14,7 +14,7 @@ import packaging.version
 from vistir.misc import dedup
 
 six.add_move(six.MovedAttribute("Set", "collections", "collections.abc"))
-from six.moves import reduce, Set
+from six.moves import Set
 
 
 try:
@@ -165,7 +165,7 @@ def fix_version_tuple(version_tuple):
 @lru_cache(maxsize=128)
 def get_versions(specset, group_by_operator=True):
     specs = [_get_specs(x) for x in list(tuple(specset))]
-    initial_sort_key = lambda k: (k[0], k[1])
+    initial_sort_key = lambda k: (k[0], k[1])   # noqa
     initial_grouping_key = operator.itemgetter(0)
     if not group_by_operator:
         initial_grouping_key = operator.itemgetter(1)

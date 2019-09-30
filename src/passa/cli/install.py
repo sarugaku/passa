@@ -15,7 +15,7 @@ class Command(BaseCommand):
 
     def run(self, options):
         return install(project=options.project, check=options.check, dev=options.dev,
-                            clean=options.clean)
+                       clean=options.clean)
 
 
 if __name__ == "__main__":

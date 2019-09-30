@@ -15,9 +15,11 @@ def sync(syncer):
     return True
 
 
-def clean(cleaner):
+def clean(syncer):
     print("Cleaning...")
-    cleaned = cleaner.clean()
-    if cleaned:
-        cleaner.print(cleaned)
+    cleaned = syncer.clean()
+    if syncer.dry_run:
+        print("Would clean: {}".format(", ".join(sorted(cleaned))))
+    else:
+        print("Cleaned: {}".format(", ".join(sorted(cleaned))))
     return True

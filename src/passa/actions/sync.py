@@ -10,7 +10,7 @@ def sync(project=None, dev=False, clean=True):
     project = project
     syncer = Synchronizer(
         project, default=True, develop=dev,
-        clean_unneeded=clean,
+        clean_unneeded=clean
     )
 
     success = sync(syncer)

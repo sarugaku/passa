@@ -21,7 +21,8 @@ class Command(BaseCommand):
             editables=options.editables,
             project=options.project,
             dev=options.dev,
-            clean=options.clean
+            clean=options.clean,
+            sync=options.sync
         )
 
 

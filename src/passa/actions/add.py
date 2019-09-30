@@ -47,8 +47,7 @@ def add_packages(packages=[], editables=[], project=None, dev=False, sync=False,
     develop = any(lockfile_diff.develop)
 
     syncer = Synchronizer(
-        project, default=default, develop=develop,
-        clean_unneeded=clean, venv=getattr(project, "venv", None)
+        project, default=default, develop=develop, clean_unneeded=clean
     )
     success = sync(syncer)
     if not success:

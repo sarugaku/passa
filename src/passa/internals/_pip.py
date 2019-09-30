@@ -3,10 +3,11 @@
 from __future__ import absolute_import, unicode_literals
 
 import contextlib
+import distutils.log
 import io
 import itertools
-import distutils.log
 import os
+import re
 
 import distlib.database
 import distlib.metadata
@@ -15,14 +16,13 @@ import distlib.wheel
 import packaging.utils
 import pip_shims
 import six
-import sys
-import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
-from ._pip_shims import (
-    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
-)
+from ..models.environments import Environment
+from ._pip_shims import SETUPTOOLS_SHIM
+from ._pip_shims import build_wheel as _build_wheel
+from ._pip_shims import unpack_url
 from .utils import filter_sources
 
 
@@ -91,21 +91,21 @@ def _get_pip_session(trusted_hosts):
     options, _ = cmd.parser.parse_args([])
     options.cache_dir = CACHE_DIR
     options.trusted_hosts = trusted_hosts
-    session = cmd._build_session(options)
-    return session
+    return cmd._build_session(options)
 
 
+@contextlib.contextmanager
 def _get_finder(sources):
     index_urls, trusted_hosts = _get_pip_index_urls(sources)
-    session = _get_pip_session(trusted_hosts)
-    finder = pip_shims.PackageFinder(
-        find_links=[],
-        index_urls=index_urls,
-        trusted_hosts=trusted_hosts,
-        allow_all_prereleases=True,
-        session=session,
-    )
-    return finder
+    with contextlib.closing(_get_pip_session(trusted_hosts)) as session:
+        finder = pip_shims.PackageFinder(
+            find_links=[],
+            index_urls=index_urls,
+            trusted_hosts=trusted_hosts,
+            allow_all_prereleases=True,
+            session=session,
+        )
+        yield finder
 
 
 def _get_wheel_cache():
@@ -152,77 +152,68 @@ def build_wheel(ireq, sources, hashes=None):
     `RuntimeError` subclass) if the wheel cannot be built.
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
-    finder = _get_finder(sources)
 
-    # Not for upgrade, hash not required. Hashes are not required here even
-    # when we provide them, because pip skips local wheel cache if we set it
-    # to True. Hashes are checked later if we need to download the file.
-    ireq.populate_link(finder, False, False)
+    with _get_finder(sources) as finder:
+        # Not for upgrade, hash not required. Hashes are not required here even
+        # when we provide them, because pip skips local wheel cache if we set it
+        # to True. Hashes are checked later if we need to download the file.
+        ireq.populate_link(finder, False, False)
 
-    # Ensure ireq.source_dir is set.
-    # This is intentionally set to build_dir, not src_dir. Comments from pip:
-    #   [...] if filesystem packages are not marked editable in a req, a non
-    #   deterministic error occurs when the script attempts to unpack the
-    #   build directory.
-    # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
-    # is editable, build_dir is actually src_dir, making the build in-place.
-    ireq.ensure_has_source_dir(kwargs["build_dir"])
+        # Ensure ireq.source_dir is set.
+        # This is intentionally set to build_dir, not src_dir. Comments from pip:
+        #   [...] if filesystem packages are not marked editable in a req, a non
+        #   deterministic error occurs when the script attempts to unpack the
+        #   build directory.
+        # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
+        # is editable, build_dir is actually src_dir, making the build in-place.
+        ireq.ensure_has_source_dir(kwargs["build_dir"])
 
-    # Ensure the source is fetched. For wheels, it is enough to just download
-    # because we'll use them directly. For an sdist, we need to unpack so we
-    # can build it.
-    if not ireq.editable or not pip_shims.is_file_url(ireq.link):
+        # Ensure the source is fetched. For wheels, it is enough to just download
+        # because we'll use them directly. For an sdist, we need to unpack so we
+        # can build it.
+        if not ireq.editable or not pip_shims.is_file_url(ireq.link):
+            if ireq.is_wheel:
+                only_download = True
+                download_dir = kwargs["wheel_download_dir"]
+            else:
+                only_download = False
+                download_dir = kwargs["download_dir"]
+            ireq.options["hashes"] = _convert_hashes(hashes)
+            unpack_url(
+                ireq.link, ireq.source_dir, download_dir,
+                only_download=only_download, session=finder.session,
+                hashes=ireq.hashes(False), progress_bar="off",
+            )
+
         if ireq.is_wheel:
-            only_download = True
-            download_dir = kwargs["wheel_download_dir"]
-        else:
-            only_download = False
-            download_dir = kwargs["download_dir"]
-        ireq.options["hashes"] = _convert_hashes(hashes)
-        unpack_url(
-            ireq.link, ireq.source_dir, download_dir,
-            only_download=only_download, session=finder.session,
-            hashes=ireq.hashes(False), progress_bar="off",
-        )
-
-    if ireq.is_wheel:
-        # If this is a wheel, use the downloaded thing.
-        output_dir = kwargs["wheel_download_dir"]
-        wheel_path = os.path.join(output_dir, ireq.link.filename)
-    else:
-        # Othereise we need to build an ephemeral wheel.
-        wheel_path = _build_wheel(
-            ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
-            finder, _get_wheel_cache(), kwargs,
-        )
-        if wheel_path is None or not os.path.exists(wheel_path):
+            # If this is a wheel, use the downloaded thing.
+            output_dir = kwargs["wheel_download_dir"]
+            wheel_path = os.path.join(output_dir, ireq.link.filename)
+        elif ireq.editable:
+            # For editable sdist, only produce egg_info and raise.
+            # TODO: support pep517 builds.
+            ireq.run_egg_info()
             raise WheelBuildError
-    return distlib.wheel.Wheel(wheel_path)
-
-
-def _obtrain_ref(vcs_obj, src_dir, name, rev=None):
-    target_dir = os.path.join(src_dir, name)
-    target_rev = vcs_obj.make_rev_options(rev)
-    if not os.path.exists(target_dir):
-        vcs_obj.obtain(target_dir)
-    if (not vcs_obj.is_commit_id_equal(target_dir, rev) and
-            not vcs_obj.is_commit_id_equal(target_dir, target_rev)):
-        vcs_obj.update(target_dir, target_rev)
-    return vcs_obj.get_revision(target_dir)
+        else:
+            # Othereise we need to build an ephemeral wheel.
+            wheel_path = _build_wheel(
+                ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
+                finder, _get_wheel_cache(), kwargs,
+            )
+            if wheel_path is None or not os.path.exists(wheel_path):
+                raise WheelBuildError
+        return distlib.wheel.Wheel(wheel_path)
 
 
 def get_vcs_ref(requirement):
-    backend = VCS_SUPPORT.get_backend(requirement.vcs)
-    vcs = backend(url=requirement.req.vcs_uri)
-    src = _get_src_dir()
-    name = requirement.normalized_name
-    ref = _obtrain_ref(vcs, src, name, rev=requirement.req.ref)
-    return ref
+    return requirement.commit_hash
 
 
 def find_installation_candidates(ireq, sources):
-    finder = _get_finder(sources)
-    return finder.find_all_candidates(ireq.name)
+    candidates = []
+    with _get_finder(sources) as finder:
+        candidates = finder.find_all_candidates(ireq.name)
+    return candidates
 
 
 class RequirementUninstaller(object):
@@ -231,17 +222,24 @@ class RequirementUninstaller(object):
     This uses `UninstallPathSet` to control the workflow. If the inner block
     exits correctly, the uninstallation is committed, otherwise rolled back.
     """
-    def __init__(self, ireq, auto_confirm, verbose):
+    def __init__(self, ireq, auto_confirm, verbose, env=None):
         self.ireq = ireq
         self.pathset = None
         self.auto_confirm = auto_confirm
         self.verbose = verbose
+        self.env = env if env else Environment()
+
+    def check_permitted(self, pathset, path):
+        if self.env.is_venv and self.env.is_installed(self.ireq.name):
+            return True
+        return pathset._permitted(path)
 
     def __enter__(self):
         self.pathset = self.ireq.uninstall(
             auto_confirm=self.auto_confirm,
             verbose=self.verbose,
         )
+        self.pathset._permitted = self.check_permitted
         return self.pathset
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -294,18 +292,67 @@ class NoopInstaller(object):
         pass
 
 
-class VenvInstaller(NoopInstaller):
+dist_info_re = re.compile(r"""^(?P<namever>(?P<name>.+?)(-(?P<ver>.+?))?)
+                                \.dist-info$""", re.VERBOSE)
+
+
+def root_is_purelib(name, wheeldir):
+    """
+    Return True if the extracted wheel in wheeldir should go into purelib.
+    """
+    name_folded = name.replace("-", "_")
+    for item in os.listdir(wheeldir):
+        match = dist_info_re.match(item)
+        if match and match.group('name') == name_folded:
+            with open(os.path.join(wheeldir, item, 'WHEEL')) as wheel:
+                for line in wheel:
+                    line = line.lower().rstrip()
+                    if line == "root-is-purelib: true":
+                        return True
+    return False
+
+
+def get_entrypoints(filename):
+    import pkg_resources
+    if not os.path.exists(filename):
+        return {}, {}
+
+    # This is done because you can pass a string to entry_points wrappers which
+    # means that they may or may not be valid INI files. The attempt here is to
+    # strip leading and trailing whitespace in order to make them valid INI
+    # files.
+    with open(filename) as fp:
+        data = io.StringIO()
+        for line in fp:
+            data.write(line.strip())
+            data.write("\n")
+        data.seek(0)
+
+    # get the entry points and then the script names
+    entry_points = pkg_resources.EntryPoint.parse_map(data)
+    console = entry_points.get('console_scripts', {})
+    gui = entry_points.get('gui_scripts', {})
+
+    def _split_ep(s):
+        """get the string representation of EntryPoint, remove space and split
+        on '='"""
+        return str(s).replace(" ", "").split("=")
+
+    # convert the EntryPoint objects into strings with module:function
+    console = dict(_split_ep(v) for v in console.values())
+    gui = dict(_split_ep(v) for v in gui.values())
+    return console, gui
+
+
+class BaseInstaller(NoopInstaller):
     """Virtualenv-capable installer"""
 
-    def __init__(self, requirement, sources=None, paths=None, venv=None):
+    def __init__(self, requirement, sources=None, environment=None):
         self.ireq = requirement.as_ireq()
         self.sources = filter_sources(requirement, sources)
         self.hashes = requirement.hashes or None
-        self.paths = paths
-        self.venv = venv
+        self.environment = environment if environment else Environment()
         self.built = None
-        self.python = sys.executable if not self.venv else self.venv.python
-        self.py_version = self.venv.python_version if self.venv else sysconfig.get_python_version()
         self.metadata = None
         self.is_wheel = False
 
@@ -328,12 +375,14 @@ class VenvInstaller(NoopInstaller):
         setup_path = self.setup_dir.joinpath("setup.py")
         install_keys = ["headers", "purelib", "platlib", "scripts", "data"]
         install_args = [
-            self.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(), install_arg,
-            "--single-version-externally-managed", "--no-deps",
-            "--prefix={0}".format(self.paths["prefix"])
+            self.environment.python, "-u", "-c", SETUPTOOLS_SHIM % setup_path.as_posix(),
+            install_arg, "--single-version-externally-managed", "--no-deps",
+            "--prefix={0}".format(self.environment.paths["prefix"])
         ]
         for key in install_keys:
-            install_args.append("--install-{0}={1}".format(key, self.paths[key]))
+            install_args.append(
+                "--install-{0}={1}".format(key, self.environment.paths[key])
+            )
         return install_args
 
     def build_wheel(self):
@@ -342,20 +391,22 @@ class VenvInstaller(NoopInstaller):
         self.is_wheel = True
 
     def build_sdist(self):
-        finder = _get_finder(self.sources)
-        self.ireq.populate_link(finder, False, False)
-        self.ireq.ensure_has_source_dir(self.src_dir)
-        self.built = get_sdist(self.ireq)
-        self.metadata = read_sdist_metadata(self.ireq)
+        with _get_finder(self.sources) as finder:
+            self.ireq.populate_link(finder, False, False)
+            self.ireq.ensure_has_source_dir(self.src_dir)
+            self.built = get_sdist(self.ireq)
+            self.metadata = read_sdist_metadata(self.ireq)
 
     def install_wheel(self):
         scripts = distlib.scripts.ScriptMaker(None, None)
-        self.built.install(self.paths, scripts)
+        self.built.install(self.environment.paths, scripts)
 
     def install_sdist(self):
         with vistir.cd(self.setup_dir.as_posix()), _suppress_distutils_logs():
-            c = vistir.misc.run(self.installation_args, return_object=True, block=True,
-                                    nospin=True)
+            c = self.environment.run(
+                self.installation_args, return_object=True, block=True, nospin=True,
+                combine_stderr=False, write_to_stdout=False
+            )
             if c.returncode != 0:
                 err_text = "{0!r}: {1!r}".format(c.err, c.out)
                 raise RuntimeError("Failed to install package: {0!r}".format(err_text))
@@ -365,14 +416,11 @@ class VenvInstaller(NoopInstaller):
         pass
 
     def install(self):
-        if self.venv:
-            with self.venv.activated():
-                self._install()
-        else:
+        with self.environment.activated():
             self._install()
 
 
-class SdistInstaller(VenvInstaller):
+class SdistInstaller(BaseInstaller):
     """Installer for SDists"""
     def __init__(self, *args, **kwargs):
         super(SdistInstaller, self).__init__(*args, **kwargs)

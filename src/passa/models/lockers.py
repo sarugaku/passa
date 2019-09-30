@@ -94,12 +94,14 @@ class AbstractLocker(object):
     """
     def __init__(self, project):
         self.project = project
-        self.default_requirements = _get_requirements(
-            project.pipfile, "packages",
-        )
-        self.develop_requirements = _get_requirements(
-            project.pipfile, "dev-packages",
-        )
+        with vistir.cd(self.project.root):
+            # Change dir to the project to resolve the relative paths properly.
+            self.default_requirements = _get_requirements(
+                project.pipfile, "packages",
+            )
+            self.develop_requirements = _get_requirements(
+                project.pipfile, "dev-packages",
+            )
 
         # This comprehension dance ensures we merge packages from both
         # sections, and definitions in the default section win.

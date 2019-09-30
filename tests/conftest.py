@@ -1,28 +1,39 @@
 # -*- coding=utf-8 -*-
 import os
-import pytest
-import passa
-import passa.models.projects
-import passa.cli.options
-import mork
+import six
+from collections import deque, namedtuple
+import shutil
+
 import pkg_resources
 import plette
-import sys
+import pytest
 import vistir
 
-from collections import deque
-
+import passa
+import passa.cli.options
+# import mork
+import passa.models.environments
+import passa.models.projects
+import passa.models.synchronizers
+from passa.models.caches import DependencyCache, RequiresPythonCache
+from requirementslib import Requirement
+from pytest_pypi.app import prepare_packages
+from tests import PYPI_VENDOR_DIR, FIXTURES_DIR
 
 DEFAULT_PIPFILE_CONTENTS = """
 [[source]]
 name = "pypi"
-url = "https://pypi.org/simple"
+url = "{pypi}/simple"
 verify_ssl = true
 
 [packages]
 
 [dev-packages]
 """.strip()
+
+prepare_packages(PYPI_VENDOR_DIR)
+
+_Distro = namedtuple('Distro', 'key,version')
 
 
 @pytest.fixture(scope="session")
@@ -34,69 +45,114 @@ def working_set_extension():
     while requirements:
         req = requirements.popleft()
         dist = pkg_resources.working_set.find(req)
-        assert dist, req
         dists.add(dist)
         requirements.extend(dist.requires())
     return dists
 
 
+class InstallManager(passa.models.synchronizers.InstallManager):
+
+    def __init__(self, *args, **kwargs):
+        super(InstallManager, self).__init__(*args, **kwargs)
+        self.working_set = set()
+
+    def get_working_set(self):
+        return self.working_set
+
+    def is_installation_local(self, name):
+        return any(name == dist.key for dist in self.working_set)
+
+    def install(self, req):
+        if isinstance(req, six.string_types):
+            req = Requirement.from_line(req)
+        if req.is_vcs:
+            dist = _Distro(req.name, req.req.ref)
+        else:
+            dist = _Distro(req.name, req.get_version())
+        self.working_set.add(dist)
+        return True
+
+    def remove(self, name):
+        dist = next((dist for dist in self.working_set if dist.key == name), None)
+        if not dist:
+            return False
+        self.working_set.remove(dist)
+        return True
+
+
 @pytest.fixture(scope="function")
-def virtualenv(tmpdir_factory):
-    venv_dir = tmpdir_factory.mktemp("passa-testenv")
-    print("Creating virtualenv {0!r}".format(venv_dir.strpath))
-    c = vistir.misc.run([sys.executable, "-m", "virtualenv", venv_dir.strpath],
-                            return_object=True, block=True, nospin=True)
-    if c.returncode == 0:
-        print("Virtualenv created...")
-        return venv_dir
-    raise RuntimeError("Failed creating virtualenv for testing...{0!r}".format(c.err.strip()))
+def install_manager():
+    return InstallManager()
 
 
 class _Project(passa.cli.options.Project):
-    def __init__(self, root, venv=None, working_set_extension=[]):
-        self.path = root
-        self.venv = venv
+    def __init__(self, root, environment=None, working_set_extension=[]):
+        self.path = vistir.compat.Path(root).absolute()
         self.working_set_extension = working_set_extension
-        super(_Project, self).__init__(self.path, venv=venv)
+        super(_Project, self).__init__(root, environment=environment)
         self.pipfile_instance = vistir.compat.Path(self.pipfile_location)
         self.lockfile_instance = vistir.compat.Path(self.lockfile_location)
 
     def reload(self):
         self._p = passa.models.projects.ProjectFile.read(
-            os.path.join(self.path, "Pipfile"),
+            self.path.joinpath("Pipfile").as_posix(),
             plette.Pipfile,
         )
         self._l = passa.models.projects.ProjectFile.read(
-            os.path.join(self.path, "Pipfile.lock"),
+            self.path.joinpath("Pipfile.lock").as_posix(),
             plette.Lockfile,
             invalid_ok=True,
         )
 
+
 @pytest.fixture(scope="function")
-def project_directory(tmpdir_factory):
+def project(tmpdir_factory, pypi, install_manager, mocker):
     project_dir = tmpdir_factory.mktemp("passa-project")
-    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS)
-    with vistir.contextmanagers.cd(project_dir.strpath):
-        yield project_dir
+    project_dir.join("Pipfile").write(DEFAULT_PIPFILE_CONTENTS.format(pypi=pypi.url))
+    with vistir.contextmanagers.cd(project_dir.strpath), vistir.contextmanagers.temp_environ():
+        mocker.patch("passa.models.synchronizers.InstallManager", return_value=install_manager)
+        cache_path = project_dir.join(".cache").strpath
+        os.environ["PIP_INDEX_URL"] = "{}/simple".format(pypi.url)
+        os.environ["PASSA_CACHE_DIR"] = cache_path
+        mocker.patch("passa.models.caches.CACHE_DIR", cache_path)
+        mocker.patch("passa.internals._pip.CACHE_DIR", cache_path)
+        mocker.patch("requirementslib.models.setup_info.CACHE_DIR", cache_path)
+        mocker.patch(
+            "passa.internals.dependencies.DEPENDENCY_CACHE",
+            DependencyCache(cache_path)
+        )
+        mocker.patch(
+            "passa.internals.dependencies.REQUIRES_PYTHON_CACHE",
+            RequiresPythonCache(cache_path)
+        )
+        os.environ["PIP_SRC"] = project_dir.join("src").strpath
+        p = _Project(project_dir.strpath)
+        p.is_installed = lambda x: install_manager.is_installation_local(x)
+        yield p
 
 
-@pytest.fixture
-def tmpvenv(virtualenv, tmpdir):
-    venv_srcdir = virtualenv.join("src").mkdir()
-    venv = mork.virtualenv.VirtualEnv(virtualenv.strpath)
-    venv.run(["pip", "install", "--upgrade", "mork", "setuptools"])
-    with vistir.contextmanagers.temp_environ():
-        os.environ["PACKAGEBUILDER_CACHE_DIR"] = tmpdir.strpath
-        os.environ["PIP_QUIET"] = "1"
-        os.environ["PIP_SRC"] = venv_srcdir.strpath
-        venv.is_installed = lambda x: any(d for d in venv.get_distributions() if d.project_name == x)
-        yield venv
+def mock_git_obtain(self, location):
+    url, _ = self.get_url_rev_options(self.url)
+    parsed_url = six.moves.urllib_parse.urlparse(url)
+    path = '{}{}'.format(parsed_url.netloc, parsed_url.path)
+    source_dir = os.path.join(FIXTURES_DIR, 'git', path)
+    shutil.rmtree(location, ignore_errors=True)
+    shutil.copytree(source_dir, location)
 
 
-@pytest.fixture(scope="function")
-def project(project_directory, working_set_extension, tmpvenv):
-    # resolved = tmpvenv.resolve_dist(passa_dist, tmpvenv.base_working_set)
-    with tmpvenv.activated(extra_dists=list(working_set_extension)):
-        project = _Project(project_directory.strpath, venv=tmpvenv, working_set_extension=working_set_extension)
-        project.is_installed = lambda x: any(d for d in tmpvenv.get_working_set() if d.project_name == x)
-        yield project
+@pytest.fixture(autouse=True)
+def setup(mocker):
+    mocker.patch("pip._internal.vcs.git.Git.obtain", new=mock_git_obtain)
+    p = mocker.patch("pip._internal.vcs.git.Git.get_revision")
+    p.return_value = 'c55ee5cc8230a338a8a942704a9fe7eff8f88a1c'
+    yield
+
+
+@pytest.fixture(params=[True, False])
+def is_dev(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def sync(request):
+    return request.param

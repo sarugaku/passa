@@ -123,17 +123,19 @@ class MetaSet(object):
 
 
 def _build_metasets(dependencies, pythons, key, trace, all_metasets):
-    all_parent_metasets = []
+    all_parent_metasets = {}
     for route in trace:
         parent = route[-1]
+        if parent in all_parent_metasets:
+            continue
         try:
             parent_metasets = all_metasets[parent]
         except KeyError:    # Parent not calculated yet. Wait for it.
             return
-        all_parent_metasets.append((parent, parent_metasets))
+        all_parent_metasets[parent] = parent_metasets
 
     metasets = set()
-    for parent, parent_metasets in all_parent_metasets:
+    for parent, parent_metasets in all_parent_metasets.items():
         r = dependencies[parent][key]
         python = pythons[key]
         markers = None if r.editable else get_without_extra(r.markers)

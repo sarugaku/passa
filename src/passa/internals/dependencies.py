@@ -10,13 +10,12 @@ import packaging.specifiers
 import packaging.utils
 import packaging.version
 import requests
-import requirementslib
 import six
 
+import requirementslib
+
 from ..models.caches import DependencyCache, RequiresPythonCache
-from ._pip import (
-    WheelBuildError, build_wheel, get_sdist, read_sdist_metadata
-)
+from ._pip import WheelBuildError, build_wheel, read_sdist_metadata
 from .markers import contains_extra, get_contained_extras, get_without_extra
 from .utils import get_pinned_version, is_pinned
 
@@ -142,20 +141,20 @@ def _get_dependencies_from_json(ireq, sources):
         if proc_url.endswith("/simple")
     ]
 
-    session = requests.session()
+    with requests.session() as session:
 
-    for prefix in url_prefixes:
-        url = "{prefix}/pypi/{name}/{version}/json".format(
-            prefix=prefix,
-            name=packaging.utils.canonicalize_name(ireq.name),
-            version=version,
-        )
-        try:
-            dependencies = _get_dependencies_from_json_url(url, session)
-            if dependencies is not None:
-                return dependencies
-        except Exception as e:
-            print("unable to read dependencies via {0} ({1})".format(url, e))
+        for prefix in url_prefixes:
+            url = "{prefix}/pypi/{name}/{version}/json".format(
+                prefix=prefix,
+                name=packaging.utils.canonicalize_name(ireq.name),
+                version=version,
+            )
+            try:
+                dependencies = _get_dependencies_from_json_url(url, session)
+                if dependencies is not None:
+                    return dependencies
+            except Exception as e:
+                print("unable to read dependencies via {0} ({1})".format(url, e))
     return
 
 
@@ -233,7 +232,7 @@ def _get_dependencies_from_pip(ireq, sources):
         # reached when it fails to build an sdist, where the sdist would have
         # been downloaded, extracted into `ireq.source_dir`, and partially
         # built (hopefully containing .egg-info).
-        built = get_sdist(ireq)
+        built = None
         metadata = read_sdist_metadata(ireq)
         if not metadata:
             raise
@@ -261,7 +260,7 @@ def get_dependencies(requirement, sources):
     for getter in getters:
         try:
             result = getter(ireq)
-        except Exception as e:
+        except Exception:
             last_exc = sys.exc_info()
             continue
         if result is not None:

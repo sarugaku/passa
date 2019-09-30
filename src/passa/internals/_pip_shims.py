@@ -16,7 +16,7 @@ import pip_shims
 import recursive_monkey_patch
 
 
-class LegacyMetadata():
+class LegacyMetadata(object):
     def set_metadata_version(self):
         metadata_version = self._fields.get("Metadata-Version")
         if metadata_version == "2.1":
@@ -58,8 +58,8 @@ def _unpack_url_pre10(*args, **kwargs):
     return pip_shims.unpack_url(*args, **kwargs)
 
 
-PIP_VERSION = pip_shims.utils._parse(pip_shims.pip_version)
-VERSION_10 = pip_shims.utils._parse("10")
+PIP_VERSION = pip_shims._parse(pip_shims.pip_version)
+VERSION_10 = pip_shims._parse("10")
 
 
 VCS_SUPPORT = pip_shims.VcsSupport()

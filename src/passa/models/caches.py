@@ -7,28 +7,37 @@ import hashlib
 import json
 import os
 import sys
+import errno
 
 import appdirs
 import pip_shims
-import requests
 import vistir
 
 from ..internals._pip_shims import VCS_SUPPORT
-from ..internals.utils import get_pinned_version
+from ..internals.utils import get_pinned_version, get_tracked_session, MYPY_RUNNING
 
 
-CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))
+if MYPY_RUNNING:
+    import requests  # noqa
+    from typing import Optional  # noqa
+
+
+CACHE_DIR = os.environ.get("PASSA_CACHE_DIR", appdirs.user_cache_dir("passa"))  # type: ignore
 
 
 class HashCache(pip_shims.SafeFileCache):
+
     """Caches hashes of PyPI artifacts so we do not need to re-download them.
 
     Hashes are only cached when the URL appears to contain a hash in it and the
     cache key includes the hash value returned from the server). This ought to
     avoid ssues where the location on the server changes.
     """
+
     def __init__(self, *args, **kwargs):
-        session = kwargs.pop('session', requests.session())
+        session = kwargs.pop('session', None)  # type: requests.Session
+        if session is None:
+            session = get_tracked_session()
         self.session = session
         kwargs.setdefault('directory', os.path.join(CACHE_DIR, 'hash-cache'))
         super(HashCache, self).__init__(*args, **kwargs)
@@ -76,6 +85,7 @@ class CorruptCacheError(Exception):
 
 def _key_from_req(req):
     """Get an all-lowercase version of the requirement's name."""
+
     if hasattr(req, 'key'):
         # from pkg_resources, such as installed dists for pip-sync
         key = req.key
@@ -100,6 +110,7 @@ def _read_cache_file(cache_file_path):
 
 
 class _JSONCache(object):
+
     """A persistent cache backed by a JSON file.
 
     The cache file is written to the appropriate user cache dir for the
@@ -109,10 +120,16 @@ class _JSONCache(object):
 
     Where X.Y indicates the Python version.
     """
-    filename_format = None
+
+    filename_format = None  # type: Optional[str]
 
     def __init__(self, cache_dir=CACHE_DIR):
-        vistir.mkdir_p(cache_dir)
+        try:
+            vistir.mkdir_p(cache_dir)
+        except OSError as e:
+            # makedir may fail due to parallelism.
+            if e.errno != errno.EEXIST:
+                raise
         python_version = ".".join(str(digit) for digit in sys.version_info[:2])
         cache_filename = self.filename_format.format(
             python_version=python_version,
@@ -122,10 +139,12 @@ class _JSONCache(object):
 
     @property
     def cache(self):
-        """The dictionary that is the actual in-memory cache.
+        """
+        The dictionary that is the actual in-memory cache.
 
         This property lazily loads the cache from disk.
         """
+
         if self._cache is None:
             self.read_cache()
         return self._cache
@@ -144,6 +163,7 @@ class _JSONCache(object):
 
             ("ipython", "2.1.0[nbconvert,notebook]")
         """
+
         extras = tuple(sorted(ireq.extras))
         if not extras:
             extras_string = ""
@@ -154,16 +174,16 @@ class _JSONCache(object):
         return name, "{}{}".format(version, extras_string)
 
     def read_cache(self):
-        """Reads the cached contents into memory.
-        """
+        """Reads the cached contents into memory."""
+
         if os.path.exists(self._cache_file):
             self._cache = _read_cache_file(self._cache_file)
         else:
             self._cache = {}
 
     def write_cache(self):
-        """Writes the cache to disk as JSON.
-        """
+        """Writes the cache to disk as JSON."""
+
         doc = {
             '__format__': 1,
             'dependencies': self._cache,
@@ -203,12 +223,18 @@ class _JSONCache(object):
 
 
 class DependencyCache(_JSONCache):
-    """Cache the dependency of cancidates.
+
     """
+    Cache the dependency of cancidates.
+    """
+
     filename_format = "depcache-py{python_version}.json"
 
 
 class RequiresPythonCache(_JSONCache):
-    """Cache a candidate's Requires-Python information.
+
     """
+    Cache a candidate's Requires-Python information.
+    """
+
     filename_format = "pyreqcache-py{python_version}.json"

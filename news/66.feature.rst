@@ -1,0 +1,6 @@
+Improve the integration testing
+* Introduce ``pytest-pypi`` to mock the PyPI server for testing.
+* Refactor ``synchronizers.py`` to make it easy to mock installation and uninstallation operations.
+* Mock the VCS downloads for testing.
+* Improve the performance of metadata resolving by deduplicating the metasests items.
+* Switch to Github Pages as CI service.

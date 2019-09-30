@@ -1,6 +1,7 @@
 [packages]
-passa = { editable = true, path = '.', extras = ['virtualenv'] }
-
+passa = {editable = true,path = '.'}
+tomlkit = "<=0.5.3"
+yaspin = {file="https://github.com/sarugaku/yaspin/releases/download/v0.15.0post1/yaspin-0.15.0.post1-py2.py3-none-any.whl"}
 # Override sdist-only dependency via TOMLkit to fix build. (sarugaku/passa#61)
 [packages.functools32]
 file = """\
@@ -12,12 +13,13 @@ markers = "python_version < '3.0'"
 black = '*'
 invoke = '*'
 parver = '*'
-passa = { editable = true, path = '.', extras = ['tests'] }
+passa = {editable = true,path = '.',extras = ['tests']}
 sphinx = '*'
 sphinx-rtd-theme = '*'
 towncrier = '*'
 twine = '*'
 wheel = '*'
+coverage = "<5.0"
 
 [scripts]
 passa-add = 'python -m passa.cli.add'
@@ -33,3 +35,6 @@ draft = 'towncrier --draft'
 release = 'inv release'
 tests = "pytest -v tests"
 upload = 'inv upload'
+
+[pipenv]
+allow_prereleases = true

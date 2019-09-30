@@ -10,10 +10,10 @@ import attr
 import packaging.markers
 import packaging.utils
 import six
+import plette
 import tomlkit
 
-import plette
-import plette.models
+from .environments import Environment
 
 
 SectionDifference = collections.namedtuple("SectionDifference", [
@@ -85,7 +85,7 @@ class ProjectFile(object):
 class Project(object):
 
     root = attr.ib()
-    env_prefix = attr.ib(default=None)
+    environment = attr.ib(default=attr.Factory(Environment))
     _p = attr.ib(init=False)
     _l = attr.ib(init=False)
 
@@ -140,8 +140,10 @@ class Project(object):
             self._get_pipfile_section(develop=True, insert=False),
         ]
         return any(
-            (packaging.utils.canonicalize_name(name) ==
-             packaging.utils.canonicalize_name(key))
+            (
+                packaging.utils.canonicalize_name(name)
+                == packaging.utils.canonicalize_name(key)
+            )
             for section in sections
             for name in section
         )
