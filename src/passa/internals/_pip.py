@@ -3,9 +3,9 @@
 from __future__ import absolute_import, unicode_literals
 
 import contextlib
+import distutils.log
 import io
 import itertools
-import distutils.log
 import os
 import re
 
@@ -16,15 +16,13 @@ import distlib.wheel
 import packaging.utils
 import pip_shims
 import six
-import sys
-import sysconfig
 import vistir
 
 from ..models.caches import CACHE_DIR
 from ..models.environments import Environment
-from ._pip_shims import (
-    SETUPTOOLS_SHIM, VCS_SUPPORT, build_wheel as _build_wheel, unpack_url
-)
+from ._pip_shims import SETUPTOOLS_SHIM
+from ._pip_shims import build_wheel as _build_wheel
+from ._pip_shims import unpack_url
 from .utils import filter_sources
 
 
@@ -140,7 +138,7 @@ class WheelBuildError(RuntimeError):
     pass
 
 
-def build_wheel(ireq, sources, finder, hashes=None):
+def build_wheel(ireq, sources, hashes=None):
     """Build a wheel file for the InstallRequirement object.
 
     An artifact is downloaded (or read from cache). If the artifact is not a
@@ -155,50 +153,56 @@ def build_wheel(ireq, sources, finder, hashes=None):
     """
     kwargs = _prepare_wheel_building_kwargs(ireq)
 
-    # Not for upgrade, hash not required. Hashes are not required here even
-    # when we provide them, because pip skips local wheel cache if we set it
-    # to True. Hashes are checked later if we need to download the file.
-    ireq.populate_link(finder, False, False)
+    with _get_finder(sources) as finder:
+        # Not for upgrade, hash not required. Hashes are not required here even
+        # when we provide them, because pip skips local wheel cache if we set it
+        # to True. Hashes are checked later if we need to download the file.
+        ireq.populate_link(finder, False, False)
 
-    # Ensure ireq.source_dir is set.
-    # This is intentionally set to build_dir, not src_dir. Comments from pip:
-    #   [...] if filesystem packages are not marked editable in a req, a non
-    #   deterministic error occurs when the script attempts to unpack the
-    #   build directory.
-    # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
-    # is editable, build_dir is actually src_dir, making the build in-place.
-    ireq.ensure_has_source_dir(kwargs["build_dir"])
+        # Ensure ireq.source_dir is set.
+        # This is intentionally set to build_dir, not src_dir. Comments from pip:
+        #   [...] if filesystem packages are not marked editable in a req, a non
+        #   deterministic error occurs when the script attempts to unpack the
+        #   build directory.
+        # Also see comments in `_prepare_wheel_building_kwargs()` -- If the ireq
+        # is editable, build_dir is actually src_dir, making the build in-place.
+        ireq.ensure_has_source_dir(kwargs["build_dir"])
 
-    # Ensure the source is fetched. For wheels, it is enough to just download
-    # because we'll use them directly. For an sdist, we need to unpack so we
-    # can build it.
-    if not ireq.editable or not pip_shims.is_file_url(ireq.link):
+        # Ensure the source is fetched. For wheels, it is enough to just download
+        # because we'll use them directly. For an sdist, we need to unpack so we
+        # can build it.
+        if not ireq.editable or not pip_shims.is_file_url(ireq.link):
+            if ireq.is_wheel:
+                only_download = True
+                download_dir = kwargs["wheel_download_dir"]
+            else:
+                only_download = False
+                download_dir = kwargs["download_dir"]
+            ireq.options["hashes"] = _convert_hashes(hashes)
+            unpack_url(
+                ireq.link, ireq.source_dir, download_dir,
+                only_download=only_download, session=finder.session,
+                hashes=ireq.hashes(False), progress_bar="off",
+            )
+
         if ireq.is_wheel:
-            only_download = True
-            download_dir = kwargs["wheel_download_dir"]
-        else:
-            only_download = False
-            download_dir = kwargs["download_dir"]
-        ireq.options["hashes"] = _convert_hashes(hashes)
-        unpack_url(
-            ireq.link, ireq.source_dir, download_dir,
-            only_download=only_download, session=finder.session,
-            hashes=ireq.hashes(False), progress_bar="off",
-        )
-
-    if ireq.is_wheel:
-        # If this is a wheel, use the downloaded thing.
-        output_dir = kwargs["wheel_download_dir"]
-        wheel_path = os.path.join(output_dir, ireq.link.filename)
-    else:
-        # Othereise we need to build an ephemeral wheel.
-        wheel_path = _build_wheel(
-            ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
-            finder, _get_wheel_cache(), kwargs,
-        )
-        if wheel_path is None or not os.path.exists(wheel_path):
+            # If this is a wheel, use the downloaded thing.
+            output_dir = kwargs["wheel_download_dir"]
+            wheel_path = os.path.join(output_dir, ireq.link.filename)
+        elif ireq.editable:
+            # For editable sdist, only produce egg_info and raise.
+            # TODO: support pep517 builds.
+            ireq.run_egg_info()
             raise WheelBuildError
-    return distlib.wheel.Wheel(wheel_path)
+        else:
+            # Othereise we need to build an ephemeral wheel.
+            wheel_path = _build_wheel(
+                ireq, vistir.path.create_tracked_tempdir(prefix="ephem"),
+                finder, _get_wheel_cache(), kwargs,
+            )
+            if wheel_path is None or not os.path.exists(wheel_path):
+                raise WheelBuildError
+        return distlib.wheel.Wheel(wheel_path)
 
 
 def get_vcs_ref(requirement):
@@ -382,9 +386,8 @@ class BaseInstaller(NoopInstaller):
         return install_args
 
     def build_wheel(self):
-        with _get_finder(self.sources) as finder:
-            self.built = build_wheel(self.ireq, self.sources, finder, self.hashes)
-            self.metadata = self.built.metadata
+        self.built = build_wheel(self.ireq, self.sources, self.hashes)
+        self.metadata = self.built.metadata
         self.is_wheel = True
 
     def build_sdist(self):

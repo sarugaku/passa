@@ -199,7 +199,7 @@ class Environment(object):
         :rtype: :data:`sys.prefix`
         """
 
-        command = [self.python, "-c" "import sys; print(sys.prefix)"]
+        command = [self.python, "-c", "import sys; print(sys.prefix)"]
         c = run(command, return_object=True)
         sys_prefix = vistir.compat.Path(vistir.misc.to_text(c.out).strip()).as_posix()
         return sys_prefix
@@ -383,10 +383,10 @@ class Environment(object):
             os.environ["PYTHONPATH"] = self.base_paths["PYTHONPATH"]
             if self.is_venv:
                 os.environ["VIRTUAL_ENV"] = vistir.compat.fs_str(prefix)
-            sys.path = self.sys_path
-            sys.prefix = self.sys_prefix
             pkg_resources = self.safe_import("pkg_resources")
             site = self.safe_import("site")
+            sys.path = self.sys_path
+            sys.prefix = self.sys_prefix
             site.addsitedir(self.libdir[1])
             if include_extras:
                 site.addsitedir(parent_path)
@@ -437,7 +437,7 @@ class Environment(object):
                 pathset.remove(auto_confirm=auto_confirm, verbose=verbose)
             try:
                 yield pathset
-            except Exception as e:
+            except Exception:
                 if pathset is not None:
                     pathset.rollback()
             else:

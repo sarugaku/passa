@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sys
+import errno
 
 import appdirs
 import pip_shims
@@ -123,7 +124,12 @@ class _JSONCache(object):
     filename_format = None  # type: Optional[str]
 
     def __init__(self, cache_dir=CACHE_DIR):
-        vistir.mkdir_p(cache_dir)
+        try:
+            vistir.mkdir_p(cache_dir)
+        except OSError as e:
+            # makedir may fail due to parallelism.
+            if e.errno != errno.EEXIST:
+                raise
         python_version = ".".join(str(digit) for digit in sys.version_info[:2])
         cache_filename = self.filename_format.format(
             python_version=python_version,

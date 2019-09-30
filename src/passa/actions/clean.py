@@ -4,12 +4,14 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 
 def clean(project, default=True, dev=False, sync=True):
-    from passa.models.synchronizers import Cleaner
+    from passa.models.synchronizers import Synchronizer
     from passa.operations.sync import clean
 
-    cleaner = Cleaner(project, default=default, develop=dev, sync=sync)
+    syncer = Synchronizer(
+        project, default=default, develop=dev, clean_unneeded=True, dry_run=not sync
+    )
 
-    success = clean(cleaner)
+    success = clean(syncer)
     if not success:
         return 1
 

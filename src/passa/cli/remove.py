@@ -15,7 +15,7 @@ class Command(BaseCommand):
 
     def run(self, options):
         return remove(project=options.project, only=options.only,
-                        packages=options.packages, clean=options.clean, sync=options.sync)
+                      packages=options.packages, clean=options.clean, sync=options.sync)
 
 
 if __name__ == "__main__":

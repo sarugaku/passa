@@ -170,8 +170,8 @@ class EagerUpgradeProvider(PinReuseProvider):
     def is_satisfied_by(self, requirement, candidate):
         # If this is a tracking package, tell the resolver out of using the
         # preferred pin, and into a "normal" candidate selection process.
-        if (self.identify(requirement) in self.tracked_names and
-                getattr(candidate, "_preferred_by_provider", False)):
+        if (self.identify(requirement) in self.tracked_names
+                and getattr(candidate, "_preferred_by_provider", False)):
             return False
         return super(EagerUpgradeProvider, self).is_satisfied_by(
             requirement, candidate,

@@ -9,9 +9,8 @@ import os
 import attr
 import packaging.markers
 import packaging.utils
-import plette
-import plette.models
 import six
+import plette
 import tomlkit
 
 from .environments import Environment
@@ -141,8 +140,10 @@ class Project(object):
             self._get_pipfile_section(develop=True, insert=False),
         ]
         return any(
-            (packaging.utils.canonicalize_name(name) ==
-             packaging.utils.canonicalize_name(key))
+            (
+                packaging.utils.canonicalize_name(name)
+                == packaging.utils.canonicalize_name(key)
+            )
             for section in sections
             for name in section
         )

@@ -1,0 +1,71 @@
+name: Continuous Integration and Deployment
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        python-version: [2.7, 3.5, 3.6, 3.7]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Setup build and test environment
+        run: |
+          python -m pip install --upgrade "pip<19.2.0" setuptools wheel
+      - name: Build Python Package
+        run: |
+          python -m pip install -e ".[tests,virtualenv]"
+          python -m pip install -e tests/pytest-pypi
+          # Temporarily pin tomlkit to lower version dueto sdispater/tomlkit/issues/56.
+          python -m pip install --upgrade "tomlkit<=0.5.3"
+      - name: Lint with flake8
+        run: |
+          python -m pip install flake8
+          flake8 --show-source src/ tests/
+      - name: Test with pytest
+        run: |
+          pytest -n auto --cov=passa --cov-report=xml
+      - name: Report code coverage
+        env:
+          CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
+        run: |
+          pip install codecov
+          coverage report
+          codecov
+
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install Requirements
+        run: |
+          python -m pip install --upgrade "pip<19.2.0" check-manifest invoke
+          pip install -e ".[pack]"
+      - name: Check MANIFEST
+        run: |
+          check-manifest
+      - name: Packaging
+        run: |
+          invoke pack
+          python pack/passa.zip --help
+      - name: Upload packed result
+        uses: actions/upload-artifact@v1
+        with:
+          name: packed
+          path: pack/passa.zip

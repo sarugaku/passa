@@ -12,7 +12,6 @@ There are currently two members:
 from __future__ import absolute_import, unicode_literals
 
 import distlib.metadata
-import importlib
 import pip_shims
 import recursive_monkey_patch
 

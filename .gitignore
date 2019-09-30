@@ -1,5 +1,5 @@
-/build
-/dist
+build/
+dist/
 /docs/_build
 /pack
 htmlcov/

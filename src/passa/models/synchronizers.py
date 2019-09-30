@@ -3,12 +3,9 @@
 from __future__ import absolute_import, unicode_literals, print_function
 
 import collections
-import contextlib
 import os
 import sys
-import sysconfig
 
-import distlib.wheel
 import pkg_resources
 
 import packaging.markers
@@ -16,19 +13,6 @@ import packaging.version
 import requirementslib
 
 from ..internals._pip import uninstall, Installer
-
-
-def _is_installation_local(name, environment=None):
-    """Check whether the distribution is in the current Python installation.
-
-    This is used to distinguish packages seen by a virtual environment. A environment
-    may be able to see global packages, but we don't want to mess with them.
-    """
-    if environment:
-        return environment.is_installed(name)
-    loc = os.path.normcase(pkg_resources.working_set.by_key[name].location)
-    pre = os.path.normcase(sys.prefix)
-    return os.path.commonprefix([loc, pre]) == pre
 
 
 def _is_up_to_date(distro, version):
@@ -39,61 +23,6 @@ def _is_up_to_date(distro, version):
 GroupCollection = collections.namedtuple("GroupCollection", [
     "uptodate", "outdated", "noremove", "unneeded",
 ])
-
-
-def _group_installed_names(packages, environment=None):
-    """Group locally installed packages based on given specifications.
-
-    `packages` is a name-package mapping that are used as baseline to
-    determine how the installed package should be grouped.
-
-    `environment` is the virtual environment object of the virtualenv being installed into.
-
-    Returns a 3-tuple of disjoint sets, all containing names of installed
-    packages:
-
-    * `uptodate`: These match the specifications.
-    * `outdated`: These installations are specified, but don't match the
-        specifications in `packages`.
-    * `unneeded`: These are installed, but not specified in `packages`.
-    """
-    groupcoll = GroupCollection(set(), set(), set(), set())
-
-    if environment:
-        working_set = environment.get_working_set()
-    else:
-        working_set = pkg_resources.working_set
-
-    for dist in working_set:
-        name = dist.key
-        try:
-            package = packages[name]
-        except KeyError:
-            groupcoll.unneeded.add(name)
-            continue
-
-        r = requirementslib.Requirement.from_pipfile(name, package)
-        if not r.is_named:
-            # Always mark non-named. I think pip does something similar?
-            groupcoll.outdated.add(name)
-        elif not _is_up_to_date(dist, r.get_version()):
-            groupcoll.outdated.add(name)
-        else:
-            groupcoll.uptodate.add(name)
-
-    return groupcoll
-
-
-@contextlib.contextmanager
-def _remove_package(name, environment=None):
-    if name is None or not _is_installation_local(name, environment=environment):
-        yield None
-        return
-    _uninstall = uninstall
-    if environment:
-        _uninstall = environment.uninstall
-    with _uninstall(name, auto_confirm=True, verbose=False) as uninstaller:
-        yield uninstaller
 
 
 def _get_packages(lockfile, default, develop):
@@ -108,70 +37,126 @@ def _get_packages(lockfile, default, develop):
     return packages
 
 
-def _build_paths(environment=None):
-    """Prepare paths for distlib.wheel.Wheel to install into.
-    """
-    if environment:
-        paths = environment.paths
-    else:
-        paths = sysconfig.get_paths()
-    return {
-        "prefix": sys.prefix if not environment else environment.prefix.as_posix(),
-        "data": paths["data"],
-        "scripts": paths["scripts"],
-        "headers": paths["include"],
-        "purelib": paths["purelib"],
-        "platlib": paths["platlib"],
-    }
-
-
 PROTECTED_FROM_CLEAN = {"setuptools", "pip", "wheel"}
 
 
-def _clean(names, environment=None):
-    cleaned = set()
-    for name in names:
-        if name in PROTECTED_FROM_CLEAN:
-            continue
-        with _remove_package(name, environment=environment) as uninst:
-            if uninst:
+class InstallManager(object):
+    """A centrialized manager object to handle install and uninstall operations."""
+
+    def __init__(self, sources=None, environment=None):
+        self.sources = sources
+        self.environment = environment
+
+    def get_working_set(self):
+        if self.environment:
+            return self.environment.get_working_set()
+        return pkg_resources.working_set
+
+    def is_installation_local(self, name):
+        """Check whether the distribution is in the current Python installation.
+
+        This is used to distinguish packages seen by a virtual environment. A environment
+        may be able to see global packages, but we don't want to mess with them.
+        """
+        if self.environment:
+            return self.environment.is_installed(name)
+        loc = os.path.normcase(self.get_working_set().by_key[name].location)
+        pre = os.path.normcase(sys.prefix)
+        return os.path.commonprefix([loc, pre]) == pre
+
+    def remove(self, name):
+        if name is None or not self.is_installation_local(name):
+            return False
+        _uninstall = uninstall
+        if self.environment:
+            _uninstall = self.environment.uninstall
+        with _uninstall(name, auto_confirm=True, verbose=False):
+            return True
+
+    def install(self, req):
+        installer = Installer(req, sources=self.sources, environment=self.environment)
+        try:
+            installer.prepare()
+        except Exception as e:
+            if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                raise
+            print("failed to prepare {0!r}: {1}".format(
+                req.as_line(include_hashes=False), e,
+            ))
+            return False
+
+        try:
+            installer.install()
+        except Exception as e:
+            if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
+                raise
+            print("failed to install {0!r}: {1}".format(
+                req.as_line(include_hashes=False), e,
+            ))
+            return False
+        return True
+
+    def clean(self, names):
+        cleaned = set()
+        for name in names:
+            if name in PROTECTED_FROM_CLEAN:
+                continue
+            if self.remove(name):
                 cleaned.add(name)
-    return cleaned
+        return cleaned
 
 
 class Synchronizer(object):
     """Helper class to install packages from a project's lock file.
     """
-    def __init__(self, project, default, develop, clean_unneeded, environment=None):
+    def __init__(self, project, default, develop, clean_unneeded, dry_run=False):
         self._root = project.root   # Only for repr.
         self.project = project
         self.packages = _get_packages(project.lockfile, default, develop)
-        self.sources = project.lockfile.meta.sources._data
         self.clean_unneeded = clean_unneeded
-        if not environment:
-            self._environment = getattr(project, "environment", None)
-        else:
-            self._environment = environment
+        self.dry_run = dry_run
         super(Synchronizer, self).__init__()
-        self.paths = _build_paths(environment=self.environment)
-
-    @property
-    def environment(self):
-        if self._environment:
-            return self._environment
-        return self.project.environment
+        sources = project.lockfile.meta.sources._data
+        environment = self.project.environment
+        self.install_manager = InstallManager(sources, environment)
 
     def __repr__(self):
         return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
 
-    def sync(self):
-        if not self.environment:
-            return self._sync()
-        with self.environment.activated():
-            return self._sync()
+    def group_installed_names(self):
+        """Group locally installed packages based on given specifications.
 
-    def _sync(self):
-        groupcoll = _group_installed_names(self.packages, environment=self.environment)
+        Returns a 3-tuple of disjoint sets, all containing names of installed
+        packages:
+
+        * `uptodate`: These match the specifications.
+        * `outdated`: These installations are specified, but don't match the
+            specifications in `packages`.
+        * `unneeded`: These are installed, but not specified in `packages`.
+        """
+        groupcoll = GroupCollection(set(), set(), set(), set())
+
+        for dist in self.install_manager.get_working_set():
+            name = dist.key
+            try:
+                package = self.packages[name]
+            except KeyError:
+                groupcoll.unneeded.add(name)
+                continue
+
+            r = requirementslib.Requirement.from_pipfile(name, package)
+            if not r.is_named:
+                # Always mark non-named. I think pip does something similar?
+                groupcoll.outdated.add(name)
+            elif not _is_up_to_date(dist, r.get_version()):
+                groupcoll.outdated.add(name)
+            else:
+                groupcoll.uptodate.add(name)
+
+        return groupcoll
+
+    def sync(self):
+        groupcoll = self.group_installed_names()
 
         installed = set()
         updated = set()
@@ -180,11 +165,11 @@ class Synchronizer(object):
         # TODO: Show a prompt to confirm cleaning. We will need to implement a
         # reporter pattern for this as well.
         if self.clean_unneeded:
-            names = _clean(groupcoll.unneeded, environment=self.environment)
+            if not self.dry_run:
+                names = self.install_manager.clean(groupcoll.unneeded)
             cleaned.update(names)
 
         # TODO: Specify installation order? (pypa/pipenv#2274)
-        installers = []
         for name, package in self.packages.items():
             r = requirementslib.Requirement.from_pipfile(name, package)
             name = r.normalized_name
@@ -194,33 +179,13 @@ class Synchronizer(object):
             if markers and not packaging.markers.Marker(markers).evaluate():
                 continue
             r.markers = None
-            installer = Installer(r, sources=self.sources, environment=self.environment)
-            try:
-                installer.prepare()
-            except Exception as e:
-                if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
-                    raise
-                print("failed to prepare {0!r}: {1}".format(
-                    r.as_line(include_hashes=False), e,
-                ))
-            else:
-                installers.append((name, installer))
+            if not self.dry_run:
+                if name in groupcoll.outdated:
+                    self.install_manager.remove(name)
+                success = self.install_manager.install(r)
+                if not success:
+                    continue
 
-        for name, installer in installers:
-            if name in groupcoll.outdated:
-                name_to_remove = name
-            else:
-                name_to_remove = None
-            try:
-                with _remove_package(name_to_remove, environment=self.environment):
-                    installer.install()
-            except Exception as e:
-                if os.environ.get("PASSA_NO_SUPPRESS_EXCEPTIONS"):
-                    raise
-                print("failed to install {0!r}: {1}".format(
-                    r.as_line(include_hashes=False), e,
-                ))
-                continue
             if name in groupcoll.outdated or name in groupcoll.noremove:
                 updated.add(name)
             else:
@@ -228,31 +193,9 @@ class Synchronizer(object):
 
         return installed, updated, cleaned
 
-
-class Cleaner(object):
-    """Helper class to clean packages not in a project's lock file.
-    """
-    def __init__(self, project, default, develop, sync=True, verbose=False):
-        self._root = project.root   # Only for repr.
-        self.packages = _get_packages(project.lockfile, default, develop)
-        self.sync = sync
-        self.project = project
-
-    def __repr__(self):
-        return "<{0} @ {1!r}>".format(type(self).__name__, self._root)
-
-    def print(self, packages):
-        if not self.sync:
-            message = "Would clean: {0}"
-        else:
-            message = "Cleaned: {0}"
-        print(message.format(", ".join(sorted(set(packages)))))
-
     def clean(self):
-        groupcoll = _group_installed_names(self.packages, environment=self.project.environment)
-        cleaned = set()
-        if self.sync:
-            cleaned = _clean(groupcoll.unneeded, environment=self.project.environment)
+        groupcoll = self.group_installed_names()
+        if not self.dry_run:
+            return self.install_manager.clean(groupcoll.unneeded)
         else:
             return groupcoll.unneeded
-        return cleaned

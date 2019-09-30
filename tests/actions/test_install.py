@@ -1,19 +1,20 @@
 # -*- coding=utf-8 -*-
-
 import passa.actions.install
 import passa.actions.add
 import passa.cli.options
 import passa.models.projects
 import pytest
 
+from tests import FIXTURES_DIR
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
-def test_install_one(project, is_dev):
+
+@pytest.mark.parametrize('req,deps', [
+    ('pytz', ['pytz']), ('requests', ['requests', 'idna'])
+])
+def test_install_one(project, is_dev, req, deps):
     add_kwargs = {
         "project": project,
-        "packages": ["pytz",],
+        "packages": [req],
         "editables": [],
         "dev": is_dev,
         "sync": False,
@@ -22,43 +23,23 @@ def test_install_one(project, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'pytz' in project.lockfile._data[lockfile_section].keys()
+    for dep in deps:
+        assert dep in project.lockfile._data[lockfile_section].keys()
     install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
     assert install == 0
-    assert project.env.is_installed("pytz") or project.is_installed("pytz")
+    for dep in deps:
+        assert project.is_installed(dep)
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
-def test_install_one_with_deps(project, is_dev):
-    add_kwargs = {
-        "project": project,
-        "packages": ["requests",],
-        "editables": [],
-        "dev": is_dev,
-        "sync": False,
-        "clean": False
-    }
-    retcode = passa.actions.add.add_packages(**add_kwargs)
-    assert not retcode
-    lockfile_section = "default" if not is_dev else "develop"
-    assert 'requests' in project.lockfile._data[lockfile_section].keys()
-    assert 'idna' in project.lockfile._data[lockfile_section].keys()
-    install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
-    assert install == 0
-    assert project.env.is_installed("requests") or project.is_installed("requests")
-    assert project.env.is_installed("idna") or project.is_installed("idna")
-
-
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
-def test_install_editable(project, is_dev):
+@pytest.mark.parametrize('line', [
+    "git+https://github.com/testing/demo.git#egg=demo",
+    "{}/git/github.com/testing/demo.git".format(FIXTURES_DIR)
+])
+def test_install_editable(project, is_dev, line):
     add_kwargs = {
         "project": project,
         "packages": [],
-        "editables": ["git+https://github.com/sarugaku/shellingham.git@1.2.1#egg=shellingham",],
+        "editables": [line],
         "dev": is_dev,
         "sync": False,
         "clean": False
@@ -66,21 +47,22 @@ def test_install_editable(project, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'shellingham' in project.lockfile._data[lockfile_section].keys()
+    assert 'demo' in project.lockfile._data[lockfile_section]
+    assert 'requests' in project.lockfile._data[lockfile_section]
     install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
     assert install == 0
-    project.reload()
-    assert (project.env.is_installed("shellingham") or
-                project.is_installed("shellingham")), list([dist.project_name for dist in project.env.get_distributions()])
+    assert project.is_installed("demo")
+    assert project.is_installed("requests")
 
 
-@pytest.mark.parametrize(
-    'is_dev', (True, False)
-)
-def test_install_sdist(project, is_dev):
+@pytest.mark.parametrize('link', [
+    "flask/Flask-0.12.2-py2.py3-none-any.whl",
+    "flask/Flask-0.12.2.tar.gz"
+])
+def test_install_file_links(project, is_dev, link, pypi):
     add_kwargs = {
         "project": project,
-        "packages": ["arrow",],
+        "packages": ["{}/{}".format(pypi.url, link)],
         "editables": [],
         "dev": is_dev,
         "sync": False,
@@ -89,8 +71,8 @@ def test_install_sdist(project, is_dev):
     retcode = passa.actions.add.add_packages(**add_kwargs)
     assert not retcode
     lockfile_section = "default" if not is_dev else "develop"
-    assert 'arrow' in project.lockfile._data[lockfile_section].keys()
+    assert 'flask' in project.lockfile._data[lockfile_section].keys()
     install = passa.actions.install.install(project=project, check=True, dev=is_dev, clean=False)
     assert install == 0
-    project.reload()
-    assert project.env.is_installed("arrow") or project.is_installed("arrow")
+    assert project.is_installed("flask")
+    assert project.is_installed("jinja2")

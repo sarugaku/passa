@@ -1,0 +1,1 @@
+Fix a bug that ``strip_extras`` accidentally modifies the original requirement.

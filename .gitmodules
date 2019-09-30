@@ -1,0 +1,3 @@
+[submodule "tests/pypi"]
+	path = tests/pypi
+	url = https://github.com/sarugaku/pipenv-test-artifacts.git
