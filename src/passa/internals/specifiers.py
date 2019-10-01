@@ -88,7 +88,6 @@ def _get_specs(specset):
     return result
 
 
-@lru_cache(maxsize=128)
 def _group_by_op(specs):
     specs = [_get_specs(x) for x in list(specs)]
     flattened = [(op, version) for spec in specs for op, version in spec]

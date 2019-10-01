@@ -16,9 +16,9 @@ except ImportError:
     from backports.functools_lru_cache import lru_cache
 
 
-def _ensure_marker(marker):
-    if not isinstance(marker, _Marker):
-        return _Marker(str(marker))
+def _ensure_marker(marker, cls=_Marker):
+    if not isinstance(marker, cls):
+        return cls(str(marker))
     return marker
 
 
@@ -260,26 +260,36 @@ class Marker(_Marker):
             super(Marker, self).__init__(marker)
 
     def __and__(self, other):
-        other = _ensure_marker(other)
-        if not self._markers or self == other:
-            return type(self)(str(other))
-        lhs, rhs = str(self), str(other)
-        # When combining markers with 'and', wrap the part with parentheses
-        # if there exist 'or's.
-        if 'or' in self._markers:
-            lhs = '({})'.format(str(self))
-        if 'or' in other._markers:
-            rhs = '({})'.format(str(other))
-        new_marker = type(self)("{} and {}".format(lhs, rhs))
-        return new_marker
+        other = _ensure_marker(other, Marker)
+        if self == other:
+            marker_string = str(self)
+        elif not self:
+            marker_string = str(other)
+        elif not other:
+            marker_string = str(self)
+        else:
+            lhs, rhs = str(self), str(other)
+            # When combining markers with 'and', wrap the part with parentheses
+            # if there exist 'or's.
+            if 'or' in self._markers:
+                lhs = '({})'.format(str(self))
+            if 'or' in other._markers:
+                rhs = '({})'.format(str(other))
+            marker_string = "{} and {}".format(lhs, rhs)
+        return type(self)(marker_string)
 
     def __or__(self, other):
-        other = _ensure_marker(other)
-        if not self._markers or self == other:
-            return type(self)(str(other))
-        # Just join parts with 'or' since it has the lowest priority.
-        new_marker = type(self)("{} or {}".format(str(self), str(other)))
-        return new_marker
+        other = _ensure_marker(other, Marker)
+        if self == other:
+            marker_string = str(self)
+        elif not self:
+            marker_string = str(other)
+        elif not other:
+            marker_string = str(self)
+        else:
+            # Just join parts with 'or' since it has the lowest priority.
+            marker_string = "{} or {}".format(str(self), str(other))
+        return type(self)(marker_string)
 
     def __bool__(self):
         return bool(self._markers)
@@ -293,7 +303,7 @@ class Marker(_Marker):
     def __eq__(self, other):
         if not isinstance(other, _Marker):
             return False
-        return self._markers == other._markers
+        return str(self) == str(other)
 
     def __lt__(self, other):
-        return self._markers < other._markers
+        return hash(self) < hash(other)
