@@ -386,7 +386,7 @@ class PySpecs(Set):
         for k in range(len(sorted_ranges) - 1):
             lower = ALL_PYTHON_VERSIONS.index(sorted_ranges[k][-1])
             upper = ALL_PYTHON_VERSIONS.index(sorted_ranges[k + 1][0])
-            if lower < upper:
+            if lower < upper - 1:
                 excludes.update({ALL_PYTHON_VERSIONS[i] for i in range(lower + 1, upper)})
         return ranges, excludes
 

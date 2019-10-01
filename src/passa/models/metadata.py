@@ -52,7 +52,9 @@ class MetaSet(object):
         return operator.lt(self.__key(), other.__key())
 
     def __str__(self):
-        marker = self.marker & self.pyspecset.as_markers
+        marker = self.marker
+        if self.pyspecset:
+            marker = marker & self.pyspecset
         return str(marker)
 
     def __bool__(self):
@@ -65,7 +67,7 @@ class MetaSet(object):
     def from_tuple(cls, pair):
         marker, specset = pair
         pyspecs = PySpecs(specset)
-        marker = Marker()
+        new_marker = Marker()
         if marker:
             # Returns a PySpec instance or None
             marker_pyversions = get_contained_pyversions(marker)
@@ -74,7 +76,7 @@ class MetaSet(object):
             # The remainder of the marker, if there is any
             cleaned_marker = get_without_pyversion(marker)
             if cleaned_marker:
-                marker = marker & cleaned_marker
+                new_marker = new_marker & cleaned_marker
         metaset = cls()
         metaset.marker = marker
         metaset.pyspecset = pyspecs

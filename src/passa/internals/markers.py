@@ -252,16 +252,9 @@ def parse_marker_dict(marker_dict):
 
 
 class Marker(_Marker):
-    """A customized marker class with support of '&' and '|' operators.
-    We just try best to reduce duplicaiton when combining, in the following ways:
-    - A and/or A -> A
-    - A and B or A -> A
-    - A and B and A -> A and B
-    - A or B or A -> A or B
-    - (C and A or B) and A -> A
-    """
+    """A customized marker class with support of '&' and '|' operators."""
     def __init__(self, marker=None):
-        if marker is None:
+        if not marker:
             self._markers = []
         else:
             super(Marker, self).__init__(marker)
@@ -271,7 +264,8 @@ class Marker(_Marker):
         if not self._markers or self == other:
             return type(self)(str(other))
         lhs, rhs = str(self), str(other)
-        # Need parentheses to wrap markers when the part contains 'or'
+        # When combining markers with 'and', wrap the part with parentheses
+        # if there exist 'or's.
         if 'or' in self._markers:
             lhs = '({})'.format(str(self))
         if 'or' in other._markers:
@@ -283,6 +277,7 @@ class Marker(_Marker):
         other = _ensure_marker(other)
         if not self._markers or self == other:
             return type(self)(str(other))
+        # Just join parts with 'or' since it has the lowest priority.
         new_marker = type(self)("{} or {}".format(str(self), str(other)))
         return new_marker
 
