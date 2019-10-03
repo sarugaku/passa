@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import, unicode_literals
 
-from packaging.markers import Marker
+from packaging.markers import Marker as _Marker
 from .specifiers import PySpecs, gen_marker
 import six
 import distlib.markers
@@ -16,9 +16,9 @@ except ImportError:
     from backports.functools_lru_cache import lru_cache
 
 
-def _ensure_marker(marker):
-    if not isinstance(marker, Marker):
-        return Marker(str(marker))
+def _ensure_marker(marker, cls=_Marker):
+    if not isinstance(marker, cls):
+        return cls(str(marker))
     return marker
 
 
@@ -231,7 +231,7 @@ def parse_marker_dict(marker_dict):
                 specs.add(parse_marker_dict(side))
             else:
                 # This is the easiest way to go from a string to a PySpec instance
-                specs.add(PySpecs.from_marker(Marker(side)))
+                specs.add(PySpecs.from_marker(_Marker(side)))
             sides.add(specs)
         if op == "and":
             # When we are "and"-ing things together, it probably makes the most sense
@@ -241,11 +241,69 @@ def parse_marker_dict(marker_dict):
             sides = reduce(lambda x, y: x | y, sides)
             if not sides:
                 return sides
-            return PySpecs.from_marker(Marker(str(sides)))
+            return PySpecs.from_marker(_Marker(str(sides)))
         # Actually when we "or" things as well we can also just turn them into a reduced
         # set using this logic now
         return reduce(lambda x, y: x & y, sides)
     else:
         # At the tip of the tree we are dealing with strings all around and they just need
         # to be smashed together
-        return PySpecs.from_marker(Marker(format_string.format(**marker_dict)))
+        return PySpecs.from_marker(_Marker(format_string.format(**marker_dict)))
+
+
+class Marker(_Marker):
+    """A customized marker class with support of '&' and '|' operators."""
+    def __init__(self, marker=None):
+        if not marker:
+            self._markers = []
+        else:
+            super(Marker, self).__init__(marker)
+
+    def __and__(self, other):
+        other = _ensure_marker(other, Marker)
+        if self == other:
+            marker_string = str(self)
+        elif not self:
+            marker_string = str(other)
+        elif not other:
+            marker_string = str(self)
+        else:
+            lhs, rhs = str(self), str(other)
+            # When combining markers with 'and', wrap the part with parentheses
+            # if there exist 'or's.
+            if 'or' in self._markers:
+                lhs = '({})'.format(str(self))
+            if 'or' in other._markers:
+                rhs = '({})'.format(str(other))
+            marker_string = "{} and {}".format(lhs, rhs)
+        return type(self)(marker_string)
+
+    def __or__(self, other):
+        other = _ensure_marker(other, Marker)
+        if self == other:
+            marker_string = str(self)
+        elif not self:
+            marker_string = str(other)
+        elif not other:
+            marker_string = str(self)
+        else:
+            # Just join parts with 'or' since it has the lowest priority.
+            marker_string = "{} or {}".format(str(self), str(other))
+        return type(self)(marker_string)
+
+    def __bool__(self):
+        return bool(self._markers)
+
+    def __nonzero__(self):
+        return self.__bool__()
+
+    def __hash__(self):
+        return hash(tuple(self._markers))
+
+    def __eq__(self, other):
+        if not isinstance(other, _Marker):
+            return False
+        return str(self) == str(other)
+
+    def __lt__(self, other):
+        return hash(self) < hash(other)

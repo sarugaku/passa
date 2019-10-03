@@ -88,7 +88,6 @@ def _get_specs(specset):
     return result
 
 
-@lru_cache(maxsize=128)
 def _group_by_op(specs):
     specs = [_get_specs(x) for x in list(specs)]
     flattened = [(op, version) for spec in specs for op, version in spec]
@@ -381,6 +380,13 @@ class PySpecs(Set):
                     ranges.add((min_,))
                 else:
                     ranges.add((min_, max_))
+        # Now add the holes between ranges to excludes
+        sorted_ranges = sorted(ranges, key=lambda x: x[0])
+        for k in range(len(sorted_ranges) - 1):
+            lower = ALL_PYTHON_VERSIONS.index(sorted_ranges[k][-1])
+            upper = ALL_PYTHON_VERSIONS.index(sorted_ranges[k + 1][0])
+            if lower < upper - 1:
+                excludes.update({ALL_PYTHON_VERSIONS[i] for i in range(lower + 1, upper)})
         return ranges, excludes
 
     def create_specset_from_ranges(self, specset=None, ranges=None, excludes=None):
@@ -427,24 +433,29 @@ class PySpecs(Set):
         return new_specset
 
     @lru_cache(maxsize=128)
-    def __and__(self, other):
+    def __or__(self, other):
         # Unintuitive perhaps, but this is for "x or y" and needs to handle the
-        # widest possible range encapsulated by the two using the intersection
+        # widest possible range encapsulated by the two using the union
         if not isinstance(other, PySpecs):
             other = PySpecs(other)
         if self == other:
             return self
         new_specset = SpecifierSet()
-        # In order to do an "or" propertly we need to intersect the "good" versions
-        intersection = self.get_version_includes() | other.get_version_includes()
-        intersection_specset = self.get_specset_from_versions(intersection)
+        if not self.specifierset:
+            union = other.get_version_includes()
+        elif not other.specifierset:
+            union = self.get_version_includes()
+        else:
+            # In order to do an "or" propertly we need to intersect the "good" versions
+            union = self.get_version_includes() | other.get_version_includes()
+        union_specset = self.get_specset_from_versions(union)
         # And then we need to union the "bad" versions
         excludes = self.get_version_excludes() & other.get_version_excludes()
-        new_specset = self.create_specset_from_ranges(ranges=intersection_specset, excludes=excludes)
+        new_specset = self.create_specset_from_ranges(ranges=union_specset, excludes=excludes)
         return PySpecs(new_specset)
 
     @lru_cache(maxsize=128)
-    def __or__(self, specset):
+    def __and__(self, specset):
         if not isinstance(specset, PySpecs):
             specset = PySpecs(specset)
         if str(self) == str(specset):

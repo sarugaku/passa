@@ -3,10 +3,8 @@
 from __future__ import absolute_import, unicode_literals
 
 import copy
-import itertools
 import operator
 
-import packaging.markers
 import packaging.specifiers
 import vistir
 import vistir.misc
@@ -14,7 +12,7 @@ import vistir.misc
 from six.moves import reduce
 
 from ..internals.markers import (
-    get_without_extra, get_without_pyversion, get_contained_pyversions
+    get_without_extra, get_without_pyversion, get_contained_pyversions, Marker
 )
 from ..internals.specifiers import PySpecs
 
@@ -32,16 +30,16 @@ class MetaSet(object):
     includes a marker, and a specifier set of Python versions required.
     """
     def __init__(self):
-        self.markerset = frozenset()
+        self.marker = Marker()
         self.pyspecset = PySpecs()
 
     def __repr__(self):
-        return "MetaSet(markerset={0!r}, pyspecset={1!r})".format(
-            ",".join(sorted(self.markerset)), str(self.pyspecset),
+        return "MetaSet(marker={0!r}, pyspecset={1!r})".format(
+            str(self.marker), str(self.pyspecset),
         )
 
     def __key(self):
-        return (tuple(self.markerset), hash(tuple(self.pyspecset)))
+        return (self.marker, hash(tuple(self.pyspecset)))
 
     def __hash__(self):
         return hash(self.__key())
@@ -49,40 +47,17 @@ class MetaSet(object):
     def __eq__(self, other):
         return self.__key() == other.__key()
 
-    def __len__(self):
-        return len(self.markerset) + len(self.pyspecset)
-
-    def __iter__(self):
-        return itertools.chain(self.markerset, self.pyspecset)
-
     def __lt__(self, other):
         return operator.lt(self.__key(), other.__key())
 
-    def __le__(self, other):
-        return operator.le(self.__key(), other.__key())
-
-    def __ge__(self, other):
-        return operator.ge(self.__key(), other.__key())
-
-    def __gt__(self, other):
-        return operator.gt(self.__key(), other.__key())
-
     def __str__(self):
-        self.markerset = frozenset(filter(None, self.markerset))
-        return " and ".join([mkr_part for mkr_part in dedup_markers(itertools.chain(
-            # Make sure to always use the same quotes so we can dedup properly.
-            (
-                "{0}".format(ms) if " or " in ms else ms
-                for ms in (str(m).replace('"', "'") for m in self.markerset)
-                if ms
-            ),
-            (
-                "{0}".format(str(self.pyspecset)) if self.pyspecset else "",
-            ))) if mkr_part
-        ])
+        marker = self.marker
+        if self.pyspecset:
+            marker = marker & self.pyspecset
+        return str(marker)
 
     def __bool__(self):
-        return bool(self.markerset or self.pyspecset)
+        return bool(self.marker or self.pyspecset)
 
     def __nonzero__(self):  # Python 2.
         return self.__bool__()
@@ -91,7 +66,7 @@ class MetaSet(object):
     def from_tuple(cls, pair):
         marker, specset = pair
         pyspecs = PySpecs(specset)
-        markerset = set()
+        new_marker = Marker()
         if marker:
             # Returns a PySpec instance or None
             marker_pyversions = get_contained_pyversions(marker)
@@ -100,9 +75,9 @@ class MetaSet(object):
             # The remainder of the marker, if there is any
             cleaned_marker = get_without_pyversion(marker)
             if cleaned_marker:
-                markerset.add(str(cleaned_marker))
+                new_marker = new_marker & cleaned_marker
         metaset = cls()
-        metaset.markerset = frozenset(markerset)
+        metaset.marker = marker
         metaset.pyspecset = pyspecs
         return metaset
 
@@ -110,14 +85,29 @@ class MetaSet(object):
         if not isinstance(other, type(self)):
             other = self.from_tuple(other)
         metaset = MetaSet()
-        markerset = set()
+        marker = Marker()
         specset = PySpecs()
         for meta in (self, other):
-            if meta.markerset:
-                markerset |= set(meta.markerset)
+            if meta.marker:
+                marker = marker | meta.marker
             if meta.pyspecset:
                 specset = specset | meta.pyspecset
-        metaset.markerset = frozenset(markerset)
+        metaset.marker = marker
+        metaset.pyspecset = specset
+        return metaset
+
+    def __and__(self, other):
+        if not isinstance(other, type(self)):
+            other = self.from_tuple(other)
+        metaset = MetaSet()
+        marker = Marker()
+        specset = PySpecs()
+        for meta in (self, other):
+            if meta.marker:
+                marker = marker & meta.marker
+            if meta.pyspecset:
+                specset = specset & meta.pyspecset
+        metaset.marker = marker
         metaset.pyspecset = specset
         return metaset
 
@@ -144,7 +134,8 @@ def _build_metasets(dependencies, pythons, key, trace, all_metasets):
             packaging.specifiers.SpecifierSet(python),
         )
         for parent_metaset in parent_metasets:
-            child_metaset = parent_metaset | metaset
+            # Use 'and' to connect markers inherited from parent.
+            child_metaset = parent_metaset & metaset
             metasets.add(child_metaset)
     return list(metasets)
 
@@ -178,11 +169,12 @@ def _format_metasets(metasets):
     # If there is an unconditional route, this needs to be unconditional.
     if not metasets:
         return ""
+    # Use 'or' to combine markers from different parent.
     combined_metaset = str(MetaSet() | reduce(lambda x, y: x | y, metasets))
     if not combined_metaset:
         return ""
     # This extra str(Marker()) call helps simplify the expression.
-    metaset_string = str(packaging.markers.Marker(combined_metaset))
+    metaset_string = str(Marker(combined_metaset))
     return metaset_string
 
 
