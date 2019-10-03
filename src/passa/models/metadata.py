@@ -5,7 +5,6 @@ from __future__ import absolute_import, unicode_literals
 import copy
 import operator
 
-import packaging.markers
 import packaging.specifiers
 import vistir
 import vistir.misc
@@ -175,7 +174,7 @@ def _format_metasets(metasets):
     if not combined_metaset:
         return ""
     # This extra str(Marker()) call helps simplify the expression.
-    metaset_string = str(packaging.markers.Marker(combined_metaset))
+    metaset_string = str(Marker(combined_metaset))
     return metaset_string
 
 
